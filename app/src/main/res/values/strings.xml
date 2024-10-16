@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name" translatable="false">IPTV Player</string>
+    <string name="watch_tv">Live TV</string>
+
+    <!-- Error messages -->
+    <string name="error_fragment_message">An error occurred</string>
+    <string name="dismiss_error">Dismiss</string>
+    <string name="title_activity_main" translatable="false">IPTV Player</string>
+    <string name="browse" translatable="false">IPTV Player</string>
+    <string name="error">Error</string>
+    <string name="has_subtitles">Subtitles</string>
+    <string name="subtitle_track">Subtitles track</string>
+    <string name="loading_message">Loading…</string>
+    <string name="audio_track">Audio track</string>
+    <string name="not_available">Unavailable</string>
+    <string name="drm" translatable="false">DRM</string>
+    <string name="off">Off</string>
+    <string name="has_multilanguage_audio">Multi-language audio</string>
+    <string name="channel_logo">Channel logo</string>
+    <string name="change_source">Change source</string>
+    <string name="video_track">Video track</string>
+    <string name="auto">Auto</string>
+    <string name="epg" translatable="false">EPG</string>
+    <string name="currentProgram">Current:</string>
+    <string name="nextProgram">Next:</string>
+</resources>

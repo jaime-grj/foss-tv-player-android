@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here -->
+    </style>
+
+
+    <style name="PlayerTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <!-- Custom TextView style -->
+    <style name="ChannelMediaInfoStyleLine1">
+        <item name="android:fontFamily">@font/lato_bold</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:background">@drawable/bg_rounded</item>
+        <item name="android:paddingRight">1.5dp</item>
+        <item name="android:paddingLeft">1.5dp</item>
+        <item name="android:visibility">gone</item>
+        <item name="android:layout_marginLeft">4dp</item>
+        <item name="android:layout_marginRight">4dp</item>
+        <item name="android:layout_marginTop">4dp</item>
+    </style>
+
+    <style name="ChannelMediaInfoStyleLine2">
+        <item name="android:fontFamily">@font/lato_bold</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:background">@drawable/bg_rounded</item>
+        <item name="android:paddingRight">1.5dp</item>
+        <item name="android:paddingLeft">1.5dp</item>
+        <item name="android:visibility">gone</item>
+        <item name="android:layout_marginLeft">4dp</item>
+        <item name="android:layout_marginRight">4dp</item>
+        <item name="android:layout_marginTop">20dp</item>
+    </style>
+
+    <!-- Style for larger TextViews -->
+    <style name="LargeTextViewStyle">
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <!-- Style for channel number TextView -->
+    <style name="ChannelNumberStyle">
+        <item name="android:textSize">42sp</item>
+        <item name="android:textColor">@color/gray</item>
+        <item name="android:paddingLeft">4dp</item>
+        <item name="android:paddingRight">4dp</item>
+        <item name="android:shadowRadius">6</item>
+    </style>
+
+    <!-- Style for other channel properties -->
+    <style name="ChannelPropertyStyle">
+        <item name="android:textSize">9sp</item>
+    </style>
+
+
+</resources>

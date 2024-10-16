@@ -1,0 +1,30 @@
+package com.gaarj.iptvplayer.ui.adapters
+
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
+import com.gaarj.iptvplayer.R
+import com.gaarj.iptvplayer.domain.model.ChannelItem
+
+class ChannelListAdapter(private val channelList: List<ChannelItem>, private val onChannelSelected: (ChannelItem) -> Unit) : RecyclerView.Adapter<ChannelListViewHolder>() {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChannelListViewHolder {
+        val layoutInflater = LayoutInflater.from(parent.context)
+        return ChannelListViewHolder(layoutInflater.inflate(R.layout.item_channel_list, parent, false))
+    }
+
+    override fun onBindViewHolder(holder: ChannelListViewHolder, position: Int) {
+        val channel = channelList[position]
+        holder.render(channel, onChannelSelected)
+    }
+
+    override fun getItemCount(): Int = channelList.size
+
+    fun getItemAtPosition(position: Int): ChannelItem? {
+        return if (position >= 0 && position < channelList.size) {
+            channelList[position]
+        } else {
+            null // Or handle this case as needed
+        }
+    }
+}

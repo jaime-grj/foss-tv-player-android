@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_tv">TV en directo</string>
+    <string name="error_fragment_message">Error</string>
+    <string name="dismiss_error">Descartar</string>
+    <string name="error">Error</string>
+    <string name="has_subtitles">Subtítulos</string>
+    <string name="subtitle_track">Pista de subtítulos</string>
+    <string name="loading_message">Cargando…</string>
+    <string name="audio_track">Pista de audio</string>
+    <string name="not_available">No disponible</string>
+    <string name="off">Desactivado</string>
+    <string name="has_multilanguage_audio">Audio multi-idioma</string>
+    <string name="channel_logo">Logotipo del canal</string>
+    <string name="change_source">Cambiar fuente</string>
+    <string name="video_track">Pista de vídeo</string>
+    <string name="auto">Automático</string>
+    <string name="currentProgram">En emisión:</string>
+    <string name="nextProgram">A continuación:</string>
+</resources>

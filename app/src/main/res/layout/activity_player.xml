@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    tools:context=".ui.view.PlayerActivity">
+
+    <com.google.android.exoplayer2.ui.PlayerView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/player_view"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:surface_type="surface_view"
+        />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:background="@drawable/bg_rounded"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        android:fontFamily="@font/lato_bold"
+        android:text="@string/loading_message"
+        android:paddingHorizontal="4dp"
+        android:id="@+id/loadingMessage"
+        android:visibility="gone"/>
+
+    <TextView
+        android:id="@+id/channelNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="60dp"
+        android:layout_marginVertical="30dp"
+        android:textColor="@color/gray"
+        android:textSize="42sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:fontFamily="@font/lato_bold"
+        tools:layout_editor_absoluteX="8dp"
+        android:paddingHorizontal="5dp"
+        android:shadowColor="#000000"
+        android:shadowDx="0"
+        android:shadowDy="0"
+        android:shadowRadius="6"
+        android:visibility="gone"
+        tools:text="00"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelNumberKeyboard"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="60dp"
+        android:layout_marginVertical="30dp"
+        android:fontFamily="@font/lato_bold"
+        android:paddingHorizontal="5dp"
+        android:shadowColor="#000000"
+        android:shadowDx="0"
+        android:shadowDy="0"
+        android:shadowRadius="6"
+        android:textColor="@color/gray"
+        android:textSize="42sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="00"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channelName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="4dp"
+        android:textColor="@color/gray"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/lato_bold"
+        app:layout_constraintBottom_toBottomOf="@+id/channelNumber"
+        app:layout_constraintStart_toEndOf="@id/channelNumber"
+        app:layout_constraintBaseline_toBaselineOf="@+id/channelNumber"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:shadowColor="#000000"
+        android:shadowDx="0"
+        android:shadowDy="0"
+        android:shadowRadius="5"
+        android:visibility="gone"
+        tools:visibility="visible"
+        tools:text="Nombre de canal"/>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/channelMediaInfo"
+        app:layout_constraintTop_toBottomOf="@+id/channelNumber"
+        app:layout_constraintStart_toStartOf="@id/channelNumber"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+    <TextView
+        android:id="@+id/channelVideoResolution"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="1280x720"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channelVideoQuality"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="HD"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoResolution"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channelVideoAspectRatio"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="16:9"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoQuality"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelVideoCodec"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="H.264"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoAspectRatio"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelVideoBitrate"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="4.53 Mbps"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoFrameRate"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelVideoFrameRate"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="25 FPS"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoCodec"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:paddingHorizontal="1.5dp"/>
+
+    <TextView
+        android:id="@+id/channelAudioCodec"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="AAC"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelVideoBitrate"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channelAudioChannels"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="Stereo"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelAudioCodec"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelAudioBitrate"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="192 kbps"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelAudioChannels"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelAudioSamplingRate"
+        style="@style/ChannelMediaInfoStyleLine1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="44.1 kHz"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelAudioBitrate"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelHasSubtitles"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="Subtítulos"
+        android:text="@string/has_subtitles"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelHasEPG"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="EPG"
+        android:text="@string/epg"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelHasSubtitles"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelHasMultiLanguageAudio"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/has_multilanguage_audio"
+        tools:text="Audio multi-idioma"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelHasEPG"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/channelHasAudioDescription"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="A.D."
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelHasMultiLanguageAudio"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelHasTeletext"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="Teletexto"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelHasAudioDescription"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    <TextView
+        android:id="@+id/channelHasDRM"
+        style="@style/ChannelMediaInfoStyleLine2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:text="DRM"
+        android:text="@string/drm"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@id/channelHasTeletext"
+        android:visibility="gone"
+        tools:visibility="visible"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <TextView
+        android:id="@+id/timeDate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_rounded"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/channelNumber"
+        app:layout_constraintStart_toStartOf="@+id/channelNumber"
+        android:fontFamily="@font/lato_bold"
+        android:layout_marginHorizontal="0dp"
+        android:layout_marginTop="12dp"
+        tools:layout_editor_absoluteX="8dp"
+        tools:visibility="visible"
+        tools:text="22 sept. 2024, 22:00"
+        android:paddingHorizontal="4dp"
+        android:visibility="gone"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:background="@drawable/bg_rounded"
+        android:textColor="@color/black"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/lato_bold"
+        android:text="@string/not_available"
+        tools:text="No disponible"
+        tools:visibility="visible"
+        android:paddingHorizontal="4dp"
+        android:id="@+id/message"
+        android:visibility="gone"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/channelList"
+        android:layout_width="250dp"
+        android:layout_height="400dp"
+        android:background="@drawable/bg_rounded_dark_menu"
+        android:layout_marginEnd="80dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        android:translationZ="1dp"
+        tools:visibility="visible"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvChannelSettings"
+        android:layout_width="200dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_rounded_gradient_transparent"
+        android:layout_marginEnd="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        android:translationZ="1dp"
+        tools:visibility="visible"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvChannelTrackSettings"
+        android:layout_width="250dp"
+        android:layout_height="350dp"
+        android:background="@drawable/bg_rounded_dark_menu"
+        android:layout_marginEnd="40dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        android:translationZ="1dp"
+        tools:visibility="visible"/>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/channelBottomInfo"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:background="@drawable/bg_rounded_gradient_transparent_vertical"
+        android:layout_marginBottom="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:visibility="gone"
+
+        tools:visibility="visible">
+
+        <ImageView
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:contentDescription="@string/channel_logo"
+            app:layout_constraintEnd_toEndOf="@+id/tvChannelCurrentProgramPrev"
+            app:layout_constraintBottom_toTopOf="@+id/tvChannelCurrentProgramPrev"
+            android:layout_marginBottom="5dp"
+            android:layout_marginStart="40dp"
+            android:visibility="gone"
+            tools:visibility="visible"
+            />
+
+        <TextView
+            android:id="@+id/tvChannelCurrentProgramPrev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toStartOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintTop_toTopOf="@id/tvChannelCurrentProgram"
+            android:textSize="20sp"
+            android:fontFamily="@font/lato_regular"
+            android:layout_marginTop="0dp"
+            android:layout_marginStart="120dp"
+            android:layout_marginEnd="10dp"
+            tools:text="En emisión:"
+            android:text="@string/currentProgram"
+            android:textColor="@color/white"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3"
+            android:visibility="visible"
+            tools:visibility="visible"/>
+
+        <TextView
+            android:id="@+id/tvChannelCurrentProgram"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:textSize="20sp"
+            android:fontFamily="@font/lato_regular"
+            android:layout_marginTop="95dp"
+            android:layout_marginStart="220dp"
+            android:layout_marginEnd="100dp"
+            tools:text="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (17:00 - 21:00)"
+            android:textColor="@color/white"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3"
+            android:visibility="visible"
+            tools:visibility="visible"/>
+
+        <TextView
+            android:id="@+id/tvChannelNextProgramPrev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toStartOf="@+id/tvChannelNextProgram"
+            app:layout_constraintTop_toTopOf="@id/tvChannelNextProgram"
+            android:textSize="20sp"
+            android:fontFamily="@font/lato_regular"
+            android:layout_marginStart="120dp"
+            android:layout_marginEnd="10dp"
+            tools:text="A continuación:"
+            android:text="@string/nextProgram"
+            android:textColor="@color/white"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3"
+            android:visibility="visible"
+            tools:visibility="visible"/>
+
+        <TextView
+            android:id="@+id/tvChannelNextProgram"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintTop_toBottomOf="@+id/tvChannelCurrentProgram"
+            android:textSize="20sp"
+            android:fontFamily="@font/lato_regular"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="100dp"
+            tools:text="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (21:00 - 23:00)"
+            android:textColor="@color/white"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3"
+            android:visibility="visible"
+            tools:visibility="visible"/>
+
+        <TextView
+            android:id="@+id/tvChannelInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintBottom_toTopOf="@+id/tvChannelCurrentProgram"
+            android:textSize="12sp"
+            android:fontFamily="@font/lato_bold"
+            android:layout_marginBottom="5dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="20dp"
+            android:textColor="@color/black"
+            tools:text="TEST"
+            android:visibility="visible"
+            android:background="@drawable/bg_rounded"
+            tools:visibility="visible"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <Button
+        android:id="@+id/buttonUp"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/buttonDown"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="+" />
+
+    <Button
+        android:id="@+id/buttonDown"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="-" />
+
+    <Button
+        android:id="@+id/buttonChannelList"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/buttonUp"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="L" />
+
+    <Button
+        android:id="@+id/buttonSettings"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/buttonChannelList"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="S" />
+
+    <Button
+        android:id="@+id/buttonPiP"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/buttonSettings"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="P" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

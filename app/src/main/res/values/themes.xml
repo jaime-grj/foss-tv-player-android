@@ -1,0 +1,9 @@
+<resources>
+
+    <style name="Theme.LiveIPTVPlayer" parent="@style/Theme.Leanback">
+        <item name="android:colorPrimary">#2885d6</item>
+        <item name="android:windowAllowEnterTransitionOverlap">true</item>
+        <item name="android:windowAllowReturnTransitionOverlap">true</item>
+    </style>
+
+</resources>
