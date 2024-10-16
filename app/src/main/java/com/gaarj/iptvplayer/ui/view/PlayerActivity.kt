@@ -1627,6 +1627,8 @@ class PlayerActivity : AppCompatActivity() {
                             else{
                                 playerViewModel.updateIsSourceForced(true)
                             }
+                            playerViewModel.updateTriesCountForEachSource(1)
+                            playerViewModel.updateSourcesTriedCount(1)
                             loadStreamSource(streamSource)
                             playerViewModel.hideTrackMenu()
                         }
