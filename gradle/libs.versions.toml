@@ -9,6 +9,7 @@ gson = "2.10.1"
 hiltAndroidCompiler = "2.52"
 json = "20210307"
 jsonpathkt = "2.0.1"
+jsonVersion = "20230227"
 jsoup = "1.16.1"
 kotlin = "1.9.0"
 coreKtx = "1.13.1"
@@ -50,6 +51,7 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltA
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompiler" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltAndroidCompiler" }
 json = { module = "org.json:json", version.ref = "json" }
+json-v20230227 = { module = "org.json:json", version.ref = "jsonVersion" }
 jsonpathkt = { module = "com.nfeld.jsonpathkt:jsonpathkt", version.ref = "jsonpathkt" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesCore" }
