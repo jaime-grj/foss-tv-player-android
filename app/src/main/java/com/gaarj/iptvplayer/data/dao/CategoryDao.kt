@@ -1,8 +1,20 @@
 package com.gaarj.iptvplayer.data.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.gaarj.iptvplayer.data.database.entities.CategoryEntity
 
 @Dao
 interface CategoryDao {
 
+    @Query("SELECT * FROM category")
+    fun getAll(): List<CategoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(categories: List<CategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCategory(category: CategoryEntity) : Long
 }

@@ -70,6 +70,9 @@ dependencies {
     // JsonPath
     implementation(libs.jsonpathkt)
 
+    // Json
+    implementation(libs.json)
+
     //viewModel
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 

@@ -1,7 +1,9 @@
 package com.gaarj.iptvplayer.di
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import com.gaarj.iptvplayer.data.database.ChannelDatabase
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -9,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import dagger.Provides
+import java.util.concurrent.Executors
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -20,6 +23,9 @@ object RoomModule {
     @Provides
     fun provideRoom(@ApplicationContext context: Context) =
         Room.databaseBuilder(context, ChannelDatabase::class.java, DATABASE_NAME)
+            .setQueryCallback({ sqlQuery, _ ->
+                Log.d("RoomQuery", "SQL Query: $sqlQuery")
+            }, Executors.newSingleThreadExecutor())
             .build()
 
     @Singleton
