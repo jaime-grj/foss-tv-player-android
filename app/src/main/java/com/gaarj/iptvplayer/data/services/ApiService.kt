@@ -19,12 +19,13 @@ class ApiService {
 
     companion object {
 
-        private const val CONNECT_TIMEOUT = 6000
+        private const val CONNECT_TIMEOUT = 5000
 
         private fun getJSONFromURL(url: String, method: String? = "GET", headers: Map<String, String>? = null, body: String? = null): String {
             var json = ""
             var connection: HttpURLConnection? = null
             try {
+                Log.d("ApiService", "URL: $url")
                 val urlObj = URL(url)
                 connection = urlObj.openConnection() as HttpURLConnection
                 connection.requestMethod = method
@@ -90,13 +91,14 @@ class ApiService {
         }
 
         fun getURLFromChannelSource(streamSource: StreamSourceItem): String? {
-            val apiCalls = streamSource.apiCalls
+            val apiCalls = streamSource.apiCalls?.sortedBy { it.index }
             var url: String? = null
             var data: String? = null
 
             if (apiCalls != null) {
                 for (apiCall in apiCalls) {
                     url = apiCall.url
+                    Log.d("ApiService", "URL: $url")
                     val index = apiCall.index
                     if (data != null){
                         url = url.replace("{${index - 1}}", data)
@@ -109,17 +111,14 @@ class ApiService {
 
                     val apiResponseKeys = apiCall.apiResponseKeys
 
-                    if (apiCall.type == "JSON"){
+                    if (apiCall.type == "json"){
                         val json = getJSONFromURL(url, method, headersMap, body)
 
-                        var i = 0
                         for (apiResponseKey in apiResponseKeys) {
                             val jsonPath = apiResponseKey.jsonPath
                             data = JsonPath.parse(json)?.read<String>(jsonPath)
-
-                            i++
                         }
-                    } else if (apiCall.type == "HTML") {
+                    } else if (apiCall.type == "html") {
                         url = getURLFromHTML(url, apiCall.stringSearch!!)
                         return url
                     }
@@ -128,11 +127,10 @@ class ApiService {
             if (url != null) {
                 Log.d("ApiService", "data:$data")
                 Log.d("ApiService", "url: $url")
-                if (data != null){
-                    url = streamSource.url.replace("{token}", data)
-                }
-                else{
-                    url = ""
+                url = if (data != null){
+                    streamSource.url.replace("{token}", data)
+                } else{
+                    ""
                 }
                 Log.d("ApiService", "url despues de reemplazar: $url")
             }
@@ -147,7 +145,7 @@ class ApiService {
             return headersMap
         }
 
-        fun getHeadersMapFromApiCallHeadersObject(headers: List<ApiCallHeaderItem>) : Map<String, String> {
+        private fun getHeadersMapFromApiCallHeadersObject(headers: List<ApiCallHeaderItem>) : Map<String, String> {
             val headersMap = mutableMapOf<String, String>()
             for (header in headers) {
                 headersMap[header.key] = header.value

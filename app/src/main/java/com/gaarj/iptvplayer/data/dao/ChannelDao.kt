@@ -29,6 +29,9 @@ interface ChannelDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChannelShortnames(shortnames: List<ChannelShortnameEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertChannelShortname(shortname: ChannelShortnameEntity) : Long
+
     @Query("SELECT * FROM channel_shortname WHERE channel_id = :channelId")
     suspend fun getChannelShortnamesForChannel(channelId: Long): List<ChannelShortnameEntity>
 
