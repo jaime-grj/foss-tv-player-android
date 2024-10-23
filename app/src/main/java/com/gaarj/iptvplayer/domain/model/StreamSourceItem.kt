@@ -11,7 +11,7 @@ data class StreamSourceItem (
     val streamSourceType: StreamSourceTypeItem? = null,
     val headers: List<StreamSourceHeaderItem>? = null,
     val apiCalls: List<ApiCallItem>? = null,
-    val refreshRate: Float = 0f,
+    val refreshRate: Float? = null,
     var isSelected: Boolean = false
 )
 

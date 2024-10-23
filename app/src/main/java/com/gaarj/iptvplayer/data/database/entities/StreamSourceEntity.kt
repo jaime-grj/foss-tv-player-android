@@ -39,7 +39,7 @@ class StreamSourceEntity (
     val url: String,
 
     @ColumnInfo(name = "refresh_rate")
-    val refreshRate: Float,
+    val refreshRate: Float?,
 
     @ColumnInfo(name = "channel_id")
     val channelId : Long,

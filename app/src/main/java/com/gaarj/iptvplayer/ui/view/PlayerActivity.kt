@@ -937,8 +937,10 @@ class PlayerActivity : AppCompatActivity() {
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
                             Log.d("PlayerActivity", trackFormat.toString())
-                            if(trackFormat.language !in audioLanguages){
-                                audioLanguages += listOf(trackFormat.language.orEmpty())
+                            val audioLanguage = trackFormat.language ?: "Unknown"
+                            if(audioLanguage !in audioLanguages){
+                                audioLanguages += listOf(audioLanguage)
+                                Log.d("PlayerActivity", audioLanguages.toString())
                             }
                             if (trackGroup.isTrackSelected(j)){
                                 val audioCodec: String?
@@ -1285,7 +1287,7 @@ class PlayerActivity : AppCompatActivity() {
             val headersObj: List<StreamSourceHeaderItem> = streamSource.headers ?: emptyList()
             val headers = ApiService.getHeadersMapFromHeadersObject(headersObj)
 
-            Log.d("PlayerActivity","URL $url")
+            Log.d("PlayerActivity","Stream URL: $url")
             val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
@@ -1321,7 +1323,7 @@ class PlayerActivity : AppCompatActivity() {
             runOnUiThread{
                 player.setMediaSource(mediaSource)
 
-                switchRefreshRate(streamSource.refreshRate)
+                if (streamSource.refreshRate != null) switchRefreshRate(streamSource.refreshRate) else switchRefreshRate(50f)
 
                 player.trackSelectionParameters = player.trackSelectionParameters
                     .buildUpon()
@@ -1934,7 +1936,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val MAX_DIGITS = 5
         private const val TIMEOUT_UI_CHANNEL_LOAD = 5000L
         private const val TIMEOUT_UI_INFO = 5000L
-        private const val RETRY_DELAY_MS = 1500L
+        private const val RETRY_DELAY_MS = 500L
         private const val BUFFERING_TIMEOUT_MS = 3000L
         private const val LOADING_TIMEOUT_MS = 6000L
         private const val TRIES_EACH_SOURCE = 2
