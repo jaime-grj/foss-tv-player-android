@@ -1065,11 +1065,9 @@ class PlayerActivity : AppCompatActivity() {
                 } else if (format.frameRate > 0.0f){
                     format.frameRate
                 } else{
-                    50.0f
+                    0.0f
                 }
-                if (playerViewModel.currentStreamSource.value?.refreshRate == 0f) {
-                    switchRefreshRate(frameRateSwitch)
-                }
+                switchRefreshRate(frameRateSwitch)
                 mediaInfo.videoAspectRatio = MediaUtils.getHumanReadableAspectRatio(format.width.toFloat() / format.height * format.pixelWidthHeightRatio)
                 if (format.bitrate > 0){
                     mediaInfo.videoBitrate = DecimalFormat("0.##").format((format.bitrate.toFloat() / 1_000_000.0)) + " Mbps"
@@ -1273,11 +1271,7 @@ class PlayerActivity : AppCompatActivity() {
         playerViewModel.updateCurrentStreamSource(streamSource)
         jobLoadStreamSource = CoroutineScope(Dispatchers.IO).launch {
             delay(250)
-            val url: String = if (!streamSource.apiCalls.isNullOrEmpty()) {
-                ApiService.getURLFromChannelSource(streamSource)!!
-            } else{
-                streamSource.url
-            }
+            val url = ApiService.getURLFromChannelSource(streamSource)!!
             ensureActive()
 
             val headersObj: List<StreamSourceHeaderItem> = streamSource.headers ?: emptyList()
@@ -1319,7 +1313,12 @@ class PlayerActivity : AppCompatActivity() {
             runOnUiThread{
                 player.setMediaSource(mediaSource)
 
-                if (streamSource.refreshRate != null) switchRefreshRate(streamSource.refreshRate) else switchRefreshRate(50f)
+                if (streamSource.refreshRate != null) {
+                    switchRefreshRate(streamSource.refreshRate)
+                }
+                else{
+                    switchRefreshRate(50f)
+                }
 
                 player.trackSelectionParameters = player.trackSelectionParameters
                     .buildUpon()
