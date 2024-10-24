@@ -23,9 +23,9 @@ object RoomModule {
     @Provides
     fun provideRoom(@ApplicationContext context: Context) =
         Room.databaseBuilder(context, ChannelDatabase::class.java, DATABASE_NAME)
-            .setQueryCallback({ sqlQuery, _ ->
+            /*.setQueryCallback({ sqlQuery, _ ->
                 Log.d("RoomQuery", "SQL Query: $sqlQuery")
-            }, Executors.newSingleThreadExecutor())
+            }, Executors.newSingleThreadExecutor())*/
             .build()
 
     @Singleton
