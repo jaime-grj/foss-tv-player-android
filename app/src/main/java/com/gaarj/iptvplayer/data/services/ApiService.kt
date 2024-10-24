@@ -4,6 +4,7 @@ import android.util.Log
 import com.gaarj.iptvplayer.domain.model.ApiCallHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
+import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.nfeld.jsonpathkt.JsonPath
 import com.nfeld.jsonpathkt.extension.read
 import org.jsoup.Jsoup
@@ -91,49 +92,69 @@ class ApiService {
         }
 
         fun getURLFromChannelSource(streamSource: StreamSourceItem): String? {
-            val apiCalls = streamSource.apiCalls?.sortedBy { it.index }
             var url: String? = null
-            var data: String? = null
+            if (streamSource.streamSourceType == StreamSourceTypeItem.IPTV) {
+                if (streamSource.apiCalls.isNullOrEmpty()) {
+                    url = streamSource.url
+                    return url
+                }
+                val apiCalls = streamSource.apiCalls?.sortedBy { it.index }
+                var data: String? = null
 
-            if (apiCalls != null) {
-                for (apiCall in apiCalls) {
-                    url = apiCall.url
-                    Log.d("ApiService", "URL: $url")
-                    val index = apiCall.index
-                    if (data != null){
-                        url = url.replace("{${index - 1}}", data)
-                    }
-                    val headers = apiCall.headers
-                    val headersMap = headers?.let { getHeadersMapFromApiCallHeadersObject(it) }
-
-                    val method = apiCall.method
-                    val body = apiCall.body
-
-                    val apiResponseKeys = apiCall.apiResponseKeys
-
-                    if (apiCall.type == "json"){
-                        val json = getJSONFromURL(url, method, headersMap, body)
-
-                        for (apiResponseKey in apiResponseKeys) {
-                            val jsonPath = apiResponseKey.jsonPath
-                            data = JsonPath.parse(json)?.read<String>(jsonPath)
+                if (apiCalls != null) {
+                    for (apiCall in apiCalls) {
+                        url = apiCall.url
+                        Log.d("ApiService", "URL: $url")
+                        val index = apiCall.index
+                        if (data != null){
+                            url = url.replace("{${index - 1}}", data)
                         }
-                    } else if (apiCall.type == "html") {
-                        url = getURLFromHTML(url, apiCall.stringSearch!!)
-                        return url
+                        val headers = apiCall.headers
+                        val headersMap = headers?.let { getHeadersMapFromApiCallHeadersObject(it) }
+
+                        val method = apiCall.method
+                        val body = apiCall.body
+
+                        val apiResponseKeys = apiCall.apiResponseKeys
+
+                        if (apiCall.type == "json"){
+                            val json = getJSONFromURL(url, method, headersMap, body)
+
+                            for (apiResponseKey in apiResponseKeys) {
+                                val jsonPath = apiResponseKey.jsonPath
+                                data = JsonPath.parse(json)?.read<String>(jsonPath)
+                            }
+                        } else if (apiCall.type == "html") {
+                            url = getURLFromHTML(url, apiCall.stringSearch!!)
+                            return url
+                        }
                     }
                 }
-            }
-            if (url != null) {
-                Log.d("ApiService", "data:$data")
-                Log.d("ApiService", "url: $url")
-                url = if (data != null){
-                    streamSource.url.replace("{token}", data)
-                } else{
-                    ""
+                if (url != null) {
+                    Log.d("ApiService", "data:$data")
+                    Log.d("ApiService", "url: $url")
+                    url = if (data != null){
+                        streamSource.url.replace("{token}", data)
+                    } else{
+                        ""
+                    }
+                    Log.d("ApiService", "url despues de reemplazar: $url")
                 }
-                Log.d("ApiService", "url despues de reemplazar: $url")
+
             }
+            else if (streamSource.streamSourceType == StreamSourceTypeItem.TWITCH) {
+                val clientId = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+                val headers = mapOf(
+                    "Client-Id" to clientId)
+                val data = getJSONFromURL("https://gql.twitch.tv/gql", method = "POST", headers = headers, body = "{\"operationName\":\"PlaybackAccessToken_Template\",\"query\":\"query PlaybackAccessToken_Template(\$login: String!, \$isLive: Boolean!, \$vodID: ID!, \$isVod: Boolean!, \$playerType: String!, \$platform: String!) {  streamPlaybackAccessToken(channelName: \$login, params: {platform: \$platform, playerBackend: \\\"mediaplayer\\\", playerType: \$playerType}) @include(if: \$isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: \$vodID, params: {platform: \$platform, playerBackend: \\\"mediaplayer\\\", playerType: \$playerType}) @include(if: \$isVod) {    value    signature   __typename  }}\",\"variables\":{\"isLive\":true,\"login\":\"" + streamSource.url + "\",\"isVod\":false,\"vodID\":\"\",\"playerType\":\"site\",\"platform\":\"web\"}}")
+
+                val id = streamSource.url
+                val accessTokenValue = JsonPath.parse(data)?.read<String>("data.streamPlaybackAccessToken.value")
+                val accessTokenSignature = JsonPath.parse(data)?.read<String>("data.streamPlaybackAccessToken.signature")
+
+                url ="https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?client_id=${clientId}&token=${accessTokenValue}&sig=${accessTokenSignature}&allow_source=true&allow_audio_only=true"
+            }
+
             return url
         }
 

@@ -242,7 +242,14 @@ class ChannelRepository @Inject constructor(
                     } catch (e: Exception) {
                         null
                     }
-                    val streamSourceType = StreamSourceTypeItem.IPTV
+
+                    val streamSourceTypeInt = try{
+                        streamSource.getInt("type")
+                    } catch (e: Exception) {
+                        0
+                    }
+
+                    val streamSourceType = StreamSourceTypeItem.fromInt(streamSourceTypeInt) ?: StreamSourceTypeItem.IPTV
 
                     val streamSourceEntity = StreamSourceEntity(
                         name = streamSourceName,
