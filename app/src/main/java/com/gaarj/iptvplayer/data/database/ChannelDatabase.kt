@@ -11,7 +11,6 @@ import com.gaarj.iptvplayer.data.dao.ApiCallHeaderDao
 import com.gaarj.iptvplayer.data.dao.EPGDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceHeaderDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceDao
-import com.gaarj.iptvplayer.data.dao.StreamSourceTypeDao
 import com.gaarj.iptvplayer.data.database.converters.Converters
 import com.gaarj.iptvplayer.data.database.entities.ApiCallEntity
 import com.gaarj.iptvplayer.data.database.entities.ApiCallHeaderEntity
@@ -22,7 +21,6 @@ import com.gaarj.iptvplayer.data.database.entities.ChannelShortnameEntity
 import com.gaarj.iptvplayer.data.database.entities.EPGProgramEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceHeaderEntity
-import com.gaarj.iptvplayer.data.database.entities.StreamSourceTypeEntity
 
 @Database(
     entities = [
@@ -34,7 +32,6 @@ import com.gaarj.iptvplayer.data.database.entities.StreamSourceTypeEntity
         ApiCallHeaderEntity::class,
         StreamSourceEntity::class,
         StreamSourceHeaderEntity::class,
-        StreamSourceTypeEntity::class,
         EPGProgramEntity::class],
     version = 1
 )
@@ -42,7 +39,6 @@ import com.gaarj.iptvplayer.data.database.entities.StreamSourceTypeEntity
 abstract class ChannelDatabase : RoomDatabase() {
     abstract fun getChannelDao(): ChannelDao
     abstract fun getCategoryDao(): CategoryDao
-    abstract fun getStreamSourceTypeDao(): StreamSourceTypeDao
     abstract fun getApiCallDao(): ApiCallDao
     //abstract fun getChannelShortnameDao(): ChannelShortnameDao
     abstract fun getApiResponseKeyDao(): ApiResponseKeyDao

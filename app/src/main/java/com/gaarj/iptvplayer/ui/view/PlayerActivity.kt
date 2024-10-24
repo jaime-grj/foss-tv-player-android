@@ -599,11 +599,7 @@ class PlayerActivity : AppCompatActivity() {
                 apiCalls = listOf(),
                 headers = listOf(),
                 index = -1,
-                streamSourceType = StreamSourceTypeItem(
-                    id = -1,
-                    name = "",
-                    description = null
-                ),
+                streamSourceType = StreamSourceTypeItem.IPTV,
                 isSelected = true
             )
         )

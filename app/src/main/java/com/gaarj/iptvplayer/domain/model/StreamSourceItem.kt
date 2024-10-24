@@ -8,7 +8,7 @@ data class StreamSourceItem (
     val name: String?,
     val index: Int,
     val url: String,
-    val streamSourceType: StreamSourceTypeItem? = null,
+    val streamSourceType: StreamSourceTypeItem,
     val headers: List<StreamSourceHeaderItem>? = null,
     val apiCalls: List<ApiCallItem>? = null,
     val refreshRate: Float? = null,
@@ -16,7 +16,6 @@ data class StreamSourceItem (
 )
 
 fun StreamSourceEntity.toDomain(
-    streamSourceType: StreamSourceTypeItem? = null,
     headers: List<StreamSourceHeaderItem> = listOf(),
     apiCalls: List<ApiCallItem> = listOf()
 ) = StreamSourceItem(

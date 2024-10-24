@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
+import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 
 @Entity(
     tableName = "stream_source",
@@ -13,12 +14,6 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceItem
             entity = ChannelEntity::class,
             parentColumns = ["id"],
             childColumns = ["channel_id"],
-            onDelete = ForeignKey.CASCADE
-        ),
-        ForeignKey(
-            entity = StreamSourceTypeEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["stream_source_type_id"],
             onDelete = ForeignKey.CASCADE
         )
     ]
@@ -44,8 +39,8 @@ class StreamSourceEntity (
     @ColumnInfo(name = "channel_id")
     val channelId : Long,
 
-    @ColumnInfo(name = "stream_source_type_id")
-    val streamSourceTypeId : Long?,
+    @ColumnInfo(name = "stream_source_type")
+    val streamSourceType : StreamSourceTypeItem,
 )
 
 fun StreamSourceItem.toDatabase(channelId: Long) = StreamSourceEntity(
@@ -54,5 +49,5 @@ fun StreamSourceItem.toDatabase(channelId: Long) = StreamSourceEntity(
     url = url,
     channelId = channelId,
     refreshRate = refreshRate,
-    streamSourceTypeId = 1
+    streamSourceType = streamSourceType
 )

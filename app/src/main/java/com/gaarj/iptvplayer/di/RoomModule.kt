@@ -34,10 +34,6 @@ object RoomModule {
 
     @Singleton
     @Provides
-    fun provideStreamSourceTypeDao(db: ChannelDatabase) = db.getStreamSourceTypeDao()
-
-    @Singleton
-    @Provides
     fun provideCategoryDao(db: ChannelDatabase) = db.getCategoryDao()
 
     @Singleton

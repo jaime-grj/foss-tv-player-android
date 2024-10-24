@@ -8,7 +8,6 @@ import com.gaarj.iptvplayer.data.dao.CategoryDao
 import com.gaarj.iptvplayer.data.dao.ChannelDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceHeaderDao
-import com.gaarj.iptvplayer.data.dao.StreamSourceTypeDao
 import com.gaarj.iptvplayer.data.database.entities.ApiCallEntity
 import com.gaarj.iptvplayer.data.database.entities.ApiCallHeaderEntity
 import com.gaarj.iptvplayer.data.database.entities.ApiResponseKeyEntity
@@ -17,7 +16,6 @@ import com.gaarj.iptvplayer.data.database.entities.ChannelEntity
 import com.gaarj.iptvplayer.data.database.entities.ChannelShortnameEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceHeaderEntity
-import com.gaarj.iptvplayer.data.database.entities.StreamSourceTypeEntity
 import com.gaarj.iptvplayer.data.database.entities.toDatabase
 import com.gaarj.iptvplayer.data.services.DataService
 import com.gaarj.iptvplayer.domain.model.ApiCallHeaderItem
@@ -41,13 +39,8 @@ class ChannelRepository @Inject constructor(
     private val apiResponseKeyDao: ApiResponseKeyDao,
     private val streamSourceHeaderDao: StreamSourceHeaderDao,
     private val apiCallHeaderDao: ApiCallHeaderDao,
-    private val streamSourceTypeDao: StreamSourceTypeDao,
     private val categoryDao: CategoryDao
 ) {
-
-    @Transaction
-    suspend fun insertStreamSourceType(streamSourceType: StreamSourceTypeEntity) =
-        streamSourceTypeDao.insertStreamSourceType(streamSourceType)
 
     suspend fun getFavouriteChannels(): List<ChannelItem> {
         val channelEntities = channelDao.getFavouriteChannels()
@@ -161,13 +154,6 @@ class ChannelRepository @Inject constructor(
 
         val data = jsonObj.getJSONObject("data")
         val categories : JSONArray = data.getJSONArray("categories")
-        streamSourceTypeDao.insertStreamSourceType(
-            StreamSourceTypeItem(
-                id = 1,
-                name = "IPTV",
-                description = null
-            ).toDatabase()
-        )
 
         for (i in 0 until categories.length()) {
             val category = categories.getJSONObject(i)
@@ -256,7 +242,7 @@ class ChannelRepository @Inject constructor(
                     } catch (e: Exception) {
                         null
                     }
-                    val streamSourceTypeId = 1L
+                    val streamSourceType = StreamSourceTypeItem.IPTV
 
                     val streamSourceEntity = StreamSourceEntity(
                         name = streamSourceName,
@@ -264,7 +250,7 @@ class ChannelRepository @Inject constructor(
                         channelId = channelId,
                         index = streamSource.getInt("index"),
                         refreshRate = streamSourceRefreshRate?.toFloat(),
-                        streamSourceTypeId = streamSourceTypeId,
+                        streamSourceType = streamSourceType,
                     )
                     val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
 
