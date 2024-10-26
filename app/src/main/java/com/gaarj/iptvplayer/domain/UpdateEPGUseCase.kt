@@ -13,7 +13,7 @@ class UpdateEPGUseCase @Inject constructor(
 
         val lastDownloadedTime = settingsRepository.getLastDownloadedTime()
         //println("lastDownloadedTime: $lastDownloadedTime, current: ${System.currentTimeMillis() - lastDownloadedTime}")
-        if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 12 * 60 * 60 * 1000) {
+        if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 6 * 60 * 60 * 1000) {
             epgRepository.downloadEPG()
             settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
         }
