@@ -13,14 +13,16 @@ class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     fun render(videoTrack: VideoTrack, onItemSelected: (VideoTrack) -> Unit){
         if (videoTrack.isSelected) {
-            binding.tvChannelSettingsTrackName.isChecked = true
+            binding.rbChannelSettingsTrack.isChecked = true
         }
         if (videoTrack.id != "-1") {
-            binding.tvChannelSettingsTrackName.text =
-                "ID " + videoTrack.id + " - " + videoTrack.width + "x" + videoTrack.height
+            binding.tvChannelSettingsTrackName.text = videoTrack.width.toString() + "x" + videoTrack.height.toString()
+            binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
+
         }
         else{
             binding.tvChannelSettingsTrackName.text = videoTrack.name
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
 
         binding.tvChannelSettingsTrackName.post{
@@ -31,12 +33,14 @@ class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
             if (hasFocus) {
                 itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu) // Highlight the focused item
                 binding.tvChannelSettingsTrackName.setTextColor(Color.BLACK)
+                binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.BLACK)
                 binding.tvChannelSettingsTrackName.post{
                     binding.tvChannelSettingsTrackName.requestLayout()
                 }
             } else {
                 itemView.setBackgroundColor(Color.TRANSPARENT) // Reset when not focused
                 binding.tvChannelSettingsTrackName.setTextColor(Color.WHITE)
+                binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.WHITE)
             }
         }
 

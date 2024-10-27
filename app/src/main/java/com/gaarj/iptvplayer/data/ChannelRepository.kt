@@ -296,7 +296,7 @@ class ChannelRepository @Inject constructor(
                         } catch (e: Exception) {
                             JSONArray()
                         }
-                        println("apiCallUrl: $apiCallUrl apiCallIndex: $apiCallIndex")
+
                         val apiCallEntity = ApiCallEntity(
                             url = apiCallUrl,
                             index = apiCallIndex,

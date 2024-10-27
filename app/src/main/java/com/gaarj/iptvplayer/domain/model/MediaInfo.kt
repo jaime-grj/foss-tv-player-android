@@ -14,6 +14,7 @@ data class MediaInfo(
     var hasSubtitles: Boolean = false,
     var hasEPG: Boolean = false,
     var hasMultiLanguageAudio: Boolean = false,
+    var hasAudioDescription: Boolean = false,
     var hasTeletext: Boolean = false,
     var hasDRM: Boolean = false
 ){

@@ -23,4 +23,5 @@
     <string name="epg" translatable="false">EPG</string>
     <string name="currentProgram">Current:</string>
     <string name="nextProgram">Next:</string>
+    <string name="has_audio_description" >Audio description</string>
 </resources>

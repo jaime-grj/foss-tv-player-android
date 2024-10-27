@@ -13,13 +13,19 @@ class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     fun render(subtitlesTrack: SubtitlesTrack, onItemSelected: (SubtitlesTrack) -> Unit){
         if (subtitlesTrack.isSelected) {
-            binding.tvChannelSettingsTrackName.isChecked = true
+            binding.rbChannelSettingsTrack.isChecked = true
         }
         if (subtitlesTrack.language == "") {
             binding.tvChannelSettingsTrackName.text = subtitlesTrack.id
+            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.codec
+        }
+        else if (subtitlesTrack.id == "-1") {
+            binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
         else{
             binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
+            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.id + " - " + subtitlesTrack.codec
         }
 
         binding.tvChannelSettingsTrackName.post{
@@ -30,12 +36,14 @@ class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
             if (hasFocus) {
                 itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu) // Highlight the focused item
                 binding.tvChannelSettingsTrackName.setTextColor(Color.BLACK)
+                binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.BLACK)
                 binding.tvChannelSettingsTrackName.post{
                     binding.tvChannelSettingsTrackName.requestLayout()
                 }
             } else {
                 itemView.setBackgroundColor(Color.TRANSPARENT) // Reset when not focused
                 binding.tvChannelSettingsTrackName.setTextColor(Color.WHITE)
+                binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.WHITE)
             }
         }
 

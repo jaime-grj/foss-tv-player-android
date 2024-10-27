@@ -6,5 +6,6 @@ data class VideoTrack (
     val width: Int,
     val height: Int,
     val bitrate: Int,
+    val codec: String,
     var isSelected: Boolean = false
 )

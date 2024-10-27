@@ -19,14 +19,20 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _isSourceForced = MutableLiveData<Boolean>()
     val isSourceForced: LiveData<Boolean> get() = _isSourceForced
 
+    private val _isQualityForced = MutableLiveData<Boolean>()
+    val isQualityForced: LiveData<Boolean> get() = _isQualityForced
+
     private val _sourcesTriedCount = MutableLiveData<Int>()
     val sourcesTriedCount: LiveData<Int> get() = _sourcesTriedCount
 
     private val _triesCountForEachSource = MutableLiveData<Int>()
     val triesCountForEachSource: LiveData<Int> get() = _triesCountForEachSource
 
-    private val _isLoading = MutableLiveData<Boolean>()
-    val isLoading: LiveData<Boolean> get() = _isLoading
+    private val _isSourceLoading = MutableLiveData<Boolean>()
+    val isSourceLoading: LiveData<Boolean> get() = _isSourceLoading
+
+    private val _isChannelLoading = MutableLiveData<Boolean>()
+    val isChannelLoading: LiveData<Boolean> get() = _isChannelLoading
 
     private val _isBuffering = MutableLiveData<Boolean>()
     val isBuffering: LiveData<Boolean> get() = _isBuffering
@@ -57,9 +63,10 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     fun onCreate() {
         _isSourceForced.value = false
+        _isQualityForced.value = false
         _sourcesTriedCount.value = 0
         _triesCountForEachSource.value = 0
-        _isLoading.value = false
+        _isSourceLoading.value = false
         _isBuffering.value = false
         _currentItemSelectedFromChannelList.value = -1
         _currentItemSelectedFromChannelSettingsMenu.value = 0
@@ -84,6 +91,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     private val _errorMessage = MutableLiveData<String>()
     val errorMessage: LiveData<String> get() = _errorMessage
+
+    private val _isAnimatedLoadingIconVisible = MutableLiveData<Boolean>()
+    val isAnimatedLoadingIconVisible: LiveData<Boolean> get() = _isAnimatedLoadingIconVisible
 
     private val _isBottomInfoVisible = MutableLiveData<Boolean>()
     val isBottomInfoVisible: LiveData<Boolean> get() = _isBottomInfoVisible
@@ -156,8 +166,6 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     fun updateErrorMessage(newErrorMessage: String) {
         _errorMessage.value = newErrorMessage
     }
-
-
 
     fun showChannelList() {
         _isChannelListVisible.value = true
@@ -327,16 +335,31 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _isSourceForced.value = isSourceForced
     }
 
+    fun updateIsQualityForced(isQualityForced: Boolean) {
+        _isQualityForced.value = isQualityForced
+    }
+
     fun setIsBuffering(isBuffering: Boolean) {
         _isBuffering.value = isBuffering
     }
 
-    fun setIsLoading(isLoading: Boolean) {
-        _isLoading.value = isLoading
+    fun setIsSourceLoading(isLoading: Boolean) {
+        _isSourceLoading.value = isLoading
     }
 
+    fun setIsChannelLoading(isLoading: Boolean) {
+        _isChannelLoading.value = isLoading
+    }
 
     fun updateCurrentStreamSource(newStreamSource: StreamSourceItem) {
         _currentStreamSource.value = newStreamSource
+    }
+
+    fun hideAnimatedLoadingIcon() {
+        _isAnimatedLoadingIconVisible.value = false
+    }
+
+    fun showAnimatedLoadingIcon() {
+        _isAnimatedLoadingIconVisible.value = true
     }
 }

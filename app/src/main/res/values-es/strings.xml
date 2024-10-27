@@ -17,4 +17,5 @@
     <string name="auto">Automático</string>
     <string name="currentProgram">En emisión:</string>
     <string name="nextProgram">A continuación:</string>
+    <string name="has_audio_description" >Audiodescripción</string>
 </resources>
