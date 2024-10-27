@@ -217,12 +217,20 @@ class ApiService {
                 //url ="https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?client_id=${clientId}&token=${accessTokenValue}&sig=${accessTokenSignature}&allow_source=true&allow_audio_only=true"
             }
             else if (streamSource.streamSourceType == StreamSourceTypeItem.YOUTUBE) {
-                val html = fetchHtmlFromUrl("https://www.youtube.com/@${streamSource.url}/live")
+                try{
+                    val html = fetchHtmlFromUrl("https://www.youtube.com/@${streamSource.url}/live")
 
-                val regex = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
-                val matchResult = regex.find(html)
-
-                url = matchResult?.groups?.get(1)?.value
+                    val regex = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
+                    val matchResult = regex.find(html)
+                    url = if (matchResult == null) {
+                        ""
+                    } else{
+                        matchResult?.groups?.get(1)?.value
+                    }
+                }
+                catch (e: Exception) {
+                    url = ""
+                }
             }
             else {
                 url = streamSource.url
