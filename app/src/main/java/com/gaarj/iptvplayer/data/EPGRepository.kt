@@ -36,7 +36,12 @@ class EPGRepository @Inject constructor(
             val uri = URI(url)
             val path = uri.path
             val filename = path.substring(path.lastIndexOf('/') + 1)
-            epgService.downloadAndDecompressGz(filename, url)
+            if (filename.endsWith(".gz")) {
+                epgService.downloadAndDecompressGz(filename, url)
+            }
+            else if (filename.endsWith(".xml")) {
+                epgService.downloadFile(filename, url)
+            }
             epgService.parseEPGFile(filename) { insertEPGProgram(it.toDatabase()) }
         }
 

@@ -10,6 +10,7 @@ import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -42,6 +43,36 @@ class EPGService(private val context: Context) {
             false
         }
     }
+
+    suspend fun downloadFile(filename: String, urlString: String): Boolean {
+        val url = URL(urlString)
+        return try {
+
+            // Open connection and get InputStream on IO thread
+            val urlConnection = withContext(Dispatchers.IO) {
+                url.openConnection()
+            }
+            val inputStream = withContext(Dispatchers.IO) {
+                urlConnection.getInputStream()
+            }
+
+            // Write the XML data to file on IO thread
+            withContext(Dispatchers.IO) {
+                context.openFileOutput(filename, MODE_PRIVATE).use { stream ->
+                    inputStream.copyTo(stream)  // Copying data directly from input stream to file output stream
+                }
+            }
+
+            true
+        } catch (e: IOException) {
+            e.printStackTrace()
+            false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     suspend fun parseEPGFile(filename: String, onProgramParsed: suspend (EPGProgramItem) -> Unit) {
         val epgDateFormat = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
 
