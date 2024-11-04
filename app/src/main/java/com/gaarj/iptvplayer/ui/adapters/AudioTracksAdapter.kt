@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.domain.model.AudioTrack
+import com.gaarj.iptvplayer.ui.viewholders.AudioTracksViewHolder
 
 class AudioTracksAdapter(private val audioTrackList: List<AudioTrack>, private val onItemSelected: (AudioTrack) -> Unit) : RecyclerView.Adapter<AudioTracksViewHolder>() {
 

@@ -55,6 +55,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _currentItemSelectedFromVideoTracksMenu: MutableLiveData<Int> = MutableLiveData()
     val currentItemSelectedFromVideoTracksMenu: LiveData<Int> get() = _currentItemSelectedFromVideoTracksMenu
 
+    private val _currentItemSelectedFromCategoryList: MutableLiveData<Int> = MutableLiveData()
+    val currentItemSelectedFromCategoryList: LiveData<Int> get() = _currentItemSelectedFromCategoryList
+
     private val _currentLoadedMenuSetting: MutableLiveData<Int> = MutableLiveData()
     val currentLoadedMenuSetting: LiveData<Int> get() = _currentLoadedMenuSetting
 
@@ -74,6 +77,7 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _currentItemSelectedFromSubtitlesTracksMenu.value = -1
         _currentItemSelectedFromChannelSourcesMenu.value = -1
         _currentItemSelectedFromVideoTracksMenu.value = -1
+        _currentItemSelectedFromCategoryList.value = 0
         _currentLoadedMenuSetting.value = -1
     }
 
@@ -85,6 +89,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     private val _channelName = MutableLiveData<String>()
     val channelName: LiveData<String> get() = _channelName
+
+    private val _categoryName = MutableLiveData<String>()
+    val categoryName: LiveData<String> get() = _categoryName
 
     private val _timeDate = MutableLiveData<String>()
     val timeDate: LiveData<String> get() = _timeDate
@@ -142,6 +149,15 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     private val _isChannelNumberKeyboardVisible = MutableLiveData<Boolean>()
     val isChannelNumberKeyboardVisible: LiveData<Boolean> get() = _isChannelNumberKeyboardVisible
+
+    private val _isCategoryListVisible = MutableLiveData<Boolean>()
+    val isCategoryListVisible: LiveData<Boolean> get() = _isCategoryListVisible
+
+    private val _isChannelNumberCategoryVisible = MutableLiveData<Boolean>()
+    val isChannelNumberCategoryVisible: LiveData<Boolean> get() = _isChannelNumberCategoryVisible
+
+    private val _isCategoryNameVisible = MutableLiveData<Boolean>()
+    val isCategoryNameVisible: LiveData<Boolean> get() = _isCategoryNameVisible
 
     init {
         _isChannelListVisible.value = false
@@ -327,6 +343,10 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _currentItemSelectedFromChannelSourcesMenu.value = i
     }
 
+    fun updateCurrentItemSelectedFromCategoryList(i: Int) {
+        _currentItemSelectedFromCategoryList.value = i
+    }
+
     fun updateCurrentLoadedMenuSetting(i: Int){
         _currentLoadedMenuSetting.value = i
     }
@@ -361,5 +381,34 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     fun showAnimatedLoadingIcon() {
         _isAnimatedLoadingIconVisible.value = true
+    }
+
+    fun showCategoryList() {
+        _isCategoryListVisible.value = true
+    }
+
+    fun hideCategoryList() {
+        _isCategoryListVisible.value = false
+    }
+
+    fun showCategoryName() {
+        _isCategoryNameVisible.value = true
+    }
+
+    fun hideCategoryName() {
+        _isCategoryNameVisible.value = false
+    }
+
+
+    fun updateCategoryName(name: String) {
+        _categoryName.value = name
+    }
+
+    fun showChannelNumberCategory() {
+        _isChannelNumberCategoryVisible.value = true
+    }
+
+    fun hideChannelNumberCategory() {
+        _isChannelNumberCategoryVisible.value = false
     }
 }

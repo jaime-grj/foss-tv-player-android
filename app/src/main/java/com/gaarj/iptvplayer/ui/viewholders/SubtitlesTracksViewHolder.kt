@@ -1,28 +1,31 @@
-package com.gaarj.iptvplayer.ui.adapters
+package com.gaarj.iptvplayer.ui.viewholders
 
 import android.graphics.Color
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
-import com.gaarj.iptvplayer.domain.model.VideoTrack
 import com.gaarj.iptvplayer.databinding.ItemChannelTrackSettingsBinding
+import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 
-class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
+class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     private val binding = ItemChannelTrackSettingsBinding.bind(view)
 
-    fun render(videoTrack: VideoTrack, onItemSelected: (VideoTrack) -> Unit){
-        if (videoTrack.isSelected) {
+    fun render(subtitlesTrack: SubtitlesTrack, onItemSelected: (SubtitlesTrack) -> Unit){
+        if (subtitlesTrack.isSelected) {
             binding.rbChannelSettingsTrack.isChecked = true
         }
-        if (videoTrack.id != "-1") {
-            binding.tvChannelSettingsTrackName.text = videoTrack.width.toString() + "x" + videoTrack.height.toString()
-            binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
-
+        if (subtitlesTrack.language == "") {
+            binding.tvChannelSettingsTrackName.text = subtitlesTrack.id
+            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.codec
+        }
+        else if (subtitlesTrack.id == "-1") {
+            binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
         else{
-            binding.tvChannelSettingsTrackName.text = videoTrack.name
-            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+            binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
+            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.id + " - " + subtitlesTrack.codec
         }
 
         binding.tvChannelSettingsTrackName.post{
@@ -45,7 +48,7 @@ class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
         }
 
         itemView.setOnClickListener {
-            onItemSelected(videoTrack)
+            onItemSelected(subtitlesTrack)
         }
     }
 }

@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.domain.model.VideoTrack
+import com.gaarj.iptvplayer.ui.viewholders.VideoTracksViewHolder
 
 class VideoTracksAdapter(private val videoTrackList: List<VideoTrack>, private val onItemSelected: (VideoTrack) -> Unit) : RecyclerView.Adapter<VideoTracksViewHolder>() {
 

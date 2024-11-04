@@ -38,4 +38,7 @@ interface ChannelDao {
     @Query("DELETE FROM channel")
     suspend fun deleteAll()
 
+    @Query("SELECT * FROM channel WHERE category_id = :categoryId")
+    suspend fun getChannelsForCategory(categoryId: Long) : List<ChannelEntity>
+
 }

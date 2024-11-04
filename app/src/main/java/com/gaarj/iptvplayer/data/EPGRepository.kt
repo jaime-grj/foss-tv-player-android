@@ -5,7 +5,9 @@ import com.gaarj.iptvplayer.data.dao.EPGDao
 import com.gaarj.iptvplayer.data.database.entities.EPGProgramEntity
 import com.gaarj.iptvplayer.data.database.entities.toDatabase
 import com.gaarj.iptvplayer.data.services.EPGService
+import com.gaarj.iptvplayer.domain.model.EPGProgramItem
 import com.gaarj.iptvplayer.domain.model.EPGProvider
+import com.gaarj.iptvplayer.domain.model.toDomain
 import java.net.URI
 import javax.inject.Inject
 
@@ -28,6 +30,14 @@ class EPGRepository @Inject constructor(
         return epgDao.getNextProgramForChannel(channelId)
     }
 
+
+    suspend fun getEPGProgramsForChannel(channelId: Long): List<EPGProgramItem> {
+        val epgPrograms = epgDao.getEPGProgramsForChannel(channelId)
+        return epgPrograms.map { epgProgramEntity ->
+            epgProgramEntity.toDomain()
+        }
+    }
+
     // Process each EPG item as it's loaded and write to the DB
     suspend fun downloadEPG() {
         epgDao.deleteAll()  // Clear old data first
@@ -44,11 +54,6 @@ class EPGRepository @Inject constructor(
             }
             epgService.parseEPGFile(filename) { insertEPGProgram(it.toDatabase()) }
         }
-
-    // Process and insert each program into the DB
-        /*EPGReader.loadEPG { program ->
-            insertEPGProgram(program.toDatabase())
-        }*/
     }
 
 }

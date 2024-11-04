@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
+import com.gaarj.iptvplayer.ui.viewholders.SubtitlesTracksViewHolder
 
 class SubtitlesTracksAdapter(private val subtitlesTrackList: List<SubtitlesTrack>, private val onItemSelected: (SubtitlesTrack) -> Unit) : RecyclerView.Adapter<SubtitlesTracksViewHolder>() {
 

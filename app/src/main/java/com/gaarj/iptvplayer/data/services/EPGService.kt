@@ -97,6 +97,7 @@ class EPGService(private val context: Context) {
                                     val channel = parser.getAttributeValue(null, "channel")
 
                                     epgProgramItem = EPGProgramItem(
+                                        id = 0,
                                         channelShortname = channel,
                                         title = "",
                                         description = "",

@@ -26,6 +26,9 @@ data class ChannelEntity (
     @ColumnInfo(name = "description")
     val description: String?,
 
+    @ColumnInfo(name = "logo")
+    val logo: String?,
+
     @ColumnInfo(name = "language")
     val language: String?,
 
@@ -55,6 +58,7 @@ fun ChannelItem.toDatabase(categoryId: Long? = null, parentId: Long? = null) = C
     name = name,
     description = description,
     language = language,
+    logo = logo,
     country = country,
     region = region,
     subregion = subregion,

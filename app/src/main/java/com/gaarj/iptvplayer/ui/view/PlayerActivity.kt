@@ -3,9 +3,11 @@ package com.gaarj.iptvplayer.ui.view
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.PictureInPictureParams
 import android.app.UiModeManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Color
@@ -24,11 +26,14 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -37,6 +42,7 @@ import com.gaarj.iptvplayer.core.MediaUtils
 import com.gaarj.iptvplayer.data.services.ApiService
 import com.gaarj.iptvplayer.databinding.ActivityPlayerBinding
 import com.gaarj.iptvplayer.domain.model.AudioTrack
+import com.gaarj.iptvplayer.domain.model.CategoryItem
 import com.gaarj.iptvplayer.domain.model.ChannelItem
 import com.gaarj.iptvplayer.domain.model.ChannelSettings
 import com.gaarj.iptvplayer.domain.model.MediaInfo
@@ -46,6 +52,7 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarj.iptvplayer.domain.model.VideoTrack
 import com.gaarj.iptvplayer.ui.adapters.AudioTracksAdapter
+import com.gaarj.iptvplayer.ui.adapters.CategoryListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelSettingsAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelSourcesAdapter
@@ -73,6 +80,7 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.CaptionStyleCompat
 import com.google.android.exoplayer2.ui.SubtitleView
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
+import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.video.VideoSize
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -82,9 +90,16 @@ import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import org.joda.time.DateTime
+import java.net.Proxy
+import java.net.InetSocketAddress
+import java.net.ProxySelector
+import java.net.URI
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
@@ -117,6 +132,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var rvSubtitlesTracks: RecyclerView
     private lateinit var rvChannelSources: RecyclerView
     private lateinit var rvVideoTracks: RecyclerView
+    private lateinit var rvCategoryList: RecyclerView
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private val channelViewModel: ChannelViewModel by viewModels()
@@ -125,8 +141,21 @@ class PlayerActivity : AppCompatActivity() {
     private val urlCache: MutableMap<StreamSourceItem, CachedUrl> = ConcurrentHashMap()
     private val cacheExpirationTime = TimeUnit.MINUTES.toMillis(TIME_CACHED_URL_MINUTES)
 
+    private var originalProxySelector: ProxySelector? = null
+
+    private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val resultData = data?.getLongExtra("channelId", 0L)
+            val newChannel = channelViewModel.channels.value?.first { it.id == resultData }
+            if (newChannel != null) {
+                loadChannel(newChannel)
+            }
+        }
+    }
+
     private val tryNextStreamSourceRunnable = Runnable {
-        Log.d("PlayerActivity", "Player error, retrying")
+        Log.d(TAG, "Player error, retrying")
         val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
         val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
         if (playerViewModel.isChannelLoading.value == false) {
@@ -137,21 +166,21 @@ class PlayerActivity : AppCompatActivity() {
 
     private val sourceLoadingRunnable = Runnable {
         if (playerViewModel.isSourceLoading.value == true) {
-            Log.d("PlayerActivity", "Loading Timeout")
+            Log.d(TAG, "Loading Timeout")
             val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
             val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
-            tryNextStreamSource(currentChannel, currentStreamSource)
             playerViewModel.hidePlayer()
+            tryNextStreamSource(currentChannel, currentStreamSource)
         }
     }
 
     private val bufferingRunnable = Runnable {
         if (playerViewModel.isBuffering.value == true) {
-            Log.d("PlayerActivity", "Buffering Timeout")
+            Log.d(TAG, "Buffering Timeout")
             val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
             val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
-            tryNextStreamSource(currentChannel, currentStreamSource)
             playerViewModel.hidePlayer()
+            tryNextStreamSource(currentChannel, currentStreamSource)
         }
     }
 
@@ -162,7 +191,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val channelLoadingRunnable = Runnable {
         if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
-            Log.d("PlayerActivity", "Channel Loading Timeout")
+            Log.d(TAG, "Channel Loading Timeout")
             playerViewModel.showAnimatedLoadingIcon()
         }
     }
@@ -172,15 +201,28 @@ class PlayerActivity : AppCompatActivity() {
         switchRefreshRate(DEFAULT_REFRESH_RATE)
         initUI()
         playerViewModel.showAnimatedLoadingIcon()
+        originalProxySelector = ProxySelector.getDefault()
         initPlayer()
 
-        channelViewModel.channels.observe(this) { channels ->
-            if (channels.isNotEmpty()) {
-                initChannelList()
-                playerViewModel.hideAnimatedLoadingIcon()
-                loadChannel(channels.first())
+        channelViewModel.isLoadingCategoryList.observe(this) { isLoading ->
+            if (isLoading == false) {
+                initCategoryList()
             }
         }
+
+        channelViewModel.isLoadingChannelList.observe(this) { isLoading ->
+            if (isLoading == false) {
+                channelViewModel.setCategories()
+                channelViewModel.downloadEPG()
+                initChannelList()
+                playerViewModel.hideAnimatedLoadingIcon()
+                Log.d(TAG, "Channel list loaded + ${channelViewModel.channels.value?.size}")
+                if (channelViewModel.channels.value?.isNotEmpty() == true) {
+                    loadChannel(channelViewModel.channels.value.orEmpty().first())
+                }
+            }
+        }
+
         initSettingsMenu()
         initAudioTracksMenu()
         initSubtitlesTracksMenu()
@@ -208,7 +250,10 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(view)
 
         playerViewModel.onCreate()
-        channelViewModel.onCreate()
+        channelViewModel.importJSONData()
+        channelViewModel.downloadEPG()
+        channelViewModel.updateIsInFavouriteCategory(true)
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
@@ -231,6 +276,7 @@ class PlayerActivity : AppCompatActivity() {
         rvSubtitlesTracks = binding.rvChannelTrackSettings
         rvChannelSources = binding.rvChannelTrackSettings
         rvVideoTracks = binding.rvChannelTrackSettings
+        rvCategoryList = binding.rvCategoryList
 
 
         playerViewModel.channelName.observe(this) { channelName ->
@@ -239,6 +285,11 @@ class PlayerActivity : AppCompatActivity() {
 
         playerViewModel.channelNumber.observe(this) { channelNumber ->
             binding.channelNumber.text = channelNumber.toString()
+            binding.channelNumberCategory.text = channelNumber.toString()
+        }
+
+        playerViewModel.categoryName.observe(this) { categoryName ->
+            binding.categoryName.text = categoryName
         }
 
         playerViewModel.timeDate.observe(this) { timeDate ->
@@ -371,7 +422,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         playerViewModel.isChannelNumberVisible.observe(this) { isVisible ->
-            binding.channelNumber.visibility = if (isVisible) View.VISIBLE else View.GONE
+            binding.channelNumber.visibility = if (isVisible) View.VISIBLE else View.INVISIBLE
         }
 
         playerViewModel.isTimeDateVisible.observe(this) { isVisible ->
@@ -468,7 +519,7 @@ class PlayerActivity : AppCompatActivity() {
                     val currentChannel = channelViewModel.currentChannel.value
                     if (currentChannel != null){
                         delay(100)
-                        channelViewModel.getCurrentProgramForChannel(currentChannel.id)
+                        channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
                     }
 
                 }
@@ -489,6 +540,63 @@ class PlayerActivity : AppCompatActivity() {
                 mediaInfo.hasEPG = false
                 playerViewModel.updateMediaInfo(mediaInfo)
             }
+        }
+
+        playerViewModel.isCategoryListVisible.observe(this) { isVisible ->
+            if (isVisible) {
+                binding.rvCategoryList.visibility = View.VISIBLE
+            }
+            else{
+                binding.rvCategoryList.visibility = View.GONE
+            }
+        }
+
+        playerViewModel.isCategoryNameVisible.observe(this) { isVisible ->
+            if (isVisible) {
+                binding.categoryName.visibility = View.VISIBLE
+            }
+            else{
+                binding.categoryName.visibility = View.GONE
+            }
+        }
+
+        playerViewModel.isChannelNumberCategoryVisible.observe(this) { isVisible ->
+            if (isVisible) {
+                binding.channelNumberCategory.visibility = View.VISIBLE
+            }
+            else{
+                binding.channelNumberCategory.visibility = View.GONE
+            }
+        }
+
+        channelViewModel.isInFavouriteCategory.observe(this) { isInFavouriteCategory ->
+            val constraints = ConstraintSet()
+
+            // Clone current constraints to modify them
+            constraints.clone(binding.playerContainer)
+
+            if (isInFavouriteCategory) {
+                // Set `channelName` to be constrained to the right of `channelNumber`
+                constraints.connect(
+                    binding.channelName.id,
+                    ConstraintSet.START,
+                    binding.channelNumber.id,
+                    ConstraintSet.END,
+                    4 // Optional margin in dp
+                )
+            } else {
+
+                constraints.connect(
+                    binding.channelName.id,
+                    ConstraintSet.START,
+                    binding.categoryName.id,
+                    ConstraintSet.END,
+                    4 // Optional margin in dp
+                )
+            }
+
+            // Apply the modified constraints
+            constraints.applyTo(binding.playerContainer)
         }
 
         binding.playerView.setOnClickListener {
@@ -549,7 +657,13 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun initSettingsMenu() {
-        val settingsList = listOf(ChannelSettings(getString(R.string.audio_track)), ChannelSettings(getString(R.string.subtitle_track)), ChannelSettings(getString(R.string.video_track)), ChannelSettings(getString(R.string.change_source)))
+        val settingsList = listOf(ChannelSettings(getString(R.string.audio_track)),
+            ChannelSettings(getString(R.string.subtitle_track)),
+            ChannelSettings(getString(R.string.video_track)),
+            ChannelSettings(getString(R.string.change_source)),
+            ChannelSettings("Actualizar EPG"),
+            ChannelSettings("Guía de programación")
+        )
         rvChannelSettings.layoutManager = LinearLayoutManager(this)
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
             if (playerViewModel.isSettingsMenuVisible.value == true) {
@@ -605,6 +719,17 @@ class PlayerActivity : AppCompatActivity() {
                     initFocusInSourcesMenu()
                 }
                 loadSourcesMenu()
+            }
+            ChannelSettings.UPDATE_EPG -> {
+                channelViewModel.updateEPG()
+            }
+            ChannelSettings.SHOW_EPG -> {
+                //val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
+                //Log.d(TAG, "initEPG: " + sortedChannels.size.toString())
+
+                val intent  = Intent(this, EPGActivity::class.java)
+                resultLauncher.launch(intent)
+
             }
         }
 
@@ -747,11 +872,10 @@ class PlayerActivity : AppCompatActivity() {
             if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
                 for (j in 0 until trackGroup.length) {
                     val trackFormat = trackGroup.getTrackFormat(j)
-                    if (playerViewModel.isQualityForced.value == false) {
-                        videoTrackList += listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), false))
-                    }
-                    else{
-                        videoTrackList += listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), trackGroup.isTrackSelected(j)))
+                    videoTrackList += if (playerViewModel.isQualityForced.value == false) {
+                        listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), false))
+                    } else{
+                        listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), trackGroup.isTrackSelected(j)))
                     }
                     globalVideoTrackIndex++
                 }
@@ -760,10 +884,54 @@ class PlayerActivity : AppCompatActivity() {
         return videoTrackList
     }
 
+    private fun initCategoryList() {
+        rvCategoryList.layoutManager = LinearLayoutManager(this)
+        val favCategory = listOf(
+            CategoryItem(
+                id = -1,
+                name = "Favoritos",
+                description = "",
+                isSelected = false,
+                channels = listOf()
+            )
+        )
+        val categoriesDb = channelViewModel.categories.value
+        var categories: List<CategoryItem> = favCategory
+        if (categoriesDb != null) {
+            categories = categories.plus(categoriesDb)
+        }
+
+        Log.d("PlayerActivity", "Categories: $categories")
+        rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
+            loadCategory(selectedCategory)
+        }
+    }
+
+    private fun initFocusInCategoryList() {
+        rvCategoryList.viewTreeObserver.addOnGlobalLayoutListener {
+            rvCategoryList.scrollToPosition(playerViewModel.currentItemSelectedFromCategoryList.value ?: 0)
+            rvCategoryList.post {
+                val viewHolder = rvCategoryList.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromCategoryList.value ?: 0)
+                viewHolder?.itemView?.requestFocus()
+            }
+        }
+    }
+
+    private fun loadCategory(category: CategoryItem) {
+        Log.d("PlayerActivity", "loadCategory: $category")
+        if (category.id == -1L) {
+            channelViewModel.updateIsInFavouriteCategory(true)
+        }
+        else {
+            channelViewModel.updateIsInFavouriteCategory(false)
+            playerViewModel.updateCategoryName(category.name)
+        }
+        channelViewModel.getChannelsByCategory(categoryId = category.id)
+    }
+
     private fun initChannelList() {
         rvChannelList.layoutManager = LinearLayoutManager(this)
         val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
-
         rvChannelList.adapter = ChannelListAdapter(sortedChannels) { selectedChannel ->
             loadChannel(selectedChannel)
         }
@@ -921,7 +1089,7 @@ class PlayerActivity : AppCompatActivity() {
                     if (playerViewModel.isSourceLoading.value == false && playerViewModel.isBuffering.value == false) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                 }
                 else if (playbackState == Player.STATE_BUFFERING){
-                    Log.d("PlayerActivity", "buffering")
+                    Log.d(TAG, "buffering")
 
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isSourceLoading.value == false) startBufferingTimer()
@@ -1002,11 +1170,11 @@ class PlayerActivity : AppCompatActivity() {
                     if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
-                            Log.d("PlayerActivity", trackFormat.toString())
+                            Log.d(TAG, trackFormat.toString())
                             val audioLanguage = trackFormat.language
                             if(audioLanguage !in audioLanguages){
                                 audioLanguages += listOf(audioLanguage)
-                                Log.d("PlayerActivity", audioLanguages.toString())
+                                Log.d(TAG, audioLanguages.toString())
                             }
                             if (trackGroup.isTrackSelected(j)){
                                 val audioCodec: String?
@@ -1040,21 +1208,22 @@ class PlayerActivity : AppCompatActivity() {
                             }
                         }
                         mediaInfo.hasMultiLanguageAudio = audioLanguages.filterNotNull().size > 1
-                        mediaInfo.hasAudioDescription = "ads" in audioLanguages
+                        /* Not the best way to get audiodescription status */
+                        mediaInfo.hasAudioDescription = "ads" in audioLanguages || "qad" in audioLanguages
                     }
                     if (trackGroup.type == C.TRACK_TYPE_TEXT) {
                         val subtitlesLanguages = mutableListOf<String?>()
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
-                            Log.d("PlayerActivity", trackFormat.toString())
+                            Log.d(TAG, trackFormat.toString())
                             val subtitlesLanguage = trackFormat.language
                             if(subtitlesLanguage !in subtitlesLanguages){
                                 subtitlesLanguages += listOf(subtitlesLanguage)
-                                Log.d("PlayerActivity", subtitlesLanguages.toString())
+                                Log.d(TAG, subtitlesLanguages.toString())
                             }
                         }
-                        Log.d("PlayerActivity", subtitlesLanguages.toString())
-                        mediaInfo.hasSubtitles = subtitlesLanguages.filterNotNull().size > 0
+                        Log.d(TAG, subtitlesLanguages.toString())
+                        mediaInfo.hasSubtitles = subtitlesLanguages.filterNotNull().isNotEmpty()
                     }
                     /*if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
                         for (j in 0 until trackGroup.length) {
@@ -1186,19 +1355,20 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun tryNextStreamSource(channel: ChannelItem, currentStreamSource: StreamSourceItem) {
-        Log.d("PlayerActivity", "tryNextStreamSource")
+        Log.d(TAG, "tryNextStreamSource")
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         if (player.isPlaying || player.isLoading) player.stop()
         if (playerViewModel.isSourceForced.value == true){
             loadStreamSource(currentStreamSource)
             playerViewModel.updateTriesCountForEachSource(playerViewModel.triesCountForEachSource.value!! + 1)
             if (playerViewModel.triesCountForEachSource.value!! > TRIES_EACH_SOURCE){
+                playerViewModel.hideMediaInfo()
                 playerViewModel.showErrorMessage()
                 playerViewModel.hideAnimatedLoadingIcon()
             }
         }
         else{
-            Log.d("PlayerActivity", "triesforeachsource: $playerViewModel.triesCountForEachSource.value")
+            Log.d(TAG, "triesforeachsource: $playerViewModel.triesCountForEachSource.value")
 
             val streamSourcesFiltered = channel.streamSources.filter { it.index > currentStreamSource.index }
             var newStreamSourceIndex = streamSourcesFiltered.minByOrNull { it.index }?.index ?: channel.streamSources.minByOrNull { it.index }?.index ?: 0
@@ -1211,23 +1381,23 @@ class PlayerActivity : AppCompatActivity() {
                     newStreamSourceIndex = channel.streamSources.minBy { it.index }.index
                 }
                 val newStreamSource: StreamSourceItem? = channel.streamSources.firstOrNull { it.index == newStreamSourceIndex }
-                Log.d("PlayerActivity", "newStreamSource:$newStreamSource")
+                Log.d(TAG, "newStreamSource:$newStreamSource")
                 if (newStreamSource != null) {
                     loadStreamSource(newStreamSource)
                     playerViewModel.updateSourcesTriedCount(playerViewModel.sourcesTriedCount.value!! + 1)
                     Log.d("TryNextStreamSource", "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
                     playerViewModel.updateTriesCountForEachSource(1)
                 }
-                Log.d("PlayerActivity", "streamsourcemaxindex $streamSourceMaxIndex")
-                Log.d("PlayerActivity", "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
-                Log.d("PlayerActivity", "newStreamSourceIndex: $newStreamSourceIndex")
+                Log.d(TAG, "streamsourcemaxindex $streamSourceMaxIndex")
+                Log.d(TAG, "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
+                Log.d(TAG, "newStreamSourceIndex: $newStreamSourceIndex")
                 if (playerViewModel.sourcesTriedCount.value!! > streamSourcesCount) {
                     playerViewModel.showErrorMessage()
                     playerViewModel.hideAnimatedLoadingIcon()
                 }
             }
             else{
-                Log.d("PlayerActivity", "Load same source: $currentStreamSource")
+                Log.d(TAG, "Load same source: $currentStreamSource")
                 loadStreamSource(currentStreamSource)
                 playerViewModel.updateTriesCountForEachSource(playerViewModel.triesCountForEachSource.value!! + 1)
             }
@@ -1235,58 +1405,58 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun startSourceLoadingTimer() {
-        Log.d("PlayerActivity", "startLoadingTimer")
+        Log.d(TAG, "startLoadingTimer")
 
         playerViewModel.setIsSourceLoading(true)
         handler.postDelayed(sourceLoadingRunnable, SOURCE_LOADING_TIMEOUT_MS)
     }
 
     private fun startBufferingTimer() {
-        Log.d("PlayerActivity", "startBufferingTimer")
+        Log.d(TAG, "startBufferingTimer")
         playerViewModel.setIsBuffering(true)
         handler.postDelayed(bufferingRunnable, BUFFERING_TIMEOUT_MS)
     }
 
     private fun startCheckPlayingCorrectlyTimer() {
-        Log.d("PlayerActivity", "startCheckPlayingCorrectlyTimer")
+        Log.d(TAG, "startCheckPlayingCorrectlyTimer")
 
         handler.postDelayed(checkPlayingCorrectlyRunnable, PLAYING_TIMEOUT_MS)
     }
 
     private fun startChannelLoadingTimer(){
-        Log.d("PlayerActivity", "startChannelLoadingTimer")
+        Log.d(TAG, "startChannelLoadingTimer")
 
         playerViewModel.setIsChannelLoading(true)
         handler.postDelayed(channelLoadingRunnable, CHANNEL_LOADING_TIMEOUT_MS)
     }
 
     private fun cancelCheckPlayingCorrectlyTimer() {
-        Log.d("PlayerActivity", "cancelCheckPlayingCorrectlyTimer")
+        Log.d(TAG, "cancelCheckPlayingCorrectlyTimer")
         handler.removeCallbacks(checkPlayingCorrectlyRunnable)
     }
 
     private fun cancelBufferingTimer() {
-        Log.d("PlayerActivity", "cancelBufferingTimer")
+        Log.d(TAG, "cancelBufferingTimer")
         playerViewModel.setIsBuffering(false)
         handler.removeCallbacks(bufferingRunnable)
     }
 
     private fun cancelSourceLoadingTimer() {
-        Log.d("PlayerActivity", "cancelLoadingTimer")
+        Log.d(TAG, "cancelLoadingTimer")
 
         playerViewModel.setIsSourceLoading(false)
         handler.removeCallbacks(sourceLoadingRunnable)
     }
 
     private fun cancelChannelLoadingTimer(){
-        Log.d("PlayerActivity", "cancelChannelLoadingTimer")
+        Log.d(TAG, "cancelChannelLoadingTimer")
 
         playerViewModel.setIsChannelLoading(false)
         handler.removeCallbacks(channelLoadingRunnable)
     }
 
     private fun cancelTryNextStreamSourceTimer() {
-        Log.d("PlayerActivity", "cancelTryNextStreamSourceTimer")
+        Log.d(TAG, "cancelTryNextStreamSourceTimer")
         handler.removeCallbacks(tryNextStreamSourceRunnable)
     }
 
@@ -1294,6 +1464,8 @@ class PlayerActivity : AppCompatActivity() {
         if (::jobLoadStreamSource.isInitialized && (jobLoadStreamSource.isActive)) {
             jobLoadStreamSource.cancel()
         }
+        playerViewModel.hidePlayer()
+
         currentNumberInput.clear()
         if (channel.id < 0 || !channelViewModel.channelExists(channel.id)) {
             if (binding.channelNumber.visibility == View.VISIBLE) playerViewModel.hideChannelNumber()
@@ -1312,11 +1484,10 @@ class PlayerActivity : AppCompatActivity() {
         if (player.isPlaying || player.isLoading){
             player.stop()
         }
-        playerViewModel.hidePlayer()
 
         if (binding.loadingDots.visibility == View.VISIBLE) playerViewModel.hideAnimatedLoadingIcon()
         if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
-        Log.d("PlayerActivity",channel.name)
+        Log.d(TAG,channel.name)
 
         val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
 
@@ -1328,7 +1499,12 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         playerViewModel.updateChannelName(channel.name)
-        channel.indexFavourite?.let { playerViewModel.updateChannelNumber(it) }
+        if (channelViewModel.isInFavouriteCategory.value == true) {
+            playerViewModel.updateChannelNumber(channel.indexFavourite!!)
+        }
+        else if (channelViewModel.isInFavouriteCategory.value == false) {
+            playerViewModel.updateChannelNumber(channel.indexGroup!!)
+        }
 
         channelViewModel.updateCurrentProgram(null)
         channelViewModel.updateNextProgram(null)
@@ -1342,6 +1518,7 @@ class PlayerActivity : AppCompatActivity() {
         playerViewModel.updateIsSourceForced(false)
         //if (nextProgram != null) playerViewModel.updateNextProgram(nextProgram!!["title"]!!)
         channelViewModel.updateCurrentChannel(channel)
+        Log.d(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
             startChannelLoadingTimer()
             loadStreamSource(streamSources.minBy { it.index })
@@ -1372,6 +1549,19 @@ class PlayerActivity : AppCompatActivity() {
 
             val cachedUrlObj = urlCache[streamSource]
             val currentTime = System.currentTimeMillis()
+
+            if (streamSource.proxies != null) {
+                if (streamSource.proxies.isEmpty()) {
+                    Log.d(TAG, "No proxies, reset")
+                    ProxySelector.setDefault(originalProxySelector)
+                }
+                else{
+                    Log.d(TAG, "Found proxy: ${streamSource.proxies.first()}")
+                    val proxy = streamSource.proxies.first()
+                    ProxySelector.setDefault(CustomProxySelector(proxy.hostname, proxy.port))
+                }
+            }
+
             val url = if (cachedUrlObj != null && (currentTime - cachedUrlObj.timestamp) < cacheExpirationTime) {
                 cachedUrlObj.url
             } else {
@@ -1382,29 +1572,32 @@ class PlayerActivity : AppCompatActivity() {
             ensureActive()
 
             val headersObj: List<StreamSourceHeaderItem> = streamSource.headers ?: emptyList()
-            val headers : Map<String, String> = if (streamSource.streamSourceType == StreamSourceTypeItem.IPTV) {
-                ApiService.getHeadersMapFromHeadersObject(headersObj)
-            }
-            else if (streamSource.streamSourceType == StreamSourceTypeItem.TWITCH) {
-                mapOf("User-Agent" to "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
-                "Accept" to "application/x-mpegURL, application/vnd.apple.mpegurl, application/json, text/plain",
-                "Accept-Language" to "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3",
-                "Accept-Encoding" to "gzip, deflate, br, zstd" ,
-                "Referer" to "https://www.twitch.tv/",
-                "Origin" to "https://www.twitch.tv",
-                "Connection" to "keep-alive",
-                "Sec-Fetch-Dest" to "empty",
-                "Sec-Fetch-Mode" to "cors",
-                "Sec-Fetch-Site" to "cross-site",
-                "Priority" to "u=4")
-            }
-            else{
-                mapOf()
+            val headers : Map<String, String> = when (streamSource.streamSourceType) {
+                StreamSourceTypeItem.IPTV -> {
+                    ApiService.getHeadersMapFromHeadersObject(headersObj)
+                }
+                StreamSourceTypeItem.TWITCH -> {
+                    mapOf("User-Agent" to "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
+                        "Accept" to "application/x-mpegURL, application/vnd.apple.mpegurl, application/json, text/plain",
+                        "Accept-Language" to "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3",
+                        "Accept-Encoding" to "gzip, deflate, br, zstd" ,
+                        "Referer" to "https://www.twitch.tv/",
+                        "Origin" to "https://www.twitch.tv",
+                        "Connection" to "keep-alive",
+                        "Sec-Fetch-Dest" to "empty",
+                        "Sec-Fetch-Mode" to "cors",
+                        "Sec-Fetch-Site" to "cross-site",
+                        "Priority" to "u=4")
+                }
+                else -> {
+                    mapOf()
+                }
             }
 
-            Log.d("PlayerActivity","Stream URL: $url")
-            Log.d("PlayerActivity","Headers: $headers")
+            Log.d(TAG,"Stream URL: $url")
+            Log.d(TAG,"Headers: $headers")
             val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
@@ -1560,7 +1753,13 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonPiP()
                     }
                     playerViewModel.hideTimeDate()
-                    playerViewModel.showChannelNumber()
+                    if (channelViewModel.isInFavouriteCategory.value == true) {
+                        playerViewModel.showChannelNumber()
+                    }
+                    else{
+                        playerViewModel.showChannelNumberCategory()
+                        playerViewModel.showCategoryName()
+                    }
                     playerViewModel.showChannelName()
                     playerViewModel.showBottomInfo()
                     if (playerViewModel.isSourceLoading.value == false) {
@@ -1578,7 +1777,9 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonPiP()
                     }
                     playerViewModel.hideChannelNumber()
+                    playerViewModel.hideChannelNumberCategory()
                     playerViewModel.hideChannelName()
+                    playerViewModel.hideCategoryName()
                     playerViewModel.hideTimeDate()
                     playerViewModel.hideMediaInfo()
                     playerViewModel.hideBottomInfo()
@@ -1604,7 +1805,13 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonSettings()
                         playerViewModel.showButtonPiP()
                     }
-                    playerViewModel.showChannelNumber()
+                    if (channelViewModel.isInFavouriteCategory.value == true) {
+                        playerViewModel.showChannelNumber()
+                    }
+                    else{
+                        playerViewModel.showChannelNumberCategory()
+                        playerViewModel.showCategoryName()
+                    }
                     playerViewModel.showChannelName()
                     playerViewModel.updateTimeDate()
                     playerViewModel.showTimeDate()
@@ -1624,7 +1831,9 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonPiP()
                     }
                     playerViewModel.hideChannelNumber()
+                    playerViewModel.hideChannelNumberCategory()
                     playerViewModel.hideChannelName()
+                    playerViewModel.hideCategoryName()
                     playerViewModel.hideTimeDate()
                     playerViewModel.hideMediaInfo()
                     playerViewModel.hideBottomInfo()
@@ -1668,6 +1877,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (channelViewModel.isLoadingChannelList.value == true) return true
         val code = event.keyCode
         val action = event.action
         val isDown = action == 0
@@ -1691,6 +1901,11 @@ class PlayerActivity : AppCompatActivity() {
                             loadChannel(newChannel)
                         }
                     }
+                    else if (playerViewModel.isCategoryListVisible.value == true) {
+                        val currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
+                        val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(currentItemSelectedFromCategoryList) as CategoryItem
+                        loadCategory(newCategory)
+                    }
                     // Enter specific setting
                     else if (playerViewModel.isSettingsMenuVisible.value == true) {
                         playerViewModel.hideSettingsMenu()
@@ -1707,6 +1922,15 @@ class PlayerActivity : AppCompatActivity() {
                             }
                             ChannelSettings.VIDEO_TRACKS -> {
                                 loadSetting(ChannelSettings.VIDEO_TRACKS)
+                            }
+                            ChannelSettings.UPDATE_EPG -> {
+                                loadSetting(ChannelSettings.UPDATE_EPG)
+                            }
+                            ChannelSettings.SHOW_EPG -> {
+                                /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    enterPiPMode()
+                                }*/
+                                loadSetting(ChannelSettings.SHOW_EPG)
                             }
                         }
                     }
@@ -1762,6 +1986,15 @@ class PlayerActivity : AppCompatActivity() {
                             loadVideoTrack(videoTrack)
                             playerViewModel.hideTrackMenu()
                         }
+                    }
+                    else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
+                        jobUIChangeChannel.cancel()
+                        playerViewModel.hideChannelNumberKeyboard()
+                        val newChannel = channelViewModel.getChannelByFavouriteId(currentNumberInput.toString().toInt())
+                        if (newChannel != null) {
+                            loadChannel(newChannel)
+                        }
+                        currentNumberInput.clear()
                     }
                     // Show current channel info
                     else{
@@ -1840,6 +2073,15 @@ class PlayerActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    else if (binding.rvCategoryList.visibility == View.VISIBLE) {
+                        var currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
+                        currentItemSelectedFromCategoryList = if (currentItemSelectedFromCategoryList - 1 < 0) {
+                            rvCategoryList.adapter!!.itemCount - 1
+                        } else {
+                            (currentItemSelectedFromCategoryList - 1) % rvCategoryList.adapter!!.itemCount
+                        }
+                        playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
+                    }
                     else{
                         loadNextChannel()
                     }
@@ -1883,6 +2125,11 @@ class PlayerActivity : AppCompatActivity() {
                             }
                         }
                     }
+                    else if (binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
+                        var currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
+                        currentItemSelectedFromCategoryList = (currentItemSelectedFromCategoryList + 1) % rvCategoryList.adapter!!.itemCount
+                        playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
+                    }
                     else{ // Change to previous channel
                         loadPreviousChannel()
                     }
@@ -1900,9 +2147,21 @@ class PlayerActivity : AppCompatActivity() {
                     else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
                         return true
                     }
-                    initFocusInChannelSettingsMenu()
-                    playerViewModel.showSettingsMenu()
-                    return true
+                    else{
+                        initFocusInChannelSettingsMenu()
+                        playerViewModel.showSettingsMenu()
+                        return true
+                    }
+                }
+
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (binding.rvCategoryList.visibility != View.VISIBLE) {
+                        initFocusInCategoryList()
+                        playerViewModel.showCategoryList()
+                    }
+                    else if (binding.rvCategoryList.visibility == View.VISIBLE) {
+                        playerViewModel.hideCategoryList()
+                    }
                 }
 
                 KeyEvent.KEYCODE_MENU -> {
@@ -1924,6 +2183,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideTrackMenu()
                     }
                     initFocusInChannelList()
+                    //channelViewModel.updateCurrentProgramForChannels()
                     playerViewModel.showChannelList()
                     return true
                 }
@@ -1941,7 +2201,12 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideTrackMenu()
                         return true
                     }
+                    else if (playerViewModel.isCategoryListVisible.value == true) {
+                        playerViewModel.hideCategoryList()
+                        return true
+                    }
                     else{
+                        ProxySelector.setDefault(originalProxySelector)
                         return super.dispatchKeyEvent(event)
                     }
                 }
@@ -1973,32 +2238,56 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun loadPreviousChannel(){
         var channel: ChannelItem? = null
-        var currentChannelIndex = channelViewModel.currentChannel.value?.indexFavourite!!
+        var currentChannelIndex = if (channelViewModel.isInFavouriteCategory.value == true) {
+            channelViewModel.currentChannel.value?.indexFavourite!!
+        } else {
+            channelViewModel.currentChannel.value?.indexGroup!!
+        }
         while (channel == null) {
             currentChannelIndex--
             if (currentChannelIndex < 1) {
-                val lastChannelId = channelViewModel.channels.value
-                    ?.filter { it.indexFavourite != null }
-                    ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
+                val lastChannelId = if (channelViewModel.isInFavouriteCategory.value == true){
+                    channelViewModel.channels.value
+                        ?.filter { it.indexFavourite != null }
+                        ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
+                }
+                else {
+                    channelViewModel.channels.value
+                        ?.filter { it.indexGroup != null }
+                        ?.maxByOrNull { it.indexGroup!! }?.indexGroup
+                }
                 currentChannelIndex = lastChannelId!!
             }
-            channel = channelViewModel.getChannelByFavouriteId(currentChannelIndex)
+            channel = if (channelViewModel.isInFavouriteCategory.value == true) channelViewModel.getChannelByFavouriteId(currentChannelIndex)
+            else channelViewModel.getChannelByGroupId(currentChannelIndex)
         }
         loadChannel(channel)
     }
 
     private fun loadNextChannel(){
         var channel: ChannelItem? = null
-        var currentChannelIndex = channelViewModel.currentChannel.value?.indexFavourite!!
+        var currentChannelIndex = if (channelViewModel.isInFavouriteCategory.value == true) {
+            channelViewModel.currentChannel.value?.indexFavourite!!
+        } else {
+            channelViewModel.currentChannel.value?.indexGroup!!
+        }
         while (channel == null) {
             currentChannelIndex++
-            val lastChannelId = channelViewModel.channels.value
-                ?.filter { it.indexFavourite != null }
-                ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
+            val lastChannelId = if (channelViewModel.isInFavouriteCategory.value == true){
+               channelViewModel.channels.value
+                    ?.filter { it.indexFavourite != null }
+                    ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
+            }
+            else {
+                channelViewModel.channels.value
+                    ?.filter { it.indexGroup != null }
+                    ?.maxByOrNull { it.indexGroup!! }?.indexGroup
+            }
             if (currentChannelIndex - 1 == lastChannelId!!) {
                 currentChannelIndex = 1
             }
-            channel = channelViewModel.getChannelByFavouriteId(currentChannelIndex)
+            channel = if (channelViewModel.isInFavouriteCategory.value == true) channelViewModel.getChannelByFavouriteId(currentChannelIndex)
+            else channelViewModel.getChannelByGroupId(currentChannelIndex)
         }
         loadChannel(channel)
     }
@@ -2071,7 +2360,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun resetDotProperties() {
         // Reset each dot to its original properties
-        val dots = listOf(findViewById<View>(R.id.dot1), findViewById<View>(R.id.dot2), findViewById<View>(R.id.dot3))
+        val dots = listOf(findViewById<View>(R.id.dot1), findViewById(R.id.dot2), findViewById(R.id.dot3))
         for (dot in dots) {
             dot.scaleX = 1f
             dot.scaleY = 1f
@@ -2081,11 +2370,13 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        Log.d(TAG, "onStart")
         player.playWhenReady = true
     }
 
     override fun onPause() {
         super.onPause()
+        Log.d(TAG, "onPause")
         if (isInPictureInPictureMode) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
@@ -2108,13 +2399,26 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.d(TAG, "onResume")
+        if (playerViewModel.currentStreamSource.value != null && !isInPictureInPictureMode) {
+            loadStreamSource(playerViewModel.currentStreamSource.value!!)
+        }
+        player.playWhenReady = true
+    }
+
     override fun onStop() {
         super.onStop()
-        player.stop()
+        Log.d(TAG, "onStop")
+        ProxySelector.setDefault(originalProxySelector)
+        player.playWhenReady = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "onDestroy")
+        ProxySelector.setDefault(originalProxySelector)
         player.release()
     }
 
@@ -2129,6 +2433,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        Log.d(TAG, "onUserLeaveHint")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV(this)) {
                 enterPiPMode()
@@ -2148,5 +2453,16 @@ class PlayerActivity : AppCompatActivity() {
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 20L
         private const val DEFAULT_REFRESH_RATE = 50.0f
+        private val TAG = PlayerActivity::class.java.name
+    }
+}
+
+class CustomProxySelector(private val proxyHost: String, private val proxyPort: Int) : ProxySelector() {
+    override fun select(uri: URI?): List<Proxy> {
+        return listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort)))
+    }
+
+    override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
+        // You could log or handle connection failures here
     }
 }

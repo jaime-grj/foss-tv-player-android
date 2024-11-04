@@ -13,5 +13,7 @@ class ChannelSettings(name: String) {
         const val SUBTITLES_TRACKS = 1
         const val VIDEO_TRACKS = 2
         const val SOURCES = 3
+        const val UPDATE_EPG = 4
+        const val SHOW_EPG = 5
     }
 }

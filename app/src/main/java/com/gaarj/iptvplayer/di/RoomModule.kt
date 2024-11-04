@@ -63,4 +63,8 @@ object RoomModule {
     @Singleton
     @Provides
     fun provideEPGDao(db: ChannelDatabase) = db.getEPGDao()
+
+    @Singleton
+    @Provides
+    fun provideProxyDao(db: ChannelDatabase) = db.getProxyDao()
 }

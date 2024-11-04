@@ -4,6 +4,7 @@ import com.gaarj.iptvplayer.data.database.entities.EPGProgramEntity
 import java.util.Date
 
 data class EPGProgramItem (
+    var id: Long,
     var title: String,
     var description: String,
     val startTime: Date,
@@ -14,6 +15,7 @@ data class EPGProgramItem (
 )
 
 fun EPGProgramEntity.toDomain() = EPGProgramItem(
+    id = id,
     title = title,
     description = description,
     startTime = startTime,

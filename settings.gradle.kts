@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Live IPTV Player"
 include(":app")
+include(":library")

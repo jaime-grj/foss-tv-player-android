@@ -15,7 +15,7 @@
 
     <!-- Main Channel Name TextView -->
     <TextView
-        android:id="@+id/tvChannelListName"
+        android:id="@+id/tvCategoryListName"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textColor="@color/white"
@@ -28,37 +28,23 @@
         android:paddingHorizontal="5dp"
         android:maxLines="1"
         android:ellipsize="end"
-        tools:text="00  Nombre de canal" />
+        tools:text="Nombre de categoría" />
 
     <!-- Subtitle TextView for Current Program Name -->
     <TextView
-        android:id="@+id/tvChannelListSubtitle"
+        android:id="@+id/tvCategoryListSubtitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textColor="@color/white"
         android:textSize="12sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvChannelListName"
+        app:layout_constraintTop_toBottomOf="@id/tvCategoryListName"
         app:layout_constraintEnd_toEndOf="parent"
         android:fontFamily="@font/lato_regular"
         android:paddingHorizontal="5dp"
         android:maxLines="1"
         android:ellipsize="end"
         tools:text="Current Program Name" />
-
-    <!-- Horizontal ProgressBar for Program Progress -->
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="0dp"
-        android:layout_height="2dp"
-        android:layout_marginTop="2dp"
-        android:progressDrawable="@drawable/progress_drawable"
-        style="@android:style/Widget.ProgressBar.Horizontal"
-        android:indeterminate="false"
-        android:progress="0"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvChannelListSubtitle"
-        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.domain.model.ChannelSettings
+import com.gaarj.iptvplayer.ui.viewholders.ChannelSettingsViewHolder
 
 class ChannelSettingsAdapter(private val settingsList: List<ChannelSettings>, private val onItemSelected: (Int) -> Unit) : RecyclerView.Adapter<ChannelSettingsViewHolder>() {
 

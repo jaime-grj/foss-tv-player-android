@@ -24,4 +24,27 @@
     <string name="currentProgram">Current:</string>
     <string name="nextProgram">Next:</string>
     <string name="has_audio_description" >Audio description</string>
+    <string name="midnight_time" translatable="false">00:00</string>
+    <string name="view_coroutine_scope" translatable="false">view_coroutine_scope</string>
+    <string name="dummy_channel_item" translatable="false">dummy_channel_item_%s</string>
+
+
+    <string name="programguide_title_no_program" translatable="false">No broadcast</string>
+    <string name="programguide_error_fetching_content" translatable="false">Unable to display content. Please try again later.</string>
+
+    <string name="programguide_day_yesterday" translatable="false">Yesterday</string>
+    <string name="programguide_day_today" translatable="false">Today</string>
+    <string name="programguide_day_tomorrow" translatable="false">Tomorrow</string>
+
+    <string name="programguide_part_of_day_morning" translatable="false">Morning</string>
+    <string name="programguide_part_of_day_afternoon" translatable="false">Afternoon</string>
+    <string name="programguide_part_of_day_evening" translatable="false">Evening</string>
+
+    <string name="programguide_button_jump_to_live" translatable="false">Jump to live</string>
+
+    <string name="programguide_day_selector_title" translatable="false">Select the desired day</string>
+    <string name="programguide_day_time_selector_title" translatable="false">Select the desired time of day</string>
+    <string name="programguide_content_description_large_thumbnail" translatable="false">Program thumbnail</string>
+    <string name="programguide_content_description_channel_logo" translatable="false">Channel logo</string>
+    <string name="programguide_content_description_dropdown_icon" translatable="false">Dropdown icon</string>
 </resources>

@@ -22,7 +22,7 @@ class DataService @Inject constructor() {
             try {
 
                 val urlObj =
-                    URL("https://raw.githubusercontent.com/jaime-garj/test/refs/heads/main/channels.json")
+                    URL("http://filehost.zhnx.lan/channels.json")
                 connection = withContext(Dispatchers.IO) {
                     urlObj.openConnection()
                 } as HttpURLConnection

@@ -4,6 +4,7 @@ plugins {
     id("kotlin-kapt")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -92,6 +93,19 @@ dependencies {
 
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.fragment.ktx)
+
+    //implementation(libs.extension.okhttp) // OkHttp extension for ExoPlayer
+    //implementation(libs.okhttp) // OkHttp library
+    implementation("com.github.bumptech.glide:glide:4.11.0")
+    kapt ("com.github.bumptech.glide:compiler:4.11.0")
+    implementation("joda-time:joda-time:2.10.14")
+    implementation("com.github.kirich1409:viewbindingpropertydelegate-noreflection:1.5.6")
+    api("com.jakewharton.threetenabp:threetenabp:1.4.7")
+
+    implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
+    implementation("io.reactivex.rxjava3:rxjava:3.0.6")
+
+    implementation(project(":library"))
 }
 
 kapt {

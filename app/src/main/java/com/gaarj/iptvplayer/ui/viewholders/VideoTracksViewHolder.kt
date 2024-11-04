@@ -1,27 +1,27 @@
-package com.gaarj.iptvplayer.ui.adapters
+package com.gaarj.iptvplayer.ui.viewholders
 
 import android.graphics.Color
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
-import com.gaarj.iptvplayer.domain.model.StreamSourceItem
+import com.gaarj.iptvplayer.domain.model.VideoTrack
 import com.gaarj.iptvplayer.databinding.ItemChannelTrackSettingsBinding
 
-class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
+class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
+
     private val binding = ItemChannelTrackSettingsBinding.bind(view)
 
-    fun render(source: StreamSourceItem, onItemSelected: (StreamSourceItem) -> Unit){
-
-        if (source.isSelected) {
+    fun render(videoTrack: VideoTrack, onItemSelected: (VideoTrack) -> Unit){
+        if (videoTrack.isSelected) {
             binding.rbChannelSettingsTrack.isChecked = true
         }
+        if (videoTrack.id != "-1") {
+            binding.tvChannelSettingsTrackName.text = videoTrack.width.toString() + "x" + videoTrack.height.toString()
+            binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
 
-        if (source.index != -1) {
-            binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
-            binding.tvChannelSettingsTrackSubtitle.text = source.url
         }
         else{
-            binding.tvChannelSettingsTrackName.text = source.name
+            binding.tvChannelSettingsTrackName.text = videoTrack.name
             binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
 
@@ -31,9 +31,9 @@ class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
 
         itemView.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
+                itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu) // Highlight the focused item
                 binding.tvChannelSettingsTrackName.setTextColor(Color.BLACK)
                 binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.BLACK)
-                itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu)
                 binding.tvChannelSettingsTrackName.post{
                     binding.tvChannelSettingsTrackName.requestLayout()
                 }
@@ -45,7 +45,7 @@ class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
         }
 
         itemView.setOnClickListener {
-            onItemSelected(source)
+            onItemSelected(videoTrack)
         }
     }
 }

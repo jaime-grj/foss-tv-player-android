@@ -1,11 +1,14 @@
 package com.gaarj.iptvplayer.data
 
+import android.util.Log
 import androidx.room.Transaction
 import com.gaarj.iptvplayer.data.dao.ApiCallDao
 import com.gaarj.iptvplayer.data.dao.ApiCallHeaderDao
 import com.gaarj.iptvplayer.data.dao.ApiResponseKeyDao
 import com.gaarj.iptvplayer.data.dao.CategoryDao
 import com.gaarj.iptvplayer.data.dao.ChannelDao
+import com.gaarj.iptvplayer.data.dao.EPGDao
+import com.gaarj.iptvplayer.data.dao.ProxyDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceHeaderDao
 import com.gaarj.iptvplayer.data.database.entities.ApiCallEntity
@@ -14,6 +17,7 @@ import com.gaarj.iptvplayer.data.database.entities.ApiResponseKeyEntity
 import com.gaarj.iptvplayer.data.database.entities.CategoryEntity
 import com.gaarj.iptvplayer.data.database.entities.ChannelEntity
 import com.gaarj.iptvplayer.data.database.entities.ChannelShortnameEntity
+import com.gaarj.iptvplayer.data.database.entities.ProxyEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceHeaderEntity
 import com.gaarj.iptvplayer.data.database.entities.toDatabase
@@ -21,8 +25,11 @@ import com.gaarj.iptvplayer.data.services.DataService
 import com.gaarj.iptvplayer.domain.model.ApiCallHeaderItem
 import com.gaarj.iptvplayer.domain.model.ApiCallItem
 import com.gaarj.iptvplayer.domain.model.ApiResponseKeyItem
+import com.gaarj.iptvplayer.domain.model.CategoryItem
 import com.gaarj.iptvplayer.domain.model.ChannelItem
 import com.gaarj.iptvplayer.domain.model.ChannelShortnameItem
+import com.gaarj.iptvplayer.domain.model.EPGProgramItem
+import com.gaarj.iptvplayer.domain.model.ProxyItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
@@ -39,23 +46,36 @@ class ChannelRepository @Inject constructor(
     private val apiResponseKeyDao: ApiResponseKeyDao,
     private val streamSourceHeaderDao: StreamSourceHeaderDao,
     private val apiCallHeaderDao: ApiCallHeaderDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val proxyDao: ProxyDao,
+    private val epgDao: EPGDao,
+    private val epgRepository: EPGRepository
 ) {
 
     suspend fun getFavouriteChannels(): List<ChannelItem> {
         val channelEntities = channelDao.getFavouriteChannels()
+        Log.d("ChannelRepository", "Fetched ${channelEntities.size} favourite channels")
 
         return channelEntities.map { channelEntity ->
             // Fetch streamSources, relatedChannels, channelShortnames as needed
             val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
             val relatedChannels = fetchRelatedChannels(channelEntity.id)
             val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+            //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
 
             channelEntity.toDomain(
                 streamSources = streamSources,
                 relatedChannels = relatedChannels,
-                channelShortnames = channelShortnames
+                channelShortnames = channelShortnames,
+                //epgPrograms = epgPrograms
             )
+        }
+    }
+
+    suspend fun fetchAllCategories(): List<CategoryItem> {
+        val categories = categoryDao.getAllCategories()
+        return categories.map { categoryEntity ->
+            categoryEntity.toDomain()
         }
     }
 
@@ -96,7 +116,12 @@ class ChannelRepository @Inject constructor(
         return streamSources.map { streamSourceEntity ->
             val streamSourceHeaders = fetchStreamSourceHeadersForStreamSource(streamSourceEntity.id)
             val apiCalls = fetchApiCallsForStreamSource(streamSourceEntity.id)
-            streamSourceEntity.toDomain(headers = streamSourceHeaders, apiCalls = apiCalls)
+            val proxies = fetchProxiesForStreamSource(streamSourceEntity.id)
+            streamSourceEntity.toDomain(
+                headers = streamSourceHeaders,
+                apiCalls = apiCalls,
+                proxies = proxies
+            )
         }
     }
 
@@ -109,6 +134,13 @@ class ChannelRepository @Inject constructor(
         val channelShortnames = channelDao.getChannelShortnamesForChannel(channelId)
         return channelShortnames.map { channelShortnameEntity ->
             channelShortnameEntity.toDomain()
+        }
+    }
+
+    suspend fun fetchProxiesForStreamSource(streamSourceId: Long): List<ProxyItem> {
+        val proxies = proxyDao.getProxiesForStreamSource(streamSourceId)
+        return proxies.map { proxyEntity ->
+            proxyEntity.toDomain()
         }
     }
 
@@ -168,12 +200,22 @@ class ChannelRepository @Inject constructor(
                 description = categoryDescription
             )
             val categoryId = categoryDao.insertCategory(categoryEntity)
+            Log.d("Category", "$categoryId - $categoryName")
             val channels = category.getJSONArray("channels")
 
             for (j in 0 until channels.length()) {
                 val channel = channels.getJSONObject(j)
                 val channelName = channel.getString("name")
-                val channelDescription = channel.getString("description")
+                val channelDescription = try{
+                    channel.getString("description")
+                } catch (e: Exception) {
+                    null
+                }
+                val channelLogo = try{
+                    channel.getString("logo")
+                } catch (e: Exception) {
+                    null
+                }
                 val channelLanguage = try{
                     channel.getString("language")
                 } catch (e: Exception) {
@@ -194,15 +236,33 @@ class ChannelRepository @Inject constructor(
                 } catch (e: Exception) {
                     null
                 }
-                val channelShortnames = channel.getJSONArray("channelTags")
-                val channelStreamSources = channel.getJSONArray("streamSources")
-                val channelIndexFavourite = channel.getInt("indexFavourite")
-                val channelIndexGroup = channel.getInt("indexGroup")
+                val channelShortnames = try{
+                    channel.getJSONArray("channelTags")
+                } catch (e: Exception) {
+                    JSONArray()
+                }
+                val channelStreamSources = try{
+                    channel.getJSONArray("streamSources")
+                } catch (e: Exception) {
+                    JSONArray()
+                }
+                val channelIndexFavourite = try{
+                    channel.getInt("indexFavourite")
+                } catch (e: Exception) {
+                    null
+                }
+                val channelIndexGroup = try{
+                    channel.getInt("indexGroup")
+                } catch (e: Exception) {
+                    null
+                }
+
 
                 val channelEntity = ChannelEntity(
                     name = channelName,
                     description = channelDescription,
                     language = channelLanguage,
+                    logo = channelLogo,
                     country = channelCountry,
                     region = channelRegion,
                     subregion = channelSubregion,
@@ -242,6 +302,13 @@ class ChannelRepository @Inject constructor(
                     } catch (e: Exception) {
                         null
                     }
+                    val proxies = try {
+                        streamSource.getJSONArray("proxies")
+                    } catch (e: Exception) {
+                        JSONArray()
+                    }
+
+
 
                     val streamSourceTypeInt = try{
                         streamSource.getInt("type")
@@ -261,6 +328,18 @@ class ChannelRepository @Inject constructor(
                     )
                     val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
 
+                    for (l in 0 until proxies.length()) {
+                        val proxy = proxies.getJSONObject(l)
+                        val proxyHostname = proxy.getString("hostname")
+                        val proxyPort = proxy.getInt("port")
+                        val proxyEntity = ProxyEntity(
+                            hostname = proxyHostname,
+                            port = proxyPort,
+                            streamSourceId = streamSourceId
+                        )
+                        proxyDao.insertProxy(proxyEntity)
+                    }
+
                     for (l in 0 until streamSourceHeaders.length()) {
                         val header = streamSourceHeaders.getJSONObject(l)
                         val headerEntity = StreamSourceHeaderEntity(
@@ -270,6 +349,7 @@ class ChannelRepository @Inject constructor(
                         )
                         streamSourceHeaderDao.insertStreamSourceHeader(headerEntity)
                     }
+
                     for (l in 0 until streamSourceApiCalls.length()) {
                         val apiCall = streamSourceApiCalls.getJSONObject(l)
                         val apiCallUrl = apiCall.getString("url")
@@ -337,7 +417,28 @@ class ChannelRepository @Inject constructor(
     }
 
     suspend fun deleteAll() {
+        categoryDao.deleteAll()
         channelDao.deleteAll()
+    }
+
+    suspend fun getChannelsByCategory(categoryId: Long): List<ChannelItem> {
+        val channelEntities = channelDao.getChannelsForCategory(categoryId)
+        Log.d("ChannelRepository", "Fetched ${channelEntities.size} favourite channels")
+
+        return channelEntities.map { channelEntity ->
+            // Fetch streamSources, relatedChannels, channelShortnames as needed
+            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+            val relatedChannels = fetchRelatedChannels(channelEntity.id)
+            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+            //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
+
+            channelEntity.toDomain(
+                streamSources = streamSources,
+                relatedChannels = relatedChannels,
+                channelShortnames = channelShortnames,
+                //epgPrograms = epgPrograms
+            )
+        }
     }
 
 }

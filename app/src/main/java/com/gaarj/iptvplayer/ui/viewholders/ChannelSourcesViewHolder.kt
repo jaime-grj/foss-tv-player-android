@@ -1,31 +1,28 @@
-package com.gaarj.iptvplayer.ui.adapters
+package com.gaarj.iptvplayer.ui.viewholders
 
 import android.graphics.Color
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
+import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.databinding.ItemChannelTrackSettingsBinding
-import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 
-class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
-
+class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
     private val binding = ItemChannelTrackSettingsBinding.bind(view)
 
-    fun render(subtitlesTrack: SubtitlesTrack, onItemSelected: (SubtitlesTrack) -> Unit){
-        if (subtitlesTrack.isSelected) {
+    fun render(source: StreamSourceItem, onItemSelected: (StreamSourceItem) -> Unit){
+
+        if (source.isSelected) {
             binding.rbChannelSettingsTrack.isChecked = true
         }
-        if (subtitlesTrack.language == "") {
-            binding.tvChannelSettingsTrackName.text = subtitlesTrack.id
-            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.codec
-        }
-        else if (subtitlesTrack.id == "-1") {
-            binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
-            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+
+        if (source.index != -1) {
+            binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
+            binding.tvChannelSettingsTrackSubtitle.text = source.url
         }
         else{
-            binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
-            binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.id + " - " + subtitlesTrack.codec
+            binding.tvChannelSettingsTrackName.text = source.name
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
 
         binding.tvChannelSettingsTrackName.post{
@@ -34,9 +31,9 @@ class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
         itemView.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu) // Highlight the focused item
                 binding.tvChannelSettingsTrackName.setTextColor(Color.BLACK)
                 binding.tvChannelSettingsTrackSubtitle.setTextColor(Color.BLACK)
+                itemView.setBackgroundResource(R.drawable.bg_rounded_item_menu)
                 binding.tvChannelSettingsTrackName.post{
                     binding.tvChannelSettingsTrackName.requestLayout()
                 }
@@ -48,7 +45,7 @@ class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
         }
 
         itemView.setOnClickListener {
-            onItemSelected(subtitlesTrack)
+            onItemSelected(source)
         }
     }
 }

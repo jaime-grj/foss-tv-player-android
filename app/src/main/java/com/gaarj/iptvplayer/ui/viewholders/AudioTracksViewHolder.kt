@@ -1,4 +1,4 @@
-package com.gaarj.iptvplayer.ui.adapters
+package com.gaarj.iptvplayer.ui.viewholders
 
 import android.graphics.Color
 import android.view.View

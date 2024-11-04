@@ -11,13 +11,15 @@ data class StreamSourceItem (
     val streamSourceType: StreamSourceTypeItem,
     val headers: List<StreamSourceHeaderItem>? = null,
     val apiCalls: List<ApiCallItem>? = null,
+    val proxies: List<ProxyItem>? = null,
     val refreshRate: Float? = null,
     var isSelected: Boolean = false
 )
 
 fun StreamSourceEntity.toDomain(
     headers: List<StreamSourceHeaderItem> = listOf(),
-    apiCalls: List<ApiCallItem> = listOf()
+    apiCalls: List<ApiCallItem> = listOf(),
+    proxies: List<ProxyItem> = listOf()
 ) = StreamSourceItem(
     id = id,
     name = name,
@@ -26,5 +28,6 @@ fun StreamSourceEntity.toDomain(
     refreshRate = refreshRate,
     streamSourceType = streamSourceType,
     headers = headers,
-    apiCalls = apiCalls
+    apiCalls = apiCalls,
+    proxies = proxies
 )

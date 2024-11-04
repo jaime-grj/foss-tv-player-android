@@ -23,4 +23,7 @@ interface EPGDao {
 
     @Query("DELETE FROM epg_program")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId)")
+    suspend fun getEPGProgramsForChannel(channelId: Long): List<EPGProgramEntity>
 }

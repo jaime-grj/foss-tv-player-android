@@ -75,19 +75,23 @@ class ApiService {
         }
 
         private fun getURLFromHTML(url: String, stringSearch: String): String {
-            val doc: Document = Jsoup.connect(url).get()
-            val elementsWithLinks: List<Element> = doc.select("[href], [src]")
-            val matchingLinks = elementsWithLinks.filter { element ->
-                val link = element.attr("href").ifEmpty { element.attr("src") }
-                link.contains(stringSearch)
-            }
-            if (matchingLinks.isEmpty()) {
-                return ""
-            } else {
-                matchingLinks.forEach { element ->
+            try{
+                val doc: Document = Jsoup.connect(url).get()
+                val elementsWithLinks: List<Element> = doc.select("[href], [src]")
+                val matchingLinks = elementsWithLinks.filter { element ->
                     val link = element.attr("href").ifEmpty { element.attr("src") }
-                    return link
+                    link.contains(stringSearch)
                 }
+                if (matchingLinks.isEmpty()) {
+                    return ""
+                } else {
+                    matchingLinks.forEach { element ->
+                        val link = element.attr("href").ifEmpty { element.attr("src") }
+                        return link
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
             return ""
         }
