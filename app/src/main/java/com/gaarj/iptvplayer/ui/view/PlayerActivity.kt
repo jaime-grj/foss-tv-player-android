@@ -26,14 +26,12 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.FrameLayout
-import android.widget.HorizontalScrollView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -74,13 +72,13 @@ import com.google.android.exoplayer2.analytics.AnalyticsListener
 import com.google.android.exoplayer2.decoder.DecoderReuseEvaluation
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
+import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.CaptionStyleCompat
 import com.google.android.exoplayer2.ui.SubtitleView
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.util.Util
 import com.google.android.exoplayer2.video.VideoSize
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -90,16 +88,13 @@ import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import org.joda.time.DateTime
 import java.net.Proxy
 import java.net.InetSocketAddress
 import java.net.ProxySelector
 import java.net.URI
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
-import java.util.TimeZone
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
@@ -155,18 +150,15 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private val tryNextStreamSourceRunnable = Runnable {
-        Log.d(TAG, "Player error, retrying")
+        Log.i(TAG, "Try Next Stream Source")
         val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
         val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
-        if (playerViewModel.isChannelLoading.value == false) {
-            startChannelLoadingTimer()
-        }
         tryNextStreamSource(currentChannel, currentStreamSource)
     }
 
     private val sourceLoadingRunnable = Runnable {
         if (playerViewModel.isSourceLoading.value == true) {
-            Log.d(TAG, "Loading Timeout")
+            Log.i(TAG, "Loading Timeout")
             val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
             val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
             playerViewModel.hidePlayer()
@@ -176,7 +168,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val bufferingRunnable = Runnable {
         if (playerViewModel.isBuffering.value == true) {
-            Log.d(TAG, "Buffering Timeout")
+            Log.i(TAG, "Buffering Timeout")
             val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
             val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
             playerViewModel.hidePlayer()
@@ -191,7 +183,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private val channelLoadingRunnable = Runnable {
         if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
-            Log.d(TAG, "Channel Loading Timeout")
+            Log.i(TAG, "Channel Loading Timeout")
             playerViewModel.showAnimatedLoadingIcon()
         }
     }
@@ -216,7 +208,7 @@ class PlayerActivity : AppCompatActivity() {
                 channelViewModel.downloadEPG()
                 initChannelList()
                 playerViewModel.hideAnimatedLoadingIcon()
-                Log.d(TAG, "Channel list loaded + ${channelViewModel.channels.value?.size}")
+                Log.i(TAG, "Channel list loaded + ${channelViewModel.channels.value?.size}")
                 if (channelViewModel.channels.value?.isNotEmpty() == true) {
                     loadChannel(channelViewModel.channels.value.orEmpty().first())
                 }
@@ -570,7 +562,7 @@ class PlayerActivity : AppCompatActivity() {
         }
 
         channelViewModel.isInFavouriteCategory.observe(this) { isInFavouriteCategory ->
-            val constraints = ConstraintSet()
+            /*val constraints = ConstraintSet()
 
             // Clone current constraints to modify them
             constraints.clone(binding.playerContainer)
@@ -596,7 +588,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             // Apply the modified constraints
-            constraints.applyTo(binding.playerContainer)
+            constraints.applyTo(binding.playerContainer)*/
         }
 
         binding.playerView.setOnClickListener {
@@ -637,6 +629,14 @@ class PlayerActivity : AppCompatActivity() {
                 playerViewModel.showChannelList()
             }
         }
+
+        binding.buttonCategory.setOnClickListener {
+            if (playerViewModel.isCategoryListVisible.value == true) {
+                playerViewModel.hideCategoryList()
+            } else {
+                playerViewModel.showCategoryList()
+            }
+        }
     }
 
     private fun switchRefreshRate(frameRate: Float) {
@@ -650,9 +650,9 @@ class PlayerActivity : AppCompatActivity() {
             val attributes = window.attributes
             attributes.preferredDisplayModeId = mode.modeId
             window.attributes = attributes
-            Log.d("DisplayMode", "Switched to refresh rate: ${mode.refreshRate}")
+            Log.i("DisplayMode", "Switched to refresh rate: ${mode.refreshRate}")
         } else {
-            Log.d("DisplayMode", "No matching refresh rate found for $frameRate fps")
+            Log.i("DisplayMode", "No matching refresh rate found for $frameRate fps")
         }
     }
 
@@ -662,7 +662,7 @@ class PlayerActivity : AppCompatActivity() {
             ChannelSettings(getString(R.string.video_track)),
             ChannelSettings(getString(R.string.change_source)),
             ChannelSettings("Actualizar EPG"),
-            ChannelSettings("Guía de programación")
+            ChannelSettings(getString(R.string.epg))
         )
         rvChannelSettings.layoutManager = LinearLayoutManager(this)
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
@@ -725,7 +725,7 @@ class PlayerActivity : AppCompatActivity() {
             }
             ChannelSettings.SHOW_EPG -> {
                 //val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
-                //Log.d(TAG, "initEPG: " + sortedChannels.size.toString())
+                //Log.i(TAG, "initEPG: " + sortedChannels.size.toString())
 
                 val intent  = Intent(this, EPGActivity::class.java)
                 resultLauncher.launch(intent)
@@ -901,7 +901,7 @@ class PlayerActivity : AppCompatActivity() {
             categories = categories.plus(categoriesDb)
         }
 
-        Log.d("PlayerActivity", "Categories: $categories")
+        Log.i("PlayerActivity", "Categories: $categories")
         rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
             loadCategory(selectedCategory)
         }
@@ -918,7 +918,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun loadCategory(category: CategoryItem) {
-        Log.d("PlayerActivity", "loadCategory: $category")
+        Log.i("PlayerActivity", "loadCategory: $category")
         if (category.id == -1L) {
             channelViewModel.updateIsInFavouriteCategory(true)
         }
@@ -1035,6 +1035,7 @@ class PlayerActivity : AppCompatActivity() {
             .build()
 
         setSubtitleTheme()
+        player.experimentalSetOffloadSchedulingEnabled(true)
 
         binding.playerView.player = player
 
@@ -1046,19 +1047,19 @@ class PlayerActivity : AppCompatActivity() {
                     when (error.type) {
                         ExoPlaybackException.TYPE_SOURCE -> {
                             Log.e("PlayerError", "Source error: ${error.sourceException.message}")
-                            handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                         }
                         ExoPlaybackException.TYPE_RENDERER -> {
                             Log.e("PlayerError", "Renderer error: ${error.rendererException.message}")
-                            handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                         }
                         ExoPlaybackException.TYPE_UNEXPECTED -> {
                             Log.e("PlayerError", "Unexpected error: ${error.unexpectedException.message}")
-                            handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                         }
                         // Handle other types of errors as needed
                         ExoPlaybackException.TYPE_REMOTE -> {
-
+                            Log.e("PlayerError", "Unexpected error: ${error.unexpectedException.message}")
+                        }
+                        else -> {
+                            Log.e("PlayerError", "Unknown error: ${error.message}")
                         }
                     }
                 }
@@ -1068,7 +1069,7 @@ class PlayerActivity : AppCompatActivity() {
             override fun onRenderedFirstFrame() {
                 if (playerViewModel.isErrorMessageVisible.value == true) playerViewModel.hideErrorMessage()
                 if (playerViewModel.isAnimatedLoadingIconVisible.value == true) playerViewModel.hideAnimatedLoadingIcon()
-                cancelChannelLoadingTimer()
+                cancelLoadingIndicatorTimer()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -1085,11 +1086,10 @@ class PlayerActivity : AppCompatActivity() {
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                     playerViewModel.hidePlayer()
-                    startChannelLoadingTimer()
                     if (playerViewModel.isSourceLoading.value == false && playerViewModel.isBuffering.value == false) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                 }
                 else if (playbackState == Player.STATE_BUFFERING){
-                    Log.d(TAG, "buffering")
+                    Log.i(TAG, "buffering")
 
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isSourceLoading.value == false) startBufferingTimer()
@@ -1100,6 +1100,7 @@ class PlayerActivity : AppCompatActivity() {
                 if (isPlaying) {
                     if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
+                    if (playerViewModel.isChannelLoading.value == true) cancelLoadingIndicatorTimer()
                     cancelTryNextStreamSourceTimer()
 
                     if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS && rvAudioTracks.adapter?.itemCount == 0) {
@@ -1170,11 +1171,11 @@ class PlayerActivity : AppCompatActivity() {
                     if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
-                            Log.d(TAG, trackFormat.toString())
+                            Log.i(TAG, trackFormat.toString())
                             val audioLanguage = trackFormat.language
                             if(audioLanguage !in audioLanguages){
                                 audioLanguages += listOf(audioLanguage)
-                                Log.d(TAG, audioLanguages.toString())
+                                Log.i(TAG, audioLanguages.toString())
                             }
                             if (trackGroup.isTrackSelected(j)){
                                 val audioCodec: String?
@@ -1215,14 +1216,14 @@ class PlayerActivity : AppCompatActivity() {
                         val subtitlesLanguages = mutableListOf<String?>()
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
-                            Log.d(TAG, trackFormat.toString())
+                            Log.i(TAG, trackFormat.toString())
                             val subtitlesLanguage = trackFormat.language
                             if(subtitlesLanguage !in subtitlesLanguages){
                                 subtitlesLanguages += listOf(subtitlesLanguage)
-                                Log.d(TAG, subtitlesLanguages.toString())
+                                Log.i(TAG, subtitlesLanguages.toString())
                             }
                         }
-                        Log.d(TAG, subtitlesLanguages.toString())
+                        Log.i(TAG, subtitlesLanguages.toString())
                         mediaInfo.hasSubtitles = subtitlesLanguages.filterNotNull().isNotEmpty()
                     }
                     /*if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
@@ -1331,7 +1332,7 @@ class PlayerActivity : AppCompatActivity() {
         val subtitleView: SubtitleView? = binding.playerView.subtitleView
 
         val foregroundColor = Color.WHITE  // Text color
-        val backgroundColor = Color.TRANSPARENT  // Background color
+        val backgroundColor = Color.argb(192, 0, 0, 0)  // Background color
         val windowColor = Color.TRANSPARENT  // Window background
 
         val customTypeface: Typeface? = ResourcesCompat.getFont(this, R.font.lato_bold)
@@ -1355,8 +1356,11 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun tryNextStreamSource(channel: ChannelItem, currentStreamSource: StreamSourceItem) {
-        Log.d(TAG, "tryNextStreamSource")
+        Log.i(TAG, "tryNextStreamSource")
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
+        if (playerViewModel.isChannelLoading.value == false){
+            startLoadingIndicatorTimer()
+        }
         if (player.isPlaying || player.isLoading) player.stop()
         if (playerViewModel.isSourceForced.value == true){
             loadStreamSource(currentStreamSource)
@@ -1368,7 +1372,7 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
         else{
-            Log.d(TAG, "triesforeachsource: $playerViewModel.triesCountForEachSource.value")
+            Log.i(TAG, "triesforeachsource: $playerViewModel.triesCountForEachSource.value")
 
             val streamSourcesFiltered = channel.streamSources.filter { it.index > currentStreamSource.index }
             var newStreamSourceIndex = streamSourcesFiltered.minByOrNull { it.index }?.index ?: channel.streamSources.minByOrNull { it.index }?.index ?: 0
@@ -1381,23 +1385,23 @@ class PlayerActivity : AppCompatActivity() {
                     newStreamSourceIndex = channel.streamSources.minBy { it.index }.index
                 }
                 val newStreamSource: StreamSourceItem? = channel.streamSources.firstOrNull { it.index == newStreamSourceIndex }
-                Log.d(TAG, "newStreamSource:$newStreamSource")
+                Log.i(TAG, "newStreamSource:$newStreamSource")
                 if (newStreamSource != null) {
                     loadStreamSource(newStreamSource)
                     playerViewModel.updateSourcesTriedCount(playerViewModel.sourcesTriedCount.value!! + 1)
-                    Log.d("TryNextStreamSource", "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
+                    Log.i("TryNextStreamSource", "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
                     playerViewModel.updateTriesCountForEachSource(1)
                 }
-                Log.d(TAG, "streamsourcemaxindex $streamSourceMaxIndex")
-                Log.d(TAG, "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
-                Log.d(TAG, "newStreamSourceIndex: $newStreamSourceIndex")
+                Log.i(TAG, "streamsourcemaxindex $streamSourceMaxIndex")
+                Log.i(TAG, "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
+                Log.i(TAG, "newStreamSourceIndex: $newStreamSourceIndex")
                 if (playerViewModel.sourcesTriedCount.value!! > streamSourcesCount) {
                     playerViewModel.showErrorMessage()
                     playerViewModel.hideAnimatedLoadingIcon()
                 }
             }
             else{
-                Log.d(TAG, "Load same source: $currentStreamSource")
+                Log.i(TAG, "Load same source: $currentStreamSource")
                 loadStreamSource(currentStreamSource)
                 playerViewModel.updateTriesCountForEachSource(playerViewModel.triesCountForEachSource.value!! + 1)
             }
@@ -1405,58 +1409,58 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun startSourceLoadingTimer() {
-        Log.d(TAG, "startLoadingTimer")
+        Log.i(TAG, "startLoadingTimer")
 
         playerViewModel.setIsSourceLoading(true)
         handler.postDelayed(sourceLoadingRunnable, SOURCE_LOADING_TIMEOUT_MS)
     }
 
     private fun startBufferingTimer() {
-        Log.d(TAG, "startBufferingTimer")
+        Log.i(TAG, "startBufferingTimer")
         playerViewModel.setIsBuffering(true)
         handler.postDelayed(bufferingRunnable, BUFFERING_TIMEOUT_MS)
     }
 
     private fun startCheckPlayingCorrectlyTimer() {
-        Log.d(TAG, "startCheckPlayingCorrectlyTimer")
+        Log.i(TAG, "startCheckPlayingCorrectlyTimer")
 
         handler.postDelayed(checkPlayingCorrectlyRunnable, PLAYING_TIMEOUT_MS)
     }
 
-    private fun startChannelLoadingTimer(){
-        Log.d(TAG, "startChannelLoadingTimer")
+    private fun startLoadingIndicatorTimer(){
+        Log.i(TAG, "startLoadingIndicatorTimer")
 
         playerViewModel.setIsChannelLoading(true)
         handler.postDelayed(channelLoadingRunnable, CHANNEL_LOADING_TIMEOUT_MS)
     }
 
     private fun cancelCheckPlayingCorrectlyTimer() {
-        Log.d(TAG, "cancelCheckPlayingCorrectlyTimer")
+        Log.i(TAG, "cancelCheckPlayingCorrectlyTimer")
         handler.removeCallbacks(checkPlayingCorrectlyRunnable)
     }
 
     private fun cancelBufferingTimer() {
-        Log.d(TAG, "cancelBufferingTimer")
+        Log.i(TAG, "cancelBufferingTimer")
         playerViewModel.setIsBuffering(false)
         handler.removeCallbacks(bufferingRunnable)
     }
 
     private fun cancelSourceLoadingTimer() {
-        Log.d(TAG, "cancelLoadingTimer")
+        Log.i(TAG, "cancelLoadingTimer")
 
         playerViewModel.setIsSourceLoading(false)
         handler.removeCallbacks(sourceLoadingRunnable)
     }
 
-    private fun cancelChannelLoadingTimer(){
-        Log.d(TAG, "cancelChannelLoadingTimer")
+    private fun cancelLoadingIndicatorTimer(){
+        Log.i(TAG, "cancelLoadingIndicatorTimer")
 
         playerViewModel.setIsChannelLoading(false)
         handler.removeCallbacks(channelLoadingRunnable)
     }
 
     private fun cancelTryNextStreamSourceTimer() {
-        Log.d(TAG, "cancelTryNextStreamSourceTimer")
+        Log.i(TAG, "cancelTryNextStreamSourceTimer")
         handler.removeCallbacks(tryNextStreamSourceRunnable)
     }
 
@@ -1476,7 +1480,8 @@ class PlayerActivity : AppCompatActivity() {
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         cancelCheckPlayingCorrectlyTimer()
         cancelTryNextStreamSourceTimer()
-        cancelChannelLoadingTimer()
+        cancelLoadingIndicatorTimer()
+        startLoadingIndicatorTimer()
 
         if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
         resetMediaInfo()
@@ -1487,7 +1492,7 @@ class PlayerActivity : AppCompatActivity() {
 
         if (binding.loadingDots.visibility == View.VISIBLE) playerViewModel.hideAnimatedLoadingIcon()
         if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
-        Log.d(TAG,channel.name)
+        Log.i(TAG,channel.name)
 
         val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
 
@@ -1518,9 +1523,8 @@ class PlayerActivity : AppCompatActivity() {
         playerViewModel.updateIsSourceForced(false)
         //if (nextProgram != null) playerViewModel.updateNextProgram(nextProgram!!["title"]!!)
         channelViewModel.updateCurrentChannel(channel)
-        Log.d(TAG, streamSources.toString())
+        Log.i(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
-            startChannelLoadingTimer()
             loadStreamSource(streamSources.minBy { it.index })
             playerViewModel.updateTriesCountForEachSource(1)
             playerViewModel.updateSourcesTriedCount(1)
@@ -1540,6 +1544,11 @@ class PlayerActivity : AppCompatActivity() {
             player.stop()
         }
 
+        if (playerViewModel.isSourceForced.value == true && playerViewModel.isChannelLoading.value == false){
+            cancelLoadingIndicatorTimer()
+            startLoadingIndicatorTimer()
+        }
+
         startSourceLoadingTimer()
         resetMediaInfo()
         if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
@@ -1552,11 +1561,11 @@ class PlayerActivity : AppCompatActivity() {
 
             if (streamSource.proxies != null) {
                 if (streamSource.proxies.isEmpty()) {
-                    Log.d(TAG, "No proxies, reset")
+                    Log.i(TAG, "No proxies, reset")
                     ProxySelector.setDefault(originalProxySelector)
                 }
                 else{
-                    Log.d(TAG, "Found proxy: ${streamSource.proxies.first()}")
+                    Log.i(TAG, "Found proxy: ${streamSource.proxies.first()}")
                     val proxy = streamSource.proxies.first()
                     ProxySelector.setDefault(CustomProxySelector(proxy.hostname, proxy.port))
                 }
@@ -1594,8 +1603,8 @@ class PlayerActivity : AppCompatActivity() {
                 }
             }
 
-            Log.d(TAG,"Stream URL: $url")
-            Log.d(TAG,"Headers: $headers")
+            Log.i(TAG,"Stream URL: $url")
+            Log.i(TAG,"Headers: $headers")
             val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
 
             val mediaSource = if (url.contains(".m3u8")) {
@@ -1623,6 +1632,9 @@ class PlayerActivity : AppCompatActivity() {
                             .build()
                     )
             }*/
+            else if (url.contains(".mpd")) {
+                DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+            }
             else {
                 ProgressiveMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
@@ -1751,6 +1763,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonChannelList()
                         playerViewModel.showButtonSettings()
                         playerViewModel.showButtonPiP()
+                        playerViewModel.showButtonCategoryList()
                     }
                     playerViewModel.hideTimeDate()
                     if (channelViewModel.isInFavouriteCategory.value == true) {
@@ -1775,6 +1788,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonChannelList()
                         playerViewModel.hideButtonSettings()
                         playerViewModel.hideButtonPiP()
+                        playerViewModel.hideButtonCategoryList()
                     }
                     playerViewModel.hideChannelNumber()
                     playerViewModel.hideChannelNumberCategory()
@@ -1804,6 +1818,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonChannelList()
                         playerViewModel.showButtonSettings()
                         playerViewModel.showButtonPiP()
+                        playerViewModel.showButtonCategoryList()
                     }
                     if (channelViewModel.isInFavouriteCategory.value == true) {
                         playerViewModel.showChannelNumber()
@@ -1829,6 +1844,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonChannelList()
                         playerViewModel.hideButtonSettings()
                         playerViewModel.hideButtonPiP()
+                        playerViewModel.hideButtonCategoryList()
                     }
                     playerViewModel.hideChannelNumber()
                     playerViewModel.hideChannelNumberCategory()
@@ -1905,6 +1921,7 @@ class PlayerActivity : AppCompatActivity() {
                         val currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
                         val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(currentItemSelectedFromCategoryList) as CategoryItem
                         loadCategory(newCategory)
+                        playerViewModel.hideCategoryList()
                     }
                     // Enter specific setting
                     else if (playerViewModel.isSettingsMenuVisible.value == true) {
@@ -1971,6 +1988,8 @@ class PlayerActivity : AppCompatActivity() {
                             playerViewModel.updateSourcesTriedCount(1)
                             loadStreamSource(streamSource)
                             playerViewModel.hideTrackMenu()
+                            playerViewModel.hideAnimatedLoadingIcon()
+                            playerViewModel.hidePlayer()
                         }
                     }
                     else if (playerViewModel.isTrackMenuVisible.value == true && playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS) {
@@ -2167,13 +2186,6 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_MENU -> {
                     if (binding.channelList.visibility == View.VISIBLE) {
                         playerViewModel.hideChannelList()
-                        val channels = channelViewModel.channels.value!!
-                        for (i in channels.indices){
-                            if (channels[i] == channelViewModel.currentChannel.value){
-                                playerViewModel.updateCurrentItemSelectedFromChannelList(i)
-                                break
-                            }
-                        }
                         return true
                     }
                     else if (playerViewModel.isSettingsMenuVisible.value == true) {
@@ -2370,13 +2382,13 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        Log.d(TAG, "onStart")
+        Log.i(TAG, "onStart")
         player.playWhenReady = true
     }
 
     override fun onPause() {
         super.onPause()
-        Log.d(TAG, "onPause")
+        Log.i(TAG, "onPause")
         if (isInPictureInPictureMode) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
@@ -2384,6 +2396,7 @@ class PlayerActivity : AppCompatActivity() {
             playerViewModel.hideButtonUp()
             playerViewModel.hideButtonDown()
             playerViewModel.hideButtonChannelList()
+            playerViewModel.hideButtonCategoryList()
             playerViewModel.hideChannelList()
             playerViewModel.hideSettingsMenu()
             playerViewModel.hideTrackMenu()
@@ -2401,7 +2414,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "onResume")
+        Log.i(TAG, "onResume")
         if (playerViewModel.currentStreamSource.value != null && !isInPictureInPictureMode) {
             loadStreamSource(playerViewModel.currentStreamSource.value!!)
         }
@@ -2410,14 +2423,14 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        Log.d(TAG, "onStop")
+        Log.i(TAG, "onStop")
         ProxySelector.setDefault(originalProxySelector)
         player.playWhenReady = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "onDestroy")
+        Log.i(TAG, "onDestroy")
         ProxySelector.setDefault(originalProxySelector)
         player.release()
     }
@@ -2433,7 +2446,7 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        Log.d(TAG, "onUserLeaveHint")
+        Log.i(TAG, "onUserLeaveHint")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV(this)) {
                 enterPiPMode()
@@ -2445,13 +2458,13 @@ class PlayerActivity : AppCompatActivity() {
         private const val MAX_DIGITS = 5
         private const val TIMEOUT_UI_CHANNEL_LOAD = 5000L
         private const val TIMEOUT_UI_INFO = 5000L
-        private const val RETRY_DELAY_MS = 500L
+        private const val RETRY_DELAY_MS = 200L
         private const val BUFFERING_TIMEOUT_MS = 3000L
         private const val SOURCE_LOADING_TIMEOUT_MS = 7000L
         private const val CHANNEL_LOADING_TIMEOUT_MS = 7000L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
-        private const val TIME_CACHED_URL_MINUTES = 20L
+        private const val TIME_CACHED_URL_MINUTES = 5L
         private const val DEFAULT_REFRESH_RATE = 50.0f
         private val TAG = PlayerActivity::class.java.name
     }

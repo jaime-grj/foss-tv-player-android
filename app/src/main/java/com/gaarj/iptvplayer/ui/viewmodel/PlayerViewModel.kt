@@ -147,6 +147,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _isButtonPiPVisible = MutableLiveData<Boolean>()
     val isButtonPiPVisible: LiveData<Boolean> get() = _isButtonPiPVisible
 
+    private val _isButtonCategoryListVisible = MutableLiveData<Boolean>()
+    val isButtonCategoryListVisible: LiveData<Boolean> get() = _isButtonCategoryListVisible
+
     private val _isChannelNumberKeyboardVisible = MutableLiveData<Boolean>()
     val isChannelNumberKeyboardVisible: LiveData<Boolean> get() = _isChannelNumberKeyboardVisible
 
@@ -293,6 +296,14 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     fun hideButtonPiP() {
         _isButtonPiPVisible.value = false
+    }
+
+    fun showButtonCategoryList() {
+        _isButtonCategoryListVisible.value = true
+    }
+
+    fun hideButtonCategoryList() {
+        _isButtonCategoryListVisible.value = false
     }
 
     fun showChannelNumberKeyboard() {
