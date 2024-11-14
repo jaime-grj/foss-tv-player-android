@@ -108,16 +108,18 @@
         android:textSize="12sp"
         android:textStyle="bold"
         android:textAlignment="textEnd"
+        android:paddingStart="12dp"
+        android:layout_marginBottom="-7dp"
         android:fontFamily="@font/lato_bold"
-        app:layout_constraintStart_toEndOf="@id/channelNumberCategory"
-        app:layout_constraintBaseline_toBaselineOf="@id/channelNumber"
+        app:layout_constraintStart_toStartOf="@id/channelName"
+        app:layout_constraintBottom_toTopOf="@+id/channelName"
         android:visibility="gone"
         android:shadowColor="#000000"
         android:shadowDx="0"
         android:shadowDy="0"
         android:shadowRadius="6"
         tools:visibility="visible"
-        tools:text="categoría"/>
+        tools:text="CATEgORÍA"/>
 
     <TextView
         android:id="@+id/channelName"
@@ -129,7 +131,7 @@
         android:textStyle="bold"
         android:fontFamily="@font/lato_bold"
         app:layout_constraintBottom_toBottomOf="@+id/channelNumber"
-        app:layout_constraintStart_toEndOf="@id/categoryName"
+        app:layout_constraintStart_toEndOf="@id/channelNumber"
         app:layout_constraintBaseline_toBaselineOf="@id/channelNumber"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
@@ -628,10 +630,20 @@
         android:id="@+id/buttonPiP"
         android:layout_width="50dp"
         android:layout_height="wrap_content"
-        app:layout_constraintBottom_toTopOf="@id/buttonSettings"
+        app:layout_constraintBottom_toTopOf="@id/buttonCategory"
         app:layout_constraintEnd_toEndOf="parent"
         android:visibility="gone"
         tools:visibility="visible"
         android:text="P" />
+
+    <Button
+        android:id="@+id/buttonCategory"
+        android:layout_width="50dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/buttonSettings"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:text="C" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
