@@ -174,6 +174,8 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
                                 Instant.ofEpochMilli(program.stopTime.time),
                                 DISPLAY_TIMEZONE
                             )
+                            println("ID ${program.id}, Title: " + program.title)
+                            println("newStartTime: $newStartTime, newEndTime: $newEndTime")
                             scheduleList.add(
                                 createSchedule(
                                     program.title,
