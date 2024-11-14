@@ -16,6 +16,7 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Scanner
+import java.util.regex.Pattern
 
 class ApiService {
 
@@ -75,25 +76,32 @@ class ApiService {
         }
 
         private fun getURLFromHTML(url: String, stringSearch: String): String {
-            try{
+            return try {
+                // Fetch and parse the document
                 val doc: Document = Jsoup.connect(url).get()
-                val elementsWithLinks: List<Element> = doc.select("[href], [src]")
-                val matchingLinks = elementsWithLinks.filter { element ->
-                    val link = element.attr("href").ifEmpty { element.attr("src") }
-                    link.contains(stringSearch)
-                }
-                if (matchingLinks.isEmpty()) {
-                    return ""
-                } else {
-                    matchingLinks.forEach { element ->
-                        val link = element.attr("href").ifEmpty { element.attr("src") }
-                        return link
+
+                // Extract the entire HTML as a single text string
+                val htmlText = doc.html()
+
+                // Regular expression to match URLs
+                val regex = """https?://[^\s"'<>]+"""
+                val urlPattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE)
+
+                // Search for URLs using the regex pattern
+                val matcher = urlPattern.matcher(htmlText)
+                while (matcher.find()) {
+                    val foundUrl = matcher.group()
+                    // Check if the found URL contains the search string
+                    if (foundUrl.contains(stringSearch)) {
+                        return foundUrl
                     }
                 }
+
+                "" // No matching URL found
             } catch (e: Exception) {
                 e.printStackTrace()
+                ""
             }
-            return ""
         }
 
         fun getURLFromChannelSource(streamSource: StreamSourceItem): String? {
@@ -222,14 +230,14 @@ class ApiService {
             }
             else if (streamSource.streamSourceType == StreamSourceTypeItem.YOUTUBE) {
                 try{
-                    val html = fetchHtmlFromUrl("https://www.youtube.com/@${streamSource.url}/live")
+                    val html = fetchHtmlFromUrl("https://www.youtube.com/${streamSource.url}/live")
 
                     val regex = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
                     val matchResult = regex.find(html)
                     url = if (matchResult == null) {
                         ""
                     } else{
-                        matchResult?.groups?.get(1)?.value
+                        matchResult.groups[1]?.value
                     }
                 }
                 catch (e: Exception) {
