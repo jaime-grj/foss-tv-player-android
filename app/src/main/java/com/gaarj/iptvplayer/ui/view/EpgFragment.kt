@@ -82,7 +82,7 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
             return
         }
         if (programGuideSchedule.isCurrentProgram) {
-            Toast.makeText(context, "Open live player", Toast.LENGTH_LONG).show()
+            //Toast.makeText(context, "Open live player", Toast.LENGTH_LONG).show()
             val resultIntent = Intent()
             val channelId = programGuideSchedule.channelId
             Log.d(TAG, "Channel ID: $channelId")
@@ -164,7 +164,7 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
 
                         val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong())
                         Log.d(TAG, "Found ${programs.size} programs for channel ${channel.id}.")
-
+                        
                         for (program in programs) {
                             val newStartTime = ZonedDateTime.ofInstant(
                                 Instant.ofEpochMilli(program.startTime.time),
@@ -174,8 +174,8 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
                                 Instant.ofEpochMilli(program.stopTime.time),
                                 DISPLAY_TIMEZONE
                             )
-                            println("ID ${program.id}, Title: " + program.title)
-                            println("newStartTime: $newStartTime, newEndTime: $newEndTime")
+                            //println("ID ${program.id}, Title: " + program.title)
+                            //println("newStartTime: $newStartTime, newEndTime: $newEndTime")
                             scheduleList.add(
                                 createSchedule(
                                     program.title,

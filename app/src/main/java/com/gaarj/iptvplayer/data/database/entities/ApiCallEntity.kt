@@ -34,7 +34,7 @@ class ApiCallEntity (
     @ColumnInfo(name = "body")
     val body: String?,
 
-    @ColumnInfo(name = "headers")
+    @ColumnInfo(name = "string_search")
     val stringSearch : String?,
 
     @ColumnInfo(name = "type")

@@ -13,7 +13,7 @@ data class MediaInfo(
     var audioChannels: String? = null,
     var hasSubtitles: Boolean = false,
     var hasEPG: Boolean = false,
-    var hasMultiLanguageAudio: Boolean = false,
+    var hasMultipleAudios: Boolean = false,
     var hasAudioDescription: Boolean = false,
     var hasTeletext: Boolean = false,
     var hasDRM: Boolean = false

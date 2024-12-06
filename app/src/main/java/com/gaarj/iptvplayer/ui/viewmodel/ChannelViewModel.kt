@@ -88,8 +88,11 @@ class ChannelViewModel @Inject constructor(
             if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
                 downloadEPGUseCase.invoke()
                 settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
+                updateEPGUseCase.invoke(channelList = _channels.value.orEmpty())
             }
-            updateEPGUseCase.invoke(channelList = _channels.value.orEmpty())
+            else{
+                updateEPGUseCase.invoke(channelList = _channels.value.orEmpty())
+            }
         }
     }
 

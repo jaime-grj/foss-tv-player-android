@@ -15,7 +15,7 @@
     <string name="not_available">Unavailable</string>
     <string name="drm" translatable="false">DRM</string>
     <string name="off">Off</string>
-    <string name="has_multilanguage_audio">Multi-language audio</string>
+    <string name="has_multilanguage_audio">Multiple audio tracks</string>
     <string name="channel_logo">Channel logo</string>
     <string name="change_source">Change source</string>
     <string name="video_track">Video track</string>
