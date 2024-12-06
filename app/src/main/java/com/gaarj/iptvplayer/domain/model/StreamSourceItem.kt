@@ -13,13 +13,20 @@ data class StreamSourceItem (
     val apiCalls: List<ApiCallItem>? = null,
     val proxies: List<ProxyItem>? = null,
     val refreshRate: Float? = null,
-    var isSelected: Boolean = false
+    var isSelected: Boolean = false,
+    val drmType: DrmTypeItem,
+    val drmKeys: String? = null,
+    val drmHeaders: List<DrmHeaderItem>? = null,
+    val pssh: String? = null,
+    val licenseUrl : String? = null,
+    val useUnofficialDrmLicenseMethod: Boolean = false
 )
 
 fun StreamSourceEntity.toDomain(
     headers: List<StreamSourceHeaderItem> = listOf(),
     apiCalls: List<ApiCallItem> = listOf(),
-    proxies: List<ProxyItem> = listOf()
+    proxies: List<ProxyItem> = listOf(),
+    drmHeaders: List<DrmHeaderItem> = listOf(),
 ) = StreamSourceItem(
     id = id,
     name = name,
@@ -29,5 +36,11 @@ fun StreamSourceEntity.toDomain(
     streamSourceType = streamSourceType,
     headers = headers,
     apiCalls = apiCalls,
-    proxies = proxies
+    proxies = proxies,
+    drmType = drmType,
+    drmKeys = drmKeys,
+    pssh = pssh,
+    licenseUrl = licenseUrl,
+    useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
+    drmHeaders = drmHeaders
 )

@@ -8,6 +8,7 @@ import com.gaarj.iptvplayer.data.dao.ApiResponseKeyDao
 import com.gaarj.iptvplayer.data.dao.CategoryDao
 import com.gaarj.iptvplayer.data.dao.ChannelDao
 import com.gaarj.iptvplayer.data.dao.ApiCallHeaderDao
+import com.gaarj.iptvplayer.data.dao.DrmHeaderDao
 import com.gaarj.iptvplayer.data.dao.EPGDao
 import com.gaarj.iptvplayer.data.dao.ProxyDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceHeaderDao
@@ -23,6 +24,7 @@ import com.gaarj.iptvplayer.data.database.entities.EPGProgramEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceHeaderEntity
 import com.gaarj.iptvplayer.data.database.entities.ProxyEntity
+import com.gaarj.iptvplayer.data.database.entities.DrmHeaderEntity
 
 @Database(
     entities = [
@@ -35,7 +37,8 @@ import com.gaarj.iptvplayer.data.database.entities.ProxyEntity
         StreamSourceEntity::class,
         StreamSourceHeaderEntity::class,
         EPGProgramEntity::class,
-        ProxyEntity::class],
+        ProxyEntity::class,
+        DrmHeaderEntity::class],
     version = 1
 )
 @TypeConverters(Converters::class)
@@ -50,4 +53,5 @@ abstract class ChannelDatabase : RoomDatabase() {
     abstract fun getHeaderStreamSourceDao(): StreamSourceHeaderDao
     abstract fun getEPGDao(): EPGDao
     abstract fun getProxyDao(): ProxyDao
+    abstract fun getHeaderDrmDao(): DrmHeaderDao
 }

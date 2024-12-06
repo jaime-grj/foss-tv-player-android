@@ -43,6 +43,7 @@ import com.gaarj.iptvplayer.domain.model.AudioTrack
 import com.gaarj.iptvplayer.domain.model.CategoryItem
 import com.gaarj.iptvplayer.domain.model.ChannelItem
 import com.gaarj.iptvplayer.domain.model.ChannelSettings
+import com.gaarj.iptvplayer.domain.model.DrmTypeItem
 import com.gaarj.iptvplayer.domain.model.MediaInfo
 import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
@@ -65,11 +66,16 @@ import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.Format
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
 import com.google.android.exoplayer2.decoder.DecoderReuseEvaluation
+import com.google.android.exoplayer2.drm.DefaultDrmSessionManager
+import com.google.android.exoplayer2.drm.DrmSessionManager
+import com.google.android.exoplayer2.drm.FrameworkMediaDrm
+import com.google.android.exoplayer2.drm.LocalMediaDrmCallback
 import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
@@ -79,6 +85,7 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.CaptionStyleCompat
 import com.google.android.exoplayer2.ui.SubtitleView
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
+import com.google.android.exoplayer2.util.MimeTypes
 import com.google.android.exoplayer2.video.VideoSize
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -88,16 +95,18 @@ import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import java.net.Proxy
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.ProxySelector
 import java.net.URI
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
+
 
 val Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()
 
@@ -383,7 +392,7 @@ class PlayerActivity : AppCompatActivity() {
             else{
                 binding.channelHasEPG.visibility = View.GONE
             }
-            if (mediaInfo.hasMultiLanguageAudio) {
+            if (mediaInfo.hasMultipleAudios) {
                 binding.channelHasMultiLanguageAudio.visibility = View.VISIBLE
             }
             else{
@@ -402,6 +411,13 @@ class PlayerActivity : AppCompatActivity() {
             }
             else{
                 binding.channelHasTeletext.visibility = View.GONE
+            }
+
+            if (mediaInfo.hasDRM) {
+                binding.channelHasDRM.visibility = View.VISIBLE
+            }
+            else{
+                binding.channelHasDRM.visibility = View.GONE
             }
         }
 
@@ -451,6 +467,10 @@ class PlayerActivity : AppCompatActivity() {
 
         playerViewModel.isButtonPiPVisible.observe(this) { isVisible ->
             binding.buttonPiP.visibility = if (isVisible) View.VISIBLE else View.GONE
+        }
+
+        playerViewModel.isButtonCategoryListVisible.observe(this) { isVisible ->
+            binding.buttonCategory.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
         playerViewModel.isChannelNumberKeyboardVisible.observe(this) { isVisible ->
@@ -528,6 +548,10 @@ class PlayerActivity : AppCompatActivity() {
                 mediaInfo.hasEPG = true
                 playerViewModel.updateMediaInfo(mediaInfo)
             }
+            else if (channelViewModel.nextProgram.value != null){
+                mediaInfo.hasEPG = true
+                playerViewModel.updateMediaInfo(mediaInfo)
+            }
             else{
                 mediaInfo.hasEPG = false
                 playerViewModel.updateMediaInfo(mediaInfo)
@@ -600,6 +624,23 @@ class PlayerActivity : AppCompatActivity() {
             }
             else if (playerViewModel.isTrackMenuVisible.value == true) {
                 playerViewModel.hideTrackMenu()
+            }
+            else if (playerViewModel.isChannelNumberVisible.value == true) {
+                if (!isAndroidTV(this)) {
+                    playerViewModel.hideButtonUp()
+                    playerViewModel.hideButtonDown()
+                    playerViewModel.hideButtonChannelList()
+                    playerViewModel.hideButtonSettings()
+                    playerViewModel.hideButtonPiP()
+                    playerViewModel.hideButtonCategoryList()
+                }
+                playerViewModel.hideChannelNumber()
+                playerViewModel.hideChannelNumberCategory()
+                playerViewModel.hideChannelName()
+                playerViewModel.hideCategoryName()
+                playerViewModel.hideTimeDate()
+                playerViewModel.hideMediaInfo()
+                playerViewModel.hideBottomInfo()
             }
             else{
                 showFullChannelUIWithTimeout()
@@ -789,7 +830,8 @@ class PlayerActivity : AppCompatActivity() {
                 headers = listOf(),
                 index = -1,
                 streamSourceType = StreamSourceTypeItem.IPTV,
-                isSelected = playerViewModel.isSourceForced.value == false
+                isSelected = playerViewModel.isSourceForced.value == false,
+                drmType = DrmTypeItem.NONE
             )
         )
 
@@ -1016,7 +1058,7 @@ class PlayerActivity : AppCompatActivity() {
         trackSelector.parameters = parameters
 
         val renderersFactory = DefaultRenderersFactory( this)
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).forceEnableMediaCodecAsynchronousQueueing()
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -1079,6 +1121,19 @@ class PlayerActivity : AppCompatActivity() {
                     cancelTryNextStreamSourceTimer()
                     playerViewModel.hideErrorMessage()
                     playerViewModel.showPlayer()
+                    /*val mediaItem = player.currentMediaItem
+                    mediaItem?.let { item ->
+                        val drmConfiguration = item.localConfiguration?.drmConfiguration
+                        if (drmConfiguration != null) {
+                            Log.d("DRM_CHECK", "Stream has DRM with config: $drmConfiguration")
+                            mediaInfo.hasDRM = true
+                            playerViewModel.updateMediaInfo(mediaInfo)
+                        } else {
+                            Log.d("DRM_CHECK", "Stream does not have DRM.")
+                            mediaInfo.hasDRM = false
+                            playerViewModel.updateMediaInfo(mediaInfo)
+                        }
+                    }*/
                 }
                 else if (playbackState == Player.STATE_ENDED){
                     if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
@@ -1165,18 +1220,19 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onTracksChanged(tracks: Tracks) {
-                val audioLanguages = mutableListOf<String?>()
+                var audioTracksCount = 0
                 for (i in 0 until tracks.groups.size) {
                     val trackGroup = tracks.groups[i]
                     if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
+                        audioTracksCount += 1
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
                             Log.i(TAG, trackFormat.toString())
-                            val audioLanguage = trackFormat.language
+                            /*val audioLanguage = trackFormat.language
                             if(audioLanguage !in audioLanguages){
                                 audioLanguages += listOf(audioLanguage)
                                 Log.i(TAG, audioLanguages.toString())
-                            }
+                            }*/
                             if (trackGroup.isTrackSelected(j)){
                                 val audioCodec: String?
                                 audioCodec = if (trackFormat.codecs != null) {
@@ -1200,17 +1256,17 @@ class PlayerActivity : AppCompatActivity() {
                                         mediaInfo.audioChannels = "7.1"
                                     }
                                 }
-                                if (trackFormat.sampleRate > 0){
+                                /*if (trackFormat.sampleRate > 0){
                                     mediaInfo.audioSamplingRate = DecimalFormat("0.#").format(trackFormat.sampleRate.toFloat() / 1000).toString() + " kHz"
                                 }
                                 else {
                                     mediaInfo.audioSamplingRate = null
-                                }
+                                }*/
                             }
                         }
-                        mediaInfo.hasMultiLanguageAudio = audioLanguages.filterNotNull().size > 1
+                        mediaInfo.hasMultipleAudios = audioTracksCount > 1
                         /* Not the best way to get audiodescription status */
-                        mediaInfo.hasAudioDescription = "ads" in audioLanguages || "qad" in audioLanguages
+                        /*mediaInfo.hasAudioDescription = "ads" in audioLanguages || "qad" in audioLanguages*/
                     }
                     if (trackGroup.type == C.TRACK_TYPE_TEXT) {
                         val subtitlesLanguages = mutableListOf<String?>()
@@ -1232,7 +1288,8 @@ class PlayerActivity : AppCompatActivity() {
                         }
                     }*/
                     val currentProgram = channelViewModel.currentProgram.value
-                    if (currentProgram != null){
+                    val nextProgram = channelViewModel.nextProgram.value
+                    if (currentProgram != null || nextProgram != null) {
                         mediaInfo.hasEPG = true
                         playerViewModel.updateMediaInfo(mediaInfo)
                     }
@@ -1303,7 +1360,12 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 MediaUtils.getUserFriendlyCodec(videoCodec)?.let { mediaInfo.videoCodec = it }
                 if (format.frameRate.toInt() != Format.NO_VALUE){
-                    mediaInfo.videoFrameRate = (format.frameRate.toInt().toString() + " FPS")
+                    if (format.frameRate % 1.0 == 0.0) {
+                        mediaInfo.videoFrameRate = format.frameRate.toInt().toString() + " FPS"
+                    } else {
+                        mediaInfo.videoFrameRate = String.format(Locale.getDefault(), "%.2f", format.frameRate) + " FPS"
+                    }
+
                 } else mediaInfo.videoFrameRate = null
                 val frameRateSwitch: Float = if (MediaUtils.areRatesEqual(format.frameRate, 25.0f)){
                     50.0f
@@ -1323,6 +1385,22 @@ class PlayerActivity : AppCompatActivity() {
                     mediaInfo.videoBitrate = DecimalFormat("0.##").format((format.bitrate.toFloat() / 1_000_000.0)) + " Mbps"
                 }
                 else mediaInfo.videoBitrate = null
+                playerViewModel.updateMediaInfo(mediaInfo)
+            }
+
+            override fun onDrmSessionAcquired(eventTime: AnalyticsListener.EventTime, state: Int) {
+                Log.d("DRM", "DRM session acquired for content.")
+            }
+
+            override fun onDrmKeysLoaded(eventTime: AnalyticsListener.EventTime) {
+                Log.d("DRM", "DRM keys successfully loaded.")
+                mediaInfo.hasDRM = true
+                playerViewModel.updateMediaInfo(mediaInfo)
+            }
+
+            override fun onDrmSessionReleased(eventTime: AnalyticsListener.EventTime) {
+                Log.d("DRM", "DRM session released.")
+                mediaInfo.hasDRM = false
                 playerViewModel.updateMediaInfo(mediaInfo)
             }
         })
@@ -1465,6 +1543,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun loadChannel(channel: ChannelItem) {
+        println("loadChannel")
         if (::jobLoadStreamSource.isInitialized && (jobLoadStreamSource.isActive)) {
             jobLoadStreamSource.cancel()
         }
@@ -1515,19 +1594,18 @@ class PlayerActivity : AppCompatActivity() {
         channelViewModel.updateNextProgram(null)
 
         showChannelInfoWithTimeout(timeout = TIMEOUT_UI_CHANNEL_LOAD)
-        if (channelViewModel.currentChannel.value == channel) {
-            return
-        }
         val streamSources = channel.streamSources
 
         playerViewModel.updateIsSourceForced(false)
-        //if (nextProgram != null) playerViewModel.updateNextProgram(nextProgram!!["title"]!!)
         channelViewModel.updateCurrentChannel(channel)
         Log.i(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
             loadStreamSource(streamSources.minBy { it.index })
             playerViewModel.updateTriesCountForEachSource(1)
             playerViewModel.updateSourcesTriedCount(1)
+        }
+        else{
+            println("No stream sources found for channel: $channel")
         }
     }
 
@@ -1610,29 +1688,83 @@ class PlayerActivity : AppCompatActivity() {
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
-            /*else if (url.contains(".mpd")) {
-                DashMediaSource.Factory(httpDataSourceFactory)
+            /*else if (url.contains("v.mpd")) {
+                /*val mediaSource = DashMediaSource.Factory(httpDataSourceFactory)
                     .createMediaSource(
                         MediaItem.Builder().setUri(Uri.parse(url))
                             .setDrmConfiguration(
                                 MediaItem.DrmConfiguration
                                     .Builder(C.WIDEVINE_UUID)
-                                    .setLicenseUri("https://lic.drmtoday.com/license-proxy-widevine/cenc/")
+                                    .setLicenseUri("https://drmnew.tvup.cloud/license/SAT53")
                                     .setLicenseRequestHeaders(
-                                        mapOf("Host" to "lic.drmtoday.com",
-                                            "Origin" to "https://www.rtp.pt",
-                                            "Referer" to "https://www.rtp.pt/",
-                                            "User-Agent" to "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
-                                            "x-dt-custom-data" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
-                                            "Accept-Encoding" to "gzip, deflate, br, zstd")
+                                        mapOf("Origin" to "https://www.tivify.tv",
+                                            "Referer" to "https://www.tivify.tv/",
+                                            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                                            "X-Access-Token" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
+                                            "Accept-Encoding" to "gzip, deflate, br, zstd",
+                                            "Content-Type" to "application/octet-stream",
+                                            "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",)
                                     )
                                     .build()
                             )
-                            .setMimeType(MimeTypes.APPLICATION_MPD)
                             .build()
-                    )
+                    )*/
             }*/
+            else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
+                if (streamSource.drmType == DrmTypeItem.LICENSE) {
+                    val apiResponse = ApiService.getDrmKeys(streamSource)
+                    val drmBody = MediaUtils.generateDrmBodyFromApiResponse(apiResponse)
+                    Log.i("DRM", drmBody)
+
+                    val dashMediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(url))
+                        .setMimeType(MimeTypes.APPLICATION_MPD)
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
+                        .build()
+
+                    val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
+                    val drmSessionManager = DefaultDrmSessionManager.Builder()
+                        .setPlayClearSamplesWithoutKeys(true)
+                        .setMultiSession(false)
+                        .setKeyRequestParameters(HashMap())
+                        .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                        .build(drmCallback)
+
+                    val customDrmSessionManager: DrmSessionManager = drmSessionManager
+                    val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                        .setDrmSessionManagerProvider { customDrmSessionManager }
+                        .createMediaSource(dashMediaItem)
+                    mediaSourceFactory
+                } else {
+                    val drmKeys = streamSource.drmKeys ?: ""
+                    println("drmKeys: $drmKeys")
+                    println("drmkeys: ${streamSource.drmKeys}")
+                    val drmBody = MediaUtils.generateDrmBodyFromKeys(drmKeys)
+                    Log.i("DRM", drmBody)
+
+                    val dashMediaItem = MediaItem.Builder()
+                        .setUri(Uri.parse(url))
+                        .setMimeType(MimeTypes.APPLICATION_MPD)
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
+                        .build()
+
+                    val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
+                    val drmSessionManager = DefaultDrmSessionManager.Builder()
+                        .setPlayClearSamplesWithoutKeys(true)
+                        .setMultiSession(false)
+                        .setKeyRequestParameters(HashMap())
+                        .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                        .build(drmCallback)
+
+                    val customDrmSessionManager: DrmSessionManager = drmSessionManager
+                    val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                        .setDrmSessionManagerProvider { customDrmSessionManager }
+                        .createMediaSource(dashMediaItem)
+                    mediaSourceFactory
+                }
+            }
             else if (url.contains(".mpd")) {
+                Log.i("DRM", "NONE")
                 DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
             else {
@@ -1688,7 +1820,7 @@ class PlayerActivity : AppCompatActivity() {
             if (trackGroup.type == C.TRACK_TYPE_AUDIO){
                 for (i in 0 until trackGroup.length) {
                     val trackFormat = trackGroup.getTrackFormat(i)
-                    if (audioTrack.language == trackFormat.language && audioTrack.id == trackFormat.id) {
+                    if (audioTrack.id == trackFormat.id) {
                         player.trackSelectionParameters =
                             player.trackSelectionParameters
                                 .buildUpon()
@@ -1744,7 +1876,7 @@ class PlayerActivity : AppCompatActivity() {
         mediaInfo.hasEPG = false
         mediaInfo.hasTeletext = false
         mediaInfo.hasDRM = false
-        mediaInfo.hasMultiLanguageAudio = false
+        mediaInfo.hasMultipleAudios = false
         playerViewModel.updateMediaInfo(mediaInfo)
     }
 
@@ -1811,7 +1943,6 @@ class PlayerActivity : AppCompatActivity() {
         jobUITimeout = CoroutineScope(Dispatchers.IO).launch {
             try{
                 runOnUiThread {
-
                     if (!isAndroidTV(this@PlayerActivity)) {
                         playerViewModel.showButtonUp()
                         playerViewModel.showButtonDown()
@@ -1944,9 +2075,6 @@ class PlayerActivity : AppCompatActivity() {
                                 loadSetting(ChannelSettings.UPDATE_EPG)
                             }
                             ChannelSettings.SHOW_EPG -> {
-                                /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    enterPiPMode()
-                                }*/
                                 loadSetting(ChannelSettings.SHOW_EPG)
                             }
                         }
@@ -1986,9 +2114,9 @@ class PlayerActivity : AppCompatActivity() {
                             }
                             playerViewModel.updateTriesCountForEachSource(1)
                             playerViewModel.updateSourcesTriedCount(1)
+                            playerViewModel.hideAnimatedLoadingIcon()
                             loadStreamSource(streamSource)
                             playerViewModel.hideTrackMenu()
-                            playerViewModel.hideAnimatedLoadingIcon()
                             playerViewModel.hidePlayer()
                         }
                     }
@@ -1996,12 +2124,15 @@ class PlayerActivity : AppCompatActivity() {
                         val currentItemSelectedFromVideoTracksMenu = playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0
                         if (currentItemSelectedFromVideoTracksMenu >= 0){
                             val videoTrack = (rvVideoTracks.adapter as? VideoTracksAdapter)?.getItemAtPosition(currentItemSelectedFromVideoTracksMenu) as VideoTrack
-                            if (videoTrack.id.toInt() == -1) {
-                                playerViewModel.updateIsQualityForced(false)
+                            try{
+                                if (videoTrack.id.toInt() == -1) {
+                                    playerViewModel.updateIsQualityForced(false)
+                                }
+                                else{
+                                    playerViewModel.updateIsQualityForced(true)
+                                }
                             }
-                            else{
-                                playerViewModel.updateIsQualityForced(true)
-                            }
+                            catch (_: Exception) {}
                             loadVideoTrack(videoTrack)
                             playerViewModel.hideTrackMenu()
                         }
@@ -2014,6 +2145,23 @@ class PlayerActivity : AppCompatActivity() {
                             loadChannel(newChannel)
                         }
                         currentNumberInput.clear()
+                    }
+                    else if (playerViewModel.isChannelNumberVisible.value == true || playerViewModel.isChannelNumberCategoryVisible.value == true) {
+                        if (!isAndroidTV(this)) {
+                            playerViewModel.hideButtonUp()
+                            playerViewModel.hideButtonDown()
+                            playerViewModel.hideButtonChannelList()
+                            playerViewModel.hideButtonSettings()
+                            playerViewModel.hideButtonPiP()
+                            playerViewModel.hideButtonCategoryList()
+                        }
+                        playerViewModel.hideChannelNumber()
+                        playerViewModel.hideChannelNumberCategory()
+                        playerViewModel.hideChannelName()
+                        playerViewModel.hideCategoryName()
+                        playerViewModel.hideTimeDate()
+                        playerViewModel.hideMediaInfo()
+                        playerViewModel.hideBottomInfo()
                     }
                     // Show current channel info
                     else{
@@ -2277,6 +2425,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun loadNextChannel(){
+        println("loadNextChannel")
         var channel: ChannelItem? = null
         var currentChannelIndex = if (channelViewModel.isInFavouriteCategory.value == true) {
             channelViewModel.currentChannel.value?.indexFavourite!!
@@ -2284,6 +2433,7 @@ class PlayerActivity : AppCompatActivity() {
             channelViewModel.currentChannel.value?.indexGroup!!
         }
         while (channel == null) {
+            println("loadNextChannelWhile")
             currentChannelIndex++
             val lastChannelId = if (channelViewModel.isInFavouriteCategory.value == true){
                channelViewModel.channels.value
@@ -2458,10 +2608,10 @@ class PlayerActivity : AppCompatActivity() {
         private const val MAX_DIGITS = 5
         private const val TIMEOUT_UI_CHANNEL_LOAD = 5000L
         private const val TIMEOUT_UI_INFO = 5000L
-        private const val RETRY_DELAY_MS = 200L
+        private const val RETRY_DELAY_MS = 150L
         private const val BUFFERING_TIMEOUT_MS = 3000L
-        private const val SOURCE_LOADING_TIMEOUT_MS = 7000L
-        private const val CHANNEL_LOADING_TIMEOUT_MS = 7000L
+        private const val SOURCE_LOADING_TIMEOUT_MS = 9500L
+        private const val CHANNEL_LOADING_TIMEOUT_MS = 9500L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 5L
@@ -2477,5 +2627,6 @@ class CustomProxySelector(private val proxyHost: String, private val proxyPort: 
 
     override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
         // You could log or handle connection failures here
+        Log.e("ProxySelector", "Connection failed: $uri", ioe)
     }
 }

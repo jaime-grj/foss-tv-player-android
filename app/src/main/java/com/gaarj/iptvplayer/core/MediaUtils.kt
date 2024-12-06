@@ -1,5 +1,7 @@
 package com.gaarj.iptvplayer.core
 
+import android.util.Base64
+import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.abs
 
@@ -48,11 +50,11 @@ class MediaUtils {
                 codec?.startsWith("ac-3") == true -> "Dolby Digital (AC-3)"
                 codec?.startsWith("audio/eac3") == true -> "Dolby Digital+ (E-AC-3)"
                 codec?.startsWith("audio/ac3") == true -> "Dolby Digital (AC-3)"
+                codec?.startsWith("audio/ac4") == true -> "Dolby AC-4"
                 codec?.startsWith("opus") == true -> "Opus"
                 codec?.startsWith("flac") == true -> "FLAC"
                 codec?.startsWith("vorbis") == true -> "Vorbis"
                 codec?.startsWith("mp3") == true -> "MP3"
-                codec?.startsWith("ac-4") == true -> "AC-4"
                 codec?.startsWith("audio/mpeg-L2") == true -> "MPEG-2 Audio"
                 codec?.startsWith("audio/mpeg2") == true -> "MPEG-2 Audio"
                 codec?.startsWith("audio/mpeg") == true -> "MP3"
@@ -80,7 +82,50 @@ class MediaUtils {
         }
 
         fun areRatesEqual(rate1: Float, rate2: Float, tolerance: Float = 0.5f): Boolean {
-            return kotlin.math.abs(rate1 - rate2) < tolerance
+            return abs(rate1 - rate2) < tolerance
+        }
+
+        fun generateDrmBodyFromApiResponse(apiResponse: String): String {
+            try{
+                val message = JSONObject(apiResponse).getString("Message").trim()
+                val keys = message.trim().split("\n").filter { it.isNotEmpty() }
+                println("keys:$keys")
+                val jsonKeys = keys.map { keyPair ->
+                    val (keyId, key) = keyPair.split(":")
+                    val keyBytes = key.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    val encodedKey = Base64.encodeToString(keyBytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+
+                    val keyIdBytes = keyId.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    val encodedKeyId = Base64.encodeToString(keyIdBytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+
+                    """{"kty":"oct","k":"$encodedKey","kid":"$encodedKeyId"}"""
+                }
+                return """{"keys":[${jsonKeys.joinToString(",")}],"type":"temporary"}"""
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return ""
+            }
+        }
+
+        fun generateDrmBodyFromKeys(drmKeys: String): String {
+            try{
+                val keys = drmKeys.trim().split("\n").filter { it.isNotEmpty() }
+                println("keys:$keys")
+                val jsonKeys = keys.map { keyPair ->
+                    val (keyId, key) = keyPair.split(":")
+                    val keyBytes = key.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    val encodedKey = Base64.encodeToString(keyBytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+
+                    val keyIdBytes = keyId.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                    val encodedKeyId = Base64.encodeToString(keyIdBytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+
+                    """{"kty":"oct","k":"$encodedKey","kid":"$encodedKeyId"}"""
+                }
+                return """{"keys":[${jsonKeys.joinToString(",")}],"type":"temporary"}"""
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return ""
+            }
         }
     }
 }

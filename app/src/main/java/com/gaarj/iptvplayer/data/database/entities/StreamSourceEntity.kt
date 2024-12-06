@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
+import com.gaarj.iptvplayer.domain.model.DrmTypeItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 
@@ -41,6 +42,22 @@ class StreamSourceEntity (
 
     @ColumnInfo(name = "stream_source_type")
     val streamSourceType : StreamSourceTypeItem,
+
+    @ColumnInfo(name = "drm_type")
+    val drmType : DrmTypeItem,
+
+    @ColumnInfo(name = "drm_keys")
+    val drmKeys : String?,
+
+    @ColumnInfo(name = "pssh")
+    val pssh : String?,
+
+    @ColumnInfo(name = "license_url")
+    val licenseUrl : String?,
+
+    @ColumnInfo(name = "use_unofficial_drm_method")
+    val useUnofficialDrmLicenseMethod : Boolean
+
 )
 
 fun StreamSourceItem.toDatabase(channelId: Long) = StreamSourceEntity(
@@ -49,5 +66,10 @@ fun StreamSourceItem.toDatabase(channelId: Long) = StreamSourceEntity(
     url = url,
     channelId = channelId,
     refreshRate = refreshRate,
-    streamSourceType = streamSourceType
+    streamSourceType = streamSourceType,
+    drmType = drmType,
+    drmKeys = drmKeys,
+    pssh = pssh,
+    licenseUrl = licenseUrl,
+    useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod
 )

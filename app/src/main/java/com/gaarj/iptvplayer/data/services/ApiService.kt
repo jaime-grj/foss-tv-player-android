@@ -2,6 +2,8 @@ package com.gaarj.iptvplayer.data.services
 
 import android.util.Log
 import com.gaarj.iptvplayer.domain.model.ApiCallHeaderItem
+import com.gaarj.iptvplayer.domain.model.DrmHeaderItem
+import com.gaarj.iptvplayer.domain.model.DrmTypeItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
@@ -9,7 +11,6 @@ import com.nfeld.jsonpathkt.JsonPath
 import com.nfeld.jsonpathkt.extension.read
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStream
@@ -259,7 +260,45 @@ class ApiService {
             return headersMap
         }
 
+        fun getDrmKeys(streamSource: StreamSourceItem): String {
+            if (streamSource.drmType == DrmTypeItem.LICENSE) {
+                Log.i("ApiService", "getDrmKeys")
+                val headers = streamSource.drmHeaders!!.joinToString(",") { "'${it.key}': '${it.value}'" }
+                Log.i("ApiService", "getDrmKeys - headers: $headers")
+                return getJSONFromURL(
+                    url = "http://cdrm.zhnx.lan",
+                    method = "POST",
+                    headers = mapOf(
+                        "Content-Type" to "application/json"
+                    ),
+                    body = """
+                    {
+                        "PSSH": "${streamSource.pssh}",
+                        "License URL": "${streamSource.licenseUrl}",
+                        "Headers": "{$headers}",
+                        "JSON": "{}",
+                        "Cookies": "{}",
+                        "Data": "{}",
+                        "Proxy": ""
+                    }
+                """.trimIndent()
+                )
+            }
+            else {
+                Log.i("ApiService", "getDrmKeys - no drm")
+                return ""
+            }
+        }
+
         private fun getHeadersMapFromApiCallHeadersObject(headers: List<ApiCallHeaderItem>) : Map<String, String> {
+            val headersMap = mutableMapOf<String, String>()
+            for (header in headers) {
+                headersMap[header.key] = header.value
+            }
+            return headersMap
+        }
+
+        private fun getHeadersMapFromDrmHeadersObject(headers: List<DrmHeaderItem>) : Map<String, String> {
             val headersMap = mutableMapOf<String, String>()
             for (header in headers) {
                 headersMap[header.key] = header.value
@@ -279,6 +318,8 @@ class ApiService {
             connection.disconnect()
             return htmlContent
         }
+
+
     }
 
 }

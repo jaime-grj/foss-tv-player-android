@@ -7,6 +7,7 @@ import com.gaarj.iptvplayer.data.dao.ApiCallHeaderDao
 import com.gaarj.iptvplayer.data.dao.ApiResponseKeyDao
 import com.gaarj.iptvplayer.data.dao.CategoryDao
 import com.gaarj.iptvplayer.data.dao.ChannelDao
+import com.gaarj.iptvplayer.data.dao.DrmHeaderDao
 import com.gaarj.iptvplayer.data.dao.EPGDao
 import com.gaarj.iptvplayer.data.dao.ProxyDao
 import com.gaarj.iptvplayer.data.dao.StreamSourceDao
@@ -17,6 +18,7 @@ import com.gaarj.iptvplayer.data.database.entities.ApiResponseKeyEntity
 import com.gaarj.iptvplayer.data.database.entities.CategoryEntity
 import com.gaarj.iptvplayer.data.database.entities.ChannelEntity
 import com.gaarj.iptvplayer.data.database.entities.ChannelShortnameEntity
+import com.gaarj.iptvplayer.data.database.entities.DrmHeaderEntity
 import com.gaarj.iptvplayer.data.database.entities.ProxyEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceEntity
 import com.gaarj.iptvplayer.data.database.entities.StreamSourceHeaderEntity
@@ -30,6 +32,8 @@ import com.gaarj.iptvplayer.domain.model.ChannelItem
 import com.gaarj.iptvplayer.domain.model.ChannelShortnameItem
 import com.gaarj.iptvplayer.domain.model.EPGProgramItem
 import com.gaarj.iptvplayer.domain.model.ProxyItem
+import com.gaarj.iptvplayer.domain.model.DrmHeaderItem
+import com.gaarj.iptvplayer.domain.model.DrmTypeItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
@@ -49,6 +53,7 @@ class ChannelRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val proxyDao: ProxyDao,
     private val epgDao: EPGDao,
+    private val drmHeaderDao: DrmHeaderDao,
     private val epgRepository: EPGRepository
 ) {
 
@@ -117,10 +122,12 @@ class ChannelRepository @Inject constructor(
             val streamSourceHeaders = fetchStreamSourceHeadersForStreamSource(streamSourceEntity.id)
             val apiCalls = fetchApiCallsForStreamSource(streamSourceEntity.id)
             val proxies = fetchProxiesForStreamSource(streamSourceEntity.id)
+            val drmHeaders = fetchDrmHeadersForStreamSource(streamSourceEntity.id)
             streamSourceEntity.toDomain(
                 headers = streamSourceHeaders,
                 apiCalls = apiCalls,
-                proxies = proxies
+                proxies = proxies,
+                drmHeaders = drmHeaders
             )
         }
     }
@@ -141,6 +148,13 @@ class ChannelRepository @Inject constructor(
         val proxies = proxyDao.getProxiesForStreamSource(streamSourceId)
         return proxies.map { proxyEntity ->
             proxyEntity.toDomain()
+        }
+    }
+
+    suspend fun fetchDrmHeadersForStreamSource(streamSourceId: Long): List<DrmHeaderItem> {
+        val drmHeaders = drmHeaderDao.getDrmHeadersForStreamSource(streamSourceId)
+        return drmHeaders.map { drmHeaderEntity ->
+            drmHeaderEntity.toDomain()
         }
     }
 
@@ -307,8 +321,36 @@ class ChannelRepository @Inject constructor(
                     } catch (e: Exception) {
                         JSONArray()
                     }
-
-
+                    val streamSourceDrmHeaders = try {
+                        streamSource.getJSONArray("drmHeaders")
+                    } catch (e: Exception) {
+                        JSONArray()
+                    }
+                    val drmTypeInt = try {
+                        streamSource.getInt("drmType")
+                    } catch (e: Exception) {
+                        0
+                    }
+                    val drmKeysJSONArray = try {
+                        streamSource.getJSONArray("drmKeys")
+                    } catch (e: Exception) {
+                        JSONArray()
+                    }
+                    val pssh = try {
+                        streamSource.getString("pssh")
+                    } catch (e: Exception) {
+                        null
+                    }
+                    val licenseUrl = try {
+                        streamSource.getString("licenseUrl")
+                    } catch (e: Exception) {
+                        null
+                    }
+                    val useUnofficialDrmLicenseMethod = try {
+                        streamSource.getBoolean("useUnofficialDrmLicenseMethod")
+                    } catch (e: Exception) {
+                        false
+                    }
 
                     val streamSourceTypeInt = try{
                         streamSource.getInt("type")
@@ -317,6 +359,8 @@ class ChannelRepository @Inject constructor(
                     }
 
                     val streamSourceType = StreamSourceTypeItem.fromInt(streamSourceTypeInt) ?: StreamSourceTypeItem.IPTV
+                    val drmType = DrmTypeItem.fromInt(drmTypeInt) ?: DrmTypeItem.NONE
+                    val drmKeys = drmKeysJSONArray.join("\n").replace("\"", "")
 
                     val streamSourceEntity = StreamSourceEntity(
                         name = streamSourceName,
@@ -325,6 +369,11 @@ class ChannelRepository @Inject constructor(
                         index = streamSource.getInt("index"),
                         refreshRate = streamSourceRefreshRate?.toFloat(),
                         streamSourceType = streamSourceType,
+                        drmType = drmType,
+                        drmKeys = drmKeys,
+                        pssh = pssh,
+                        licenseUrl = licenseUrl,
+                        useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
                     )
                     val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
 
@@ -348,6 +397,16 @@ class ChannelRepository @Inject constructor(
                             streamSourceId = streamSourceId
                         )
                         streamSourceHeaderDao.insertStreamSourceHeader(headerEntity)
+                    }
+
+                    for (l in 0 until streamSourceDrmHeaders.length()) {
+                        val header = streamSourceDrmHeaders.getJSONObject(l)
+                        val headerEntity = DrmHeaderEntity(
+                            key = header.getString("key"),
+                            value = header.getString("value"),
+                            streamSourceId = streamSourceId
+                        )
+                        drmHeaderDao.insertDrmHeader(headerEntity)
                     }
 
                     for (l in 0 until streamSourceApiCalls.length()) {

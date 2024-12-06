@@ -67,4 +67,8 @@ object RoomModule {
     @Singleton
     @Provides
     fun provideProxyDao(db: ChannelDatabase) = db.getProxyDao()
+
+    @Singleton
+    @Provides
+    fun provideHeaderDrmDao(db: ChannelDatabase) = db.getHeaderDrmDao()
 }
