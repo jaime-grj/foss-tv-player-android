@@ -147,6 +147,9 @@ class PlayerActivity : AppCompatActivity() {
 
     private var originalProxySelector: ProxySelector? = null
 
+    private var isActivityPaused: Boolean = false
+    private var isActivityStopped: Boolean = false
+
     private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
@@ -1105,7 +1108,7 @@ class PlayerActivity : AppCompatActivity() {
                         }
                     }
                 }
-                handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
+                if (!isActivityStopped) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
             }
 
             override fun onRenderedFirstFrame() {
@@ -1141,7 +1144,9 @@ class PlayerActivity : AppCompatActivity() {
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                     playerViewModel.hidePlayer()
-                    if (playerViewModel.isSourceLoading.value == false && playerViewModel.isBuffering.value == false) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
+                    if (playerViewModel.isSourceLoading.value == false && playerViewModel.isBuffering.value == false) {
+                        if (!isActivityStopped) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
+                    }
                 }
                 else if (playbackState == Player.STATE_BUFFERING){
                     Log.i(TAG, "buffering")
@@ -1488,28 +1493,25 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun startSourceLoadingTimer() {
         Log.i(TAG, "startLoadingTimer")
-
         playerViewModel.setIsSourceLoading(true)
-        handler.postDelayed(sourceLoadingRunnable, SOURCE_LOADING_TIMEOUT_MS)
+        if (!isActivityStopped) handler.postDelayed(sourceLoadingRunnable, SOURCE_LOADING_TIMEOUT_MS)
     }
 
     private fun startBufferingTimer() {
         Log.i(TAG, "startBufferingTimer")
         playerViewModel.setIsBuffering(true)
-        handler.postDelayed(bufferingRunnable, BUFFERING_TIMEOUT_MS)
+        if (!isActivityStopped) handler.postDelayed(bufferingRunnable, BUFFERING_TIMEOUT_MS)
     }
 
     private fun startCheckPlayingCorrectlyTimer() {
         Log.i(TAG, "startCheckPlayingCorrectlyTimer")
-
-        handler.postDelayed(checkPlayingCorrectlyRunnable, PLAYING_TIMEOUT_MS)
+        if (!isActivityStopped) handler.postDelayed(checkPlayingCorrectlyRunnable, PLAYING_TIMEOUT_MS)
     }
 
     private fun startLoadingIndicatorTimer(){
         Log.i(TAG, "startLoadingIndicatorTimer")
-
         playerViewModel.setIsChannelLoading(true)
-        handler.postDelayed(channelLoadingRunnable, CHANNEL_LOADING_TIMEOUT_MS)
+        if (!isActivityStopped) handler.postDelayed(channelLoadingRunnable, CHANNEL_LOADING_TIMEOUT_MS)
     }
 
     private fun cancelCheckPlayingCorrectlyTimer() {
@@ -1683,58 +1685,62 @@ class PlayerActivity : AppCompatActivity() {
 
             Log.i(TAG,"Stream URL: $url")
             Log.i(TAG,"Headers: $headers")
-            val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+            val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers).setAllowCrossProtocolRedirects(true)
 
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
-            /*else if (url.contains("v.mpd")) {
-                /*val mediaSource = DashMediaSource.Factory(httpDataSourceFactory)
-                    .createMediaSource(
-                        MediaItem.Builder().setUri(Uri.parse(url))
-                            .setDrmConfiguration(
-                                MediaItem.DrmConfiguration
-                                    .Builder(C.WIDEVINE_UUID)
-                                    .setLicenseUri("https://drmnew.tvup.cloud/license/SAT53")
-                                    .setLicenseRequestHeaders(
-                                        mapOf("Origin" to "https://www.tivify.tv",
-                                            "Referer" to "https://www.tivify.tv/",
-                                            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                                            "X-Access-Token" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
-                                            "Accept-Encoding" to "gzip, deflate, br, zstd",
-                                            "Content-Type" to "application/octet-stream",
-                                            "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",)
+            else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
+                if (streamSource.drmType == DrmTypeItem.LICENSE) {
+                    if (streamSource.useUnofficialDrmLicenseMethod) {
+                        val apiResponse = ApiService.getDrmKeys(streamSource)
+                        val drmBody = MediaUtils.generateDrmBodyFromApiResponse(apiResponse)
+                        Log.i("DRM", drmBody)
+
+                        val dashMediaItem = MediaItem.Builder()
+                            .setUri(Uri.parse(url))
+                            .setMimeType(MimeTypes.APPLICATION_MPD)
+                            .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
+                            .build()
+
+                        val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
+                        val drmSessionManager = DefaultDrmSessionManager.Builder()
+                            .setPlayClearSamplesWithoutKeys(true)
+                            .setMultiSession(false)
+                            .setKeyRequestParameters(HashMap())
+                            .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                            .build(drmCallback)
+
+                        val customDrmSessionManager: DrmSessionManager = drmSessionManager
+                        val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                            .setDrmSessionManagerProvider { customDrmSessionManager }
+                            .createMediaSource(dashMediaItem)
+                        mediaSourceFactory
+                    }
+                    else{
+                        val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                            .createMediaSource(
+                                MediaItem.Builder().setUri(Uri.parse(url))
+                                    .setDrmConfiguration(
+                                        MediaItem.DrmConfiguration
+                                            .Builder(C.WIDEVINE_UUID)
+                                            .setLicenseUri("https://drmnew.tvup.cloud/license/SAT53")
+                                            .setLicenseRequestHeaders(
+                                                mapOf("Origin" to "https://www.tivify.tv",
+                                                    "Referer" to "https://www.tivify.tv/",
+                                                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                                                    "X-Access-Token" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
+                                                    "Accept-Encoding" to "gzip, deflate, br, zstd",
+                                                    "Content-Type" to "application/octet-stream",
+                                                    "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",)
+                                            )
+                                            .build()
                                     )
                                     .build()
                             )
-                            .build()
-                    )*/
-            }*/
-            else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
-                if (streamSource.drmType == DrmTypeItem.LICENSE) {
-                    val apiResponse = ApiService.getDrmKeys(streamSource)
-                    val drmBody = MediaUtils.generateDrmBodyFromApiResponse(apiResponse)
-                    Log.i("DRM", drmBody)
+                        mediaSourceFactory
+                    }
 
-                    val dashMediaItem = MediaItem.Builder()
-                        .setUri(Uri.parse(url))
-                        .setMimeType(MimeTypes.APPLICATION_MPD)
-                        .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
-                        .build()
-
-                    val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
-                    val drmSessionManager = DefaultDrmSessionManager.Builder()
-                        .setPlayClearSamplesWithoutKeys(true)
-                        .setMultiSession(false)
-                        .setKeyRequestParameters(HashMap())
-                        .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                        .build(drmCallback)
-
-                    val customDrmSessionManager: DrmSessionManager = drmSessionManager
-                    val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
-                        .setDrmSessionManagerProvider { customDrmSessionManager }
-                        .createMediaSource(dashMediaItem)
-                    mediaSourceFactory
                 } else {
                     val drmKeys = streamSource.drmKeys ?: ""
                     println("drmKeys: $drmKeys")
@@ -2533,12 +2539,14 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Log.i(TAG, "onStart")
+        isActivityStopped = false
         player.playWhenReady = true
     }
 
     override fun onPause() {
         super.onPause()
         Log.i(TAG, "onPause")
+        isActivityPaused = true
         if (isInPictureInPictureMode) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
@@ -2565,6 +2573,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         Log.i(TAG, "onResume")
+        isActivityPaused = false
         if (playerViewModel.currentStreamSource.value != null && !isInPictureInPictureMode) {
             loadStreamSource(playerViewModel.currentStreamSource.value!!)
         }
@@ -2574,6 +2583,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         Log.i(TAG, "onStop")
+        isActivityStopped = true
         ProxySelector.setDefault(originalProxySelector)
         player.playWhenReady = false
     }
@@ -2610,8 +2620,8 @@ class PlayerActivity : AppCompatActivity() {
         private const val TIMEOUT_UI_INFO = 5000L
         private const val RETRY_DELAY_MS = 150L
         private const val BUFFERING_TIMEOUT_MS = 3000L
-        private const val SOURCE_LOADING_TIMEOUT_MS = 9500L
-        private const val CHANNEL_LOADING_TIMEOUT_MS = 9500L
+        private const val SOURCE_LOADING_TIMEOUT_MS = 8000L
+        private const val CHANNEL_LOADING_TIMEOUT_MS = 8000L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 5L

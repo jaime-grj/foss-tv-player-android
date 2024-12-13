@@ -12,7 +12,12 @@ class ChannelListViewHolder(view: View) : RecyclerView.ViewHolder(view){
     private val binding = ItemChannelListBinding.bind(view)
 
     fun render(channel: ChannelItem, onChannelSelected: (ChannelItem) -> Unit){
-        binding.tvChannelListName.text = channel.indexFavourite.toString() + "  " + channel.name
+        if (channel.indexFavourite != null) {
+            binding.tvChannelListName.text = channel.indexFavourite.toString() + "  " + channel.name
+        }
+        else {
+            binding.tvChannelListName.text = channel.name
+        }
         binding.tvChannelListSubtitle.text = channel.currentProgram?.title.orEmpty()
 
         val currentTime = System.currentTimeMillis()
