@@ -233,8 +233,9 @@ class ApiService {
                 try{
                     val html = fetchHtmlFromUrl("https://www.youtube.com/${streamSource.url}/live")
 
-                    val regex = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
-                    val matchResult = regex.find(html)
+                    val regexHls = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
+                    val regexDash = """"dashManifestUrl":"(https://[^"]+)"""".toRegex()
+                    val matchResult = regexHls.find(html)
                     url = if (matchResult == null) {
                         ""
                     } else{

@@ -50,6 +50,7 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarj.iptvplayer.domain.model.VideoTrack
+import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
 import com.gaarj.iptvplayer.ui.adapters.AudioTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.CategoryListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelListAdapter
@@ -102,7 +103,6 @@ import java.net.URI
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
@@ -628,7 +628,7 @@ class PlayerActivity : AppCompatActivity() {
             else if (playerViewModel.isTrackMenuVisible.value == true) {
                 playerViewModel.hideTrackMenu()
             }
-            else if (playerViewModel.isChannelNumberVisible.value == true) {
+            else if (playerViewModel.isChannelNumberVisible.value == true || playerViewModel.isChannelNumberCategoryVisible.value == true) {
                 if (!isAndroidTV(this)) {
                     playerViewModel.hideButtonUp()
                     playerViewModel.hideButtonDown()
@@ -644,6 +644,9 @@ class PlayerActivity : AppCompatActivity() {
                 playerViewModel.hideTimeDate()
                 playerViewModel.hideMediaInfo()
                 playerViewModel.hideBottomInfo()
+            }
+            else if (playerViewModel.isCategoryListVisible.value == true) {
+                playerViewModel.hideCategoryList()
             }
             else{
                 showFullChannelUIWithTimeout()
@@ -813,10 +816,10 @@ class PlayerActivity : AppCompatActivity() {
         }
         rvVideoTracks.adapter = VideoTracksAdapter(videoTracksList) { selectedVideoTrack ->
             if (selectedVideoTrack.id.toInt() == -1) {
-                playerViewModel.updateIsSourceForced(false)
+                playerViewModel.updateIsQualityForced(false)
             }
             else{
-                playerViewModel.updateIsSourceForced(true)
+                playerViewModel.updateIsQualityForced(true)
             }
         }
         playerViewModel.showTrackMenu()
@@ -1061,7 +1064,7 @@ class PlayerActivity : AppCompatActivity() {
         trackSelector.parameters = parameters
 
         val renderersFactory = DefaultRenderersFactory( this)
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).forceEnableMediaCodecAsynchronousQueueing()
+        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -1088,6 +1091,7 @@ class PlayerActivity : AppCompatActivity() {
             override fun onPlayerError(error: PlaybackException) {
                 if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                 playerViewModel.hidePlayer()
+                Log.e("PlayerError", "Player error: ${error.message}")
                 if (error is ExoPlaybackException) {
                     when (error.type) {
                         ExoPlaybackException.TYPE_SOURCE -> {
@@ -1139,6 +1143,7 @@ class PlayerActivity : AppCompatActivity() {
                     }*/
                 }
                 else if (playbackState == Player.STATE_ENDED){
+                    Log.i(TAG, "player ended")
                     if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     cancelCheckPlayingCorrectlyTimer()
@@ -1177,6 +1182,13 @@ class PlayerActivity : AppCompatActivity() {
                             loadSubtitlesTrack(selectedSubtitlesTrack)
                         }
                         playerViewModel.updateCurrentItemSelectedFromSubtitlesTracksMenu(0)
+                    }
+                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS && rvVideoTracks.adapter?.itemCount == 1) {
+                        val videoTrackList = loadVideoTracks()
+                        rvVideoTracks.adapter = VideoTracksAdapter(videoTrackList) { selectedVideoTrack ->
+                            loadVideoTrack(selectedVideoTrack)
+                        }
+                        playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
                     }
                     // Dynamic FPS calculation (doesn't work very well)
                     /*val videoCounters = player.videoDecoderCounters
@@ -1566,6 +1578,7 @@ class PlayerActivity : AppCompatActivity() {
 
         if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
         resetMediaInfo()
+        playerViewModel.updateIsQualityForced(false)
 
         if (player.isPlaying || player.isLoading){
             player.stop()
@@ -1772,6 +1785,18 @@ class PlayerActivity : AppCompatActivity() {
             else if (url.contains(".mpd")) {
                 Log.i("DRM", "NONE")
                 DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+            }
+            else if (url.contains("http://ytproxy")) {
+                val mediaItem = MediaItem.Builder()
+                    .setUri(Uri.parse(url))
+                    .setLiveConfiguration(
+                        MediaItem.LiveConfiguration.Builder()
+                            .build()
+                    )
+                    .build()
+                DashMediaSource.Factory(httpDataSourceFactory)
+                    .setManifestParser(LiveDashManifestParser())
+                    .createMediaSource(mediaItem)
             }
             else {
                 ProgressiveMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
@@ -2624,7 +2649,7 @@ class PlayerActivity : AppCompatActivity() {
         private const val CHANNEL_LOADING_TIMEOUT_MS = 8000L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
-        private const val TIME_CACHED_URL_MINUTES = 5L
+        private const val TIME_CACHED_URL_MINUTES = 2L
         private const val DEFAULT_REFRESH_RATE = 50.0f
         private val TAG = PlayerActivity::class.java.name
     }
