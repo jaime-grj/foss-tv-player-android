@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
+import com.gaarj.iptvplayer.core.MediaUtils
 import com.gaarj.iptvplayer.domain.model.VideoTrack
 import com.gaarj.iptvplayer.databinding.ItemChannelTrackSettingsBinding
 
@@ -16,9 +17,8 @@ class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
             binding.rbChannelSettingsTrack.isChecked = true
         }
         if (videoTrack.id != "-1") {
-            binding.tvChannelSettingsTrackName.text = videoTrack.width.toString() + "x" + videoTrack.height.toString()
+            binding.tvChannelSettingsTrackName.text = MediaUtils.calculateVideoQuality(videoTrack.width, videoTrack.height) + " " + videoTrack.width.toString() + "x" + videoTrack.height.toString()
             binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
-
         }
         else{
             binding.tvChannelSettingsTrackName.text = videoTrack.name
