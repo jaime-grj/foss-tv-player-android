@@ -126,4 +126,7 @@ interface ChannelDao {
         LIMIT 1
     """)
     suspend fun getPreviousChannelGroupIndex(categoryId: Long, groupId: Int) : Int
+
+    @Query("SELECT * FROM channel WHERE id = :id")
+    suspend fun getChannelById(id: Long): ChannelEntity?
 }

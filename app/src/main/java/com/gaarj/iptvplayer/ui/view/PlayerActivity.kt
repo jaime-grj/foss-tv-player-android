@@ -225,30 +225,13 @@ class PlayerActivity : FragmentActivity() {
         originalProxySelector = ProxySelector.getDefault()
         initPlayer()
 
+
         channelViewModel.isImportingData.observe(this) { isImportingData ->
             if (isImportingData == true) {
                 playerViewModel.showAnimatedLoadingIcon()
             }
             else{
-                channelViewModel.loadCategoriesWithChannels()
-            }
-        }
-
-        channelViewModel.isLoadingChannelList.observe(this) { isLoading ->
-            if (isLoading == false) {
-                channelViewModel.downloadEPG()
-                initCategoryList()
                 playerViewModel.hideAnimatedLoadingIcon()
-                Log.i(TAG, "Channel list loaded + ${channelViewModel.categoriesWithChannels.value?.size}")
-                if (channelViewModel.categoriesWithChannels.value?.isNotEmpty() != true) {
-                    channelViewModel.updateCurrentCategoryId(-1L)
-                    lifecycleScope.launch {
-                        loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
-                    }
-                }
-            }
-            else{
-                Log.i(TAG, "isLoading channel list: $isLoading")
             }
         }
 
@@ -256,12 +239,42 @@ class PlayerActivity : FragmentActivity() {
         initAudioTracksMenu()
         initSubtitlesTracksMenu()
         initSourcesMenu()
+        initCategoryList()
 
         binding.buttonPiP.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 enterPiPMode()
             } else {
                 Toast.makeText(this, "Picture-in-Picture mode is not supported on this device", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        lifecycleScope.launch {
+            val lastChannelId = channelViewModel.getLastChannelLoaded()
+            val lastCategoryId = channelViewModel.getLastCategoryLoaded()
+            Log.i("PlayerActivity", "lastChannelId: $lastChannelId. lastCategoryId: $lastCategoryId")
+            if (lastChannelId != 0L && lastCategoryId != 0L){
+                val channel = channelViewModel.getChannelById(lastChannelId)
+                println("lastcategoryid: $lastCategoryId")
+                if (channel != null) {
+                    channelViewModel.updateCurrentCategoryId(lastCategoryId)
+                    val category = channelViewModel.getCategoryById(lastCategoryId)
+                    Log.i("PlayerActivity", "category: $category")
+                    if (category != null) {
+                        playerViewModel.updateCategoryName(category.name)
+                    }
+                    loadChannel(channel)
+                }
+                else{
+                    channelViewModel.updateCurrentCategoryId(-1L)
+                    playerViewModel.updateCategoryName("")
+                    loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                }
+            }
+            else{
+                channelViewModel.updateCurrentCategoryId(-1L)
+                playerViewModel.updateCategoryName("")
+                loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
             }
         }
 
@@ -279,13 +292,10 @@ class PlayerActivity : FragmentActivity() {
         setContentView(view)
 
         playerViewModel.onCreate()
-        channelViewModel.updateIsLoadingChannelList(true)
-        channelViewModel.updateIsLoadingChannelList(false)
-        playerViewModel.updateCurrentItemSelectedFromChannelList(0)
-        channelViewModel.updateCurrentCategoryId(-1L)
         lifecycleScope.launch {
-            channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
+            channelViewModel.downloadEPG()
         }
+        playerViewModel.updateCurrentItemSelectedFromChannelList(0)
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -310,7 +320,6 @@ class PlayerActivity : FragmentActivity() {
         rvChannelSources = binding.rvChannelTrackSettings
         rvVideoTracks = binding.rvChannelTrackSettings
         rvCategoryList = binding.rvCategoryList
-
 
         playerViewModel.channelName.observe(this) { channelName ->
             binding.channelName.text = channelName
@@ -773,9 +782,6 @@ class PlayerActivity : FragmentActivity() {
                 channelViewModel.updateEPG()
             }
             ChannelSettings.SHOW_EPG -> {
-                //val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
-                //Log.i(TAG, "initEPG: " + sortedChannels.size.toString())
-
                 val intent  = Intent(this, EPGActivity::class.java)
                 resultLauncher.launch(intent)
 
@@ -783,12 +789,12 @@ class PlayerActivity : FragmentActivity() {
             ChannelSettings.UPDATE_CHANNEL_LIST -> {
                 lifecycleScope.launch {
                     channelViewModel.importJSONData()
+                    initCategoryList()
                     val firstChannel = channelViewModel.getNextChannel(-1L, 1)
                     loadChannel(firstChannel)
                 }
             }
         }
-
     }
 
     private fun loadAudioTracksMenu(){
@@ -1565,6 +1571,7 @@ class PlayerActivity : FragmentActivity() {
             if (binding.channelName.visibility == View.VISIBLE) playerViewModel.hideChannelName()
             return
         }
+        resetMediaInfo()
         if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         cancelCheckPlayingCorrectlyTimer()
@@ -1588,16 +1595,6 @@ class PlayerActivity : FragmentActivity() {
         if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
         Log.i(TAG,channel.name)
 
-        /*val sortedChannels = channelViewModel.getSortedChannelsOfCategory(channelViewModel.currentCategoryId.value!!)
-
-        for (i in sortedChannels.indices) {
-            if (sortedChannels[i] == channel) {
-                playerViewModel.updateCurrentItemSelectedFromChannelList(i)
-                break
-            }
-        }*/
-
-
         playerViewModel.updateChannelName(channel.name)
         if (channelViewModel.currentCategoryId.value == -1L) {
             playerViewModel.updateChannelNumber(channel.indexFavourite!!)
@@ -1614,6 +1611,10 @@ class PlayerActivity : FragmentActivity() {
 
         playerViewModel.updateIsSourceForced(false)
         channelViewModel.updateCurrentChannel(channel)
+        lifecycleScope.launch {
+            channelViewModel.updateLastChannelLoaded(channel.id)
+        }
+
         Log.i(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
             loadStreamSource(streamSources.minBy { it.index })
@@ -1938,6 +1939,7 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.showChannelNumber()
                     }
                     else{
+                        Log.i("PlayerActivity", "showChannelNumberCategory: ${channelViewModel.currentCategoryId.value}")
                         playerViewModel.showChannelNumberCategory()
                         playerViewModel.showCategoryName()
                     }
@@ -2136,13 +2138,18 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.updateCategoryName(newCategory.name)
                         lifecycleScope.launch {
                             loadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
+                            Log.i(TAG, "dispatchKeyEvent: newCategory: $newCategory")
+                            channelViewModel.updateLastCategoryLoaded(newCategory.id)
                         }
-                        /*if (newCategory.id == -1L){
-                            playerViewModel.hideChannelNumberCategory()
-                        }
-                        else{
-                            playerViewModel.hideChannelNumber()
-                        }*/
+
+                        playerViewModel.hideChannelNumberCategory()
+                        playerViewModel.hideChannelName()
+                        playerViewModel.hideCategoryName()
+                        playerViewModel.hideChannelNumber()
+                        playerViewModel.hideBottomInfo()
+                        playerViewModel.hideMediaInfo()
+                        playerViewModel.hideTimeDate()
+
                         playerViewModel.hideCategoryList()
                     }
                     // Enter specific setting

@@ -54,7 +54,7 @@
         android:shadowDx="0"
         android:shadowDy="0"
         android:shadowRadius="6"
-        android:visibility="gone"
+        android:visibility="invisible"
         tools:text="00"
         tools:visibility="visible"/>
 

@@ -12,6 +12,8 @@ class SettingsService(private val context: Context) {
 
     companion object {
         private const val EPG_LAST_DOWNLOADED_TIME = "lastDownloadedTime"
+        private const val LAST_CHANNEL_LOADED = "lastChannelLoaded"
+        private const val LAST_CATEGORY_LOADED = "lastCategoryLoaded"
     }
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -25,6 +27,30 @@ class SettingsService(private val context: Context) {
     suspend fun getLastDownloadedTime(): Long {
         return context.dataStore.data.map { preferences ->
             preferences[longPreferencesKey(EPG_LAST_DOWNLOADED_TIME)] ?: 0
+        }.first()
+    }
+
+    suspend fun updateLastChannelLoaded(channelId: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[longPreferencesKey(LAST_CHANNEL_LOADED)] = channelId
+        }
+    }
+
+    suspend fun getLastChannelLoaded(): Long {
+        return context.dataStore.data.map { preferences ->
+            preferences[longPreferencesKey(LAST_CHANNEL_LOADED)] ?: 0
+        }.first()
+    }
+
+    suspend fun updateLastCategoryLoaded(categoryId: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[longPreferencesKey(LAST_CATEGORY_LOADED)] = categoryId
+        }
+    }
+
+    suspend fun getLastCategoryLoaded(): Long {
+        return context.dataStore.data.map { preferences ->
+            preferences[longPreferencesKey(LAST_CATEGORY_LOADED)] ?: 0
         }.first()
     }
 }

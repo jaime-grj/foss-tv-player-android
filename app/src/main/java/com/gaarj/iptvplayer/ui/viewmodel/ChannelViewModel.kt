@@ -99,15 +99,13 @@ class ChannelViewModel @Inject constructor(
         updateIsImportingData(false)
     }
 
-    fun downloadEPG(){
-        viewModelScope.launch {
-            Log.d("ChannelViewModel", "downloadEPG")
-            val lastDownloadedTime = getSettingsUseCase.invoke()
-            println("lastDownloadedTime: $lastDownloadedTime, current: ${System.currentTimeMillis() - lastDownloadedTime}")
-            if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
-                downloadEPGUseCase.invoke()
-                settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
-            }
+    suspend fun downloadEPG(){
+        Log.d("ChannelViewModel", "downloadEPG")
+        val lastDownloadedTime = getSettingsUseCase.invoke()
+        println("lastDownloadedTime: $lastDownloadedTime, current: ${System.currentTimeMillis() - lastDownloadedTime}")
+        if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
+            downloadEPGUseCase.invoke()
+            settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
         }
     }
 
@@ -137,18 +135,6 @@ class ChannelViewModel @Inject constructor(
         } else{
             categoriesWithChannels.value.orEmpty().first { categoryId == it.id }.channels.sortedWith(compareBy(nullsLast()) { it.indexGroup })
         }
-    }
-
-    fun channelExists(id: Long): Boolean {
-        return categoriesWithChannels.value.orEmpty().any {
-            category -> category.channels.any {
-                channel -> channel.id == id
-            }
-        }
-    }
-
-    fun getChannelByFavouriteId(favId: Int): ChannelItem? {
-        return _categoriesWithChannels.value?.first{it.id == -1L}?.channels!!.firstOrNull { it.indexFavourite == favId }
     }
 
     suspend fun getPreviousChannel(categoryId: Long, groupId: Int): ChannelItem {
@@ -182,7 +168,32 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
+    suspend fun updateLastChannelLoaded(channelId: Long) {
+        settingsRepository.updateLastChannelLoaded(channelId)
+    }
+
+    suspend fun getLastChannelLoaded(): Long {
+        return settingsRepository.getLastChannelLoaded()
+    }
+
+    suspend fun updateLastCategoryLoaded(categoryId: Long) {
+        settingsRepository.updateLastCategoryLoaded(categoryId)
+    }
+
+    suspend fun getLastCategoryLoaded(): Long {
+        return settingsRepository.getLastCategoryLoaded()
+    }
+
     suspend fun getCategories() : List<CategoryItem> {
         return channelRepository.getCategories()
     }
+
+    suspend fun getChannelById(id: Long): ChannelItem? {
+        return channelRepository.getChannelById(id)
+    }
+
+    suspend fun getCategoryById(id: Long): CategoryItem? {
+        return channelRepository.getCategoryById(id)
+    }
+
 }

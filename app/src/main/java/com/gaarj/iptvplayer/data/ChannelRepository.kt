@@ -708,4 +708,25 @@ class ChannelRepository @Inject constructor(
         }
     }
 
+    suspend fun getChannelById(id: Long): ChannelItem? {
+        val channelEntity = channelDao.getChannelById(id)
+        // Fetch streamSources, relatedChannels, channelShortnames as needed
+        if (channelEntity != null) {
+            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+            val relatedChannels = fetchRelatedChannels(channelEntity.id)
+            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+
+            return channelEntity.toDomain(
+                streamSources = streamSources,
+                relatedChannels = relatedChannels,
+                channelShortnames = channelShortnames,
+            )
+        }
+        return null
+    }
+
+    suspend fun getCategoryById(id: Long): CategoryItem? {
+        val categoryEntity = categoryDao.getCategoryById(id)
+        return categoryEntity?.toDomain()
+    }
 }

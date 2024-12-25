@@ -14,4 +14,20 @@ class SettingsRepository @Inject constructor(
     suspend fun getLastDownloadedTime(): Long {
         return settingsService.getLastDownloadedTime()
     }
+
+    suspend fun updateLastChannelLoaded(channelId: Long) {
+        settingsService.updateLastChannelLoaded(channelId)
+    }
+
+    suspend fun getLastChannelLoaded(): Long {
+        return settingsService.getLastChannelLoaded()
+    }
+
+    suspend fun updateLastCategoryLoaded(categoryId: Long) {
+        settingsService.updateLastCategoryLoaded(categoryId)
+    }
+
+    suspend fun getLastCategoryLoaded(): Long {
+        return settingsService.getLastCategoryLoaded()
+    }
 }
