@@ -1,5 +1,6 @@
 package com.gaarj.iptvplayer.ui.viewholders
 
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
@@ -11,6 +12,7 @@ class AudioTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     private val binding = ItemChannelTrackSettingsBinding.bind(view)
 
+    @SuppressLint("SetTextI18n")
     fun render(audioTrack: AudioTrack, onItemSelected: (AudioTrack) -> Unit){
         if (audioTrack.isSelected) {
             binding.rbChannelSettingsTrack.isChecked = true

@@ -15,5 +15,6 @@ class ChannelSettings(name: String) {
         const val SOURCES = 3
         const val UPDATE_EPG = 4
         const val SHOW_EPG = 5
+        const val UPDATE_CHANNEL_LIST = 6
     }
 }

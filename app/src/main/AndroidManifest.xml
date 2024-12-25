@@ -34,21 +34,23 @@
 
         <activity
             android:name=".ui.view.PlayerActivity"
-            android:exported="false"
+            android:exported="true"
             android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:screenOrientation="landscape"
             android:theme="@style/PlayerTheme"
-            />
-        <activity
-            android:name=".ui.view.HomeActivity"
-            android:exported="true">
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".ui.view.HomeActivity"
+            android:exported="true">
+
         </activity>
         <activity android:name=".ui.view.EPGActivity"
             android:theme="@style/PlayerTheme"/>

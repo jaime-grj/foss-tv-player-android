@@ -142,8 +142,9 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
         // Set initial loading state
         setState(State.Loading)
 
-        channelViewModel.getChannelsByCategory(-1L)
-        channelViewModel.channels.observe(this) { channelItems ->
+        channelViewModel.loadCategoriesWithChannels()
+        channelViewModel.categoriesWithChannels.observe(this) { categoryItems ->
+            val channelItems = categoryItems.flatMap { it.channels }
             if (channelItems.isNotEmpty()) {
                 val channelMap = ConcurrentHashMap<String, List<ProgramGuideSchedule<SimpleProgram>>>()
                 val channels: MutableList<SimpleChannel> = mutableListOf()
@@ -152,7 +153,10 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
                 for (channel in channelItems) {
                     channels += SimpleChannel(
                         channel.id.toString(),
-                        SpannedString(channel.indexFavourite.toString() + " " + channel.name),
+                        if (channel.indexFavourite != null){
+                            SpannedString(channel.indexFavourite.toString() + " " + channel.name)
+                        } else
+                            SpannedString(channel.indexGroup.toString() + " " + channel.name),
                         channel.logo
                     )
                 }

@@ -57,6 +57,130 @@ class ChannelRepository @Inject constructor(
     private val epgRepository: EPGRepository
 ) {
 
+    suspend fun getChannelCountByCategory(categoryId: Long): Int {
+        if (categoryId == -1L) {
+            return channelDao.getFavouriteChannelCount()
+        }
+        return channelDao.getChannelCountByGroup(categoryId)
+    }
+
+    suspend fun getPreviousChannel(categoryId: Long, groupId: Int): ChannelItem {
+        Log.i("ChannelRepository", "getPreviousChannel: categoryId: $categoryId, groupId: $groupId")
+        val channelEntity: ChannelEntity?
+        if (categoryId == -1L){
+            val firstChannelId = channelDao.getFirstFavouriteChannelId()
+            if (groupId <= firstChannelId - 1) {
+                val lastChannelId = channelDao.getLastFavouriteChannelId()
+                channelEntity = channelDao.getPreviousChannelByFavouriteId(lastChannelId)
+            } else {
+                channelEntity = channelDao.getPreviousChannelByFavouriteId(groupId)
+            }
+        }
+        else{
+            val firstChannelId = channelDao.getFirstGroupChannelId(categoryId)
+            if (groupId <= firstChannelId - 1) {
+                val lastChannelId = channelDao.getLastGroupChannelId(categoryId)
+                println("lastChannelId: $lastChannelId, groupId: $groupId")
+                channelEntity = channelDao.getPreviousChannelByGroupId(categoryId, lastChannelId)
+            } else {
+                channelEntity = channelDao.getPreviousChannelByGroupId(categoryId, groupId)
+            }
+        }
+        if (channelEntity != null) {
+            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+            val relatedChannels = fetchRelatedChannels(channelEntity.id)
+            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+            return channelEntity.toDomain(
+                streamSources = streamSources,
+                relatedChannels = relatedChannels,
+                channelShortnames = channelShortnames
+            )
+        } else {
+            throw Exception("Channel not found")
+        }
+    }
+
+    suspend fun getNextChannel(categoryId: Long, groupId: Int): ChannelItem {
+        val channelEntity: ChannelEntity?
+        if (categoryId == -1L){
+            val lastChannelId = channelDao.getLastFavouriteChannelId()
+            if (groupId > lastChannelId) {
+                val firstChannelId = channelDao.getFirstFavouriteChannelId()
+                channelEntity = channelDao.getNextChannelByFavouriteId(firstChannelId)
+            } else {
+                channelEntity = channelDao.getNextChannelByFavouriteId(groupId)
+            }
+        }
+        else{
+            val lastChannelId = channelDao.getLastGroupChannelId(categoryId)
+            if (groupId > lastChannelId) {
+                val firstChannelId = channelDao.getFirstGroupChannelId(categoryId)
+                channelEntity = channelDao.getNextChannelByGroupId(categoryId, firstChannelId)
+            } else {
+                channelEntity = channelDao.getNextChannelByGroupId(categoryId, groupId)
+            }
+        }
+        if (channelEntity != null) {
+            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+            val relatedChannels = fetchRelatedChannels(channelEntity.id)
+            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+            return channelEntity.toDomain(
+                streamSources = streamSources,
+                relatedChannels = relatedChannels,
+                channelShortnames = channelShortnames
+            )
+        } else {
+            throw Exception("Channel not found")
+        }
+    }
+
+    suspend fun getNextChannelIndex(categoryId: Long, groupId: Int): Int {
+        val channelIndex: Int
+        if (categoryId == -1L){
+            val lastChannelId = channelDao.getLastFavouriteChannelId()
+            if (groupId >= lastChannelId) {
+                val firstChannelId = channelDao.getFirstFavouriteChannelId()
+                channelIndex = channelDao.getNextChannelFavouriteIndex(firstChannelId - 1)
+            } else {
+                channelIndex = channelDao.getNextChannelFavouriteIndex(groupId)
+            }
+        }
+        else{
+            val lastChannelId = channelDao.getLastGroupChannelId(categoryId)
+            println("lastChannelId: $lastChannelId, groupId: $groupId")
+            if (groupId >= lastChannelId) {
+                val firstChannelId = channelDao.getFirstGroupChannelId(categoryId)
+                channelIndex = channelDao.getNextChannelGroupIndex(categoryId, firstChannelId - 1)
+            } else {
+                channelIndex = channelDao.getNextChannelGroupIndex(categoryId, groupId)
+            }
+        }
+        return channelIndex
+    }
+
+    suspend fun getPreviousChannelIndex(categoryId: Long, groupId: Int): Int {
+        val channelIndex: Int
+        if (categoryId == -1L){
+            val firstChannelId = channelDao.getFirstFavouriteChannelId()
+            if (groupId <= firstChannelId) {
+                val lastChannelId = channelDao.getLastFavouriteChannelId()
+                channelIndex = channelDao.getPreviousChannelFavouriteIndex(lastChannelId + 1)
+            } else {
+                channelIndex = channelDao.getPreviousChannelFavouriteIndex(groupId)
+            }
+        }
+        else{
+            val firstChannelId = channelDao.getFirstGroupChannelId(categoryId)
+            if (groupId <= firstChannelId) {
+                val lastChannelId = channelDao.getLastGroupChannelId(categoryId)
+                channelIndex = channelDao.getPreviousChannelGroupIndex(categoryId, lastChannelId + 1)
+            } else {
+                channelIndex = channelDao.getPreviousChannelGroupIndex(categoryId, groupId)
+            }
+        }
+        return channelIndex
+    }
+
     suspend fun getFavouriteChannels(): List<ChannelItem> {
         val channelEntities = channelDao.getFavouriteChannels()
         Log.d("ChannelRepository", "Fetched ${channelEntities.size} favourite channels")
@@ -75,6 +199,35 @@ class ChannelRepository @Inject constructor(
                 //epgPrograms = epgPrograms
             )
         }
+    }
+
+    suspend fun getCategoriesWithChannels(): List<CategoryItem> {
+        val favChannelItems = getFavouriteChannels()
+        val favCategory = CategoryItem(
+            id = -1,
+            name = "Favoritos",
+            description = "",
+            isSelected = false,
+            channels = favChannelItems
+        )
+
+        val categoryWithChannelItems: MutableList<CategoryItem> = mutableListOf()
+        categoryWithChannelItems.add(favCategory)
+
+        val categories = fetchAllCategories()
+        for (category in categories) {
+            val channels = getChannelsByCategory(category.id)
+            val categoryWithChannels = CategoryItem(
+                id = category.id,
+                name = category.name,
+                description = category.description,
+                isSelected = false,
+                channels = channels
+            )
+            categoryWithChannelItems.add(categoryWithChannels)
+        }
+
+        return categoryWithChannelItems
     }
 
     suspend fun fetchAllCategories(): List<CategoryItem> {
@@ -481,22 +634,77 @@ class ChannelRepository @Inject constructor(
     }
 
     suspend fun getChannelsByCategory(categoryId: Long): List<ChannelItem> {
-        val channelEntities = channelDao.getChannelsForCategory(categoryId)
-        Log.d("ChannelRepository", "Fetched ${channelEntities.size} favourite channels")
+        if (categoryId == -1L) {
+            return channelDao.getFavouriteChannels().map { channelEntity ->
+                // Fetch streamSources, relatedChannels, channelShortnames as needed
+                val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+                val relatedChannels = fetchRelatedChannels(channelEntity.id)
+                val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+                //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
 
-        return channelEntities.map { channelEntity ->
-            // Fetch streamSources, relatedChannels, channelShortnames as needed
-            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
-            val relatedChannels = fetchRelatedChannels(channelEntity.id)
-            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
-            //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
+                channelEntity.toDomain(
+                    streamSources = streamSources,
+                    relatedChannels = relatedChannels,
+                    channelShortnames = channelShortnames,
+                    //epgPrograms = epgPrograms
+                )
+            }
+        }
+        else{
+            val channelEntities = channelDao.getChannelsForCategory(categoryId)
+            Log.d("ChannelRepository", "Fetched ${channelEntities.size} channels for category $categoryId")
 
-            channelEntity.toDomain(
-                streamSources = streamSources,
-                relatedChannels = relatedChannels,
-                channelShortnames = channelShortnames,
-                //epgPrograms = epgPrograms
-            )
+            return channelEntities.map { channelEntity ->
+                // Fetch streamSources, relatedChannels, channelShortnames as needed
+                val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+                val relatedChannels = fetchRelatedChannels(channelEntity.id)
+                val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+                //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
+
+                channelEntity.toDomain(
+                    streamSources = streamSources,
+                    relatedChannels = relatedChannels,
+                    channelShortnames = channelShortnames,
+                    //epgPrograms = epgPrograms
+                )
+            }
+        }
+    }
+
+    suspend fun getSmChannelsByCategory(categoryId: Long): List<ChannelItem> {
+        if (categoryId == -1L) {
+            return channelDao.getFavouriteChannels().map { channelEntity ->
+                val currentProgram = epgRepository.getCurrentProgramForChannel(channelEntity.id)?.toDomain()
+                if (currentProgram != null) {
+                    channelEntity.toDomain(
+                        epgPrograms = listOf(currentProgram)
+                    )
+                }
+                else{
+                    channelEntity.toDomain()
+                }
+            }
+        }
+        else{
+            val channelEntities = channelDao.getChannelsForCategory(categoryId)
+            return channelEntities.map { channelEntity ->
+                val currentProgram = epgRepository.getCurrentProgramForChannel(channelEntity.id)?.toDomain()
+                if (currentProgram != null) {
+                    channelEntity.toDomain(
+                        epgPrograms = listOf(currentProgram)
+                    )
+                }
+                else{
+                    channelEntity.toDomain()
+                }
+            }
+        }
+    }
+
+    suspend fun getCategories(): List<CategoryItem> {
+        val categories = categoryDao.getAllCategories()
+        return categories.map { categoryEntity ->
+            categoryEntity.toDomain()
         }
     }
 

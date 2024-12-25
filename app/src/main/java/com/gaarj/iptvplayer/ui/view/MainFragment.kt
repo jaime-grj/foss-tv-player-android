@@ -2,7 +2,10 @@ package com.gaarj.iptvplayer.ui.view
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.widget.Toast
+import androidx.fragment.app.viewModels
 import androidx.leanback.app.BrowseSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
 import androidx.leanback.widget.HeaderItem
@@ -14,6 +17,8 @@ import androidx.leanback.widget.RowPresenter
 import androidx.leanback.widget.Presenter
 
 import com.gaarj.iptvplayer.R
+import com.gaarj.iptvplayer.ui.view.PlayerActivity.Companion
+import com.gaarj.iptvplayer.ui.viewmodel.ChannelViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -37,10 +42,10 @@ class MainFragment : BrowseSupportFragment(), OnItemViewClickedListener {
         listRowAdapterTv.add("Lista de canales")
         rowsAdapter.add(ListRow(headerTv, listRowAdapterTv))
 
-        val headerSearch = HeaderItem(1, rowTitleSearch)
-        listRowAdapterSearch.add("YouTube")
-        listRowAdapterSearch.add("Twitch")
-        rowsAdapter.add(ListRow(headerSearch, listRowAdapterSearch))
+        //val headerSearch = HeaderItem(1, rowTitleSearch)
+        //listRowAdapterSearch.add("YouTube")
+        //listRowAdapterSearch.add("Twitch")
+        //rowsAdapter.add(ListRow(headerSearch, listRowAdapterSearch))
 
 
         val headerConfig = HeaderItem(2, rowTitleConfig)
@@ -50,6 +55,8 @@ class MainFragment : BrowseSupportFragment(), OnItemViewClickedListener {
 
         adapter = rowsAdapter
         onItemViewClickedListener = this
+
+
     }
 
     override fun onItemClicked(
@@ -65,8 +72,17 @@ class MainFragment : BrowseSupportFragment(), OnItemViewClickedListener {
                     val intent = Intent(activity, PlayerActivity::class.java)
                     startActivity(intent)
                 }
+                "Sincronizar con el servidor" -> {
+                    val channelViewModel: ChannelViewModel by viewModels()
+                    channelViewModel.isLoadingChannelList.observe(this) { isLoading ->
+                        if (isLoading == false) {
+                            Toast.makeText(this.context, "Canal sincronizado", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
             }
         }
     }
+
 }
 

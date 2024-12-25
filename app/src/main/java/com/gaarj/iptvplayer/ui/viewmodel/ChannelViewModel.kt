@@ -5,17 +5,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.gaarj.iptvplayer.data.ChannelRepository
 import com.gaarj.iptvplayer.data.EPGRepository
 import com.gaarj.iptvplayer.data.SettingsRepository
 import com.gaarj.iptvplayer.domain.DownloadEPGUseCase
 import com.gaarj.iptvplayer.domain.GetChannelsUseCase
 import com.gaarj.iptvplayer.domain.GetSettingsUseCase
 import com.gaarj.iptvplayer.domain.ImportJSONDataUseCase
-import com.gaarj.iptvplayer.domain.UpdateEPGUseCase
-import com.gaarj.iptvplayer.domain.GetCategoriesUseCase
 import com.gaarj.iptvplayer.domain.model.CategoryItem
 import com.gaarj.iptvplayer.domain.model.ChannelItem
 import com.gaarj.iptvplayer.domain.model.EPGProgramItem
+import com.gaarj.iptvplayer.domain.model.toDomain
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,14 +23,34 @@ import javax.inject.Inject
 @HiltViewModel
 class ChannelViewModel @Inject constructor(
     private val getChannelsUseCase: GetChannelsUseCase,
-    private val updateEPGUseCase: UpdateEPGUseCase,
     private val getSettingsUseCase: GetSettingsUseCase,
     private val settingsRepository: SettingsRepository,
     private val importJSONDataUseCase: ImportJSONDataUseCase,
     private val downloadEPGUseCase: DownloadEPGUseCase,
     private val epgRepository: EPGRepository,
-    private val getCategoriesUseCase: GetCategoriesUseCase
+    private val channelRepository: ChannelRepository
 ): ViewModel() {
+
+     suspend fun getChannelsByCategory(categoryId: Long): List<ChannelItem> {
+        val channels = channelRepository.getChannelsByCategory(categoryId)
+        return channels
+     }
+
+    suspend fun getSmChannelsByCategory(categoryId: Long): List<ChannelItem> {
+        val channels = channelRepository.getSmChannelsByCategory(categoryId)
+        return channels
+    }
+
+    suspend fun getChannelCountByCategory(categoryId: Long): Int {
+        return channelRepository.getChannelCountByCategory(categoryId)
+    }
+
+    private var _currentCategoryId: MutableLiveData<Long> = MutableLiveData()
+    val currentCategoryId: LiveData<Long> get() = _currentCategoryId
+
+    fun updateCurrentCategoryId(newCategoryId: Long) {
+        _currentCategoryId.value = newCategoryId
+    }
 
     private val _currentChannel = MutableLiveData<ChannelItem>()
     val currentChannel: LiveData<ChannelItem> get() = _currentChannel
@@ -39,24 +59,25 @@ class ChannelViewModel @Inject constructor(
         _currentChannel.value = newChannel
     }
 
-    private val _isInFavouriteCategory = MutableLiveData<Boolean>()
-    val isInFavouriteCategory: LiveData<Boolean> get() = _isInFavouriteCategory
-
-    fun updateIsInFavouriteCategory(isInFavouriteCategory: Boolean) {
-        _isInFavouriteCategory.value = isInFavouriteCategory
-    }
-
     private val _isLoadingChannelList = MutableLiveData<Boolean>()
     val isLoadingChannelList: LiveData<Boolean> get() = _isLoadingChannelList
 
-    private val _isLoadingCategoryList = MutableLiveData<Boolean>()
-    val isLoadingCategoryList: LiveData<Boolean> get() = _isLoadingCategoryList
+    private val _isLoadingChannel = MutableLiveData<Boolean>()
+    val isLoadingChannel: LiveData<Boolean> get() = _isLoadingChannel
 
-    private val _channels = MutableLiveData<List<ChannelItem>>()
-    val channels: LiveData<List<ChannelItem>> get() = _channels
+    fun updateIsLoadingChannel(isLoadingChannel: Boolean) {
+        _isLoadingChannel.value = isLoadingChannel
+    }
 
-    private val _categories = MutableLiveData<List<CategoryItem>>()
-    val categories: LiveData<List<CategoryItem>> get() = _categories
+    private val _isImportingData = MutableLiveData<Boolean>()
+    val isImportingData: LiveData<Boolean> get() = _isImportingData
+
+    fun updateIsImportingData(isImportingData: Boolean) {
+        _isImportingData.value = isImportingData
+    }
+
+    private val _categoriesWithChannels = MutableLiveData<List<CategoryItem>>()
+    val categoriesWithChannels: LiveData<List<CategoryItem>> get() = _categoriesWithChannels
 
     private val _currentProgram = MutableLiveData<EPGProgramItem?>()
     val currentProgram: LiveData<EPGProgramItem?> get() = _currentProgram
@@ -72,12 +93,10 @@ class ChannelViewModel @Inject constructor(
         _nextProgram.value = nextProgram
     }
 
-    fun importJSONData() {
-        viewModelScope.launch {
-            updateIsLoadingChannelList(true)
-            importJSONDataUseCase.invoke()
-            getChannelsByCategory(-1L)
-        }
+    suspend fun importJSONData() {
+        updateIsImportingData(true)
+        importJSONDataUseCase.invoke()
+        updateIsImportingData(false)
     }
 
     fun downloadEPG(){
@@ -88,22 +107,19 @@ class ChannelViewModel @Inject constructor(
             if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
                 downloadEPGUseCase.invoke()
                 settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
-                updateEPGUseCase.invoke(channelList = _channels.value.orEmpty())
-            }
-            else{
-                updateEPGUseCase.invoke(channelList = _channels.value.orEmpty())
             }
         }
     }
 
     fun updateIsLoadingChannelList(isLoading: Boolean) {
+        Log.d("ChannelViewModel", "isLoading: $isLoading")
         _isLoadingChannelList.value = isLoading
     }
 
-    fun getChannelsByCategory(categoryId: Long) {
+    fun loadCategoriesWithChannels() {
         viewModelScope.launch {
             updateIsLoadingChannelList(true)
-            _channels.value = getChannelsUseCase.invoke(categoryId)
+            _categoriesWithChannels.value = getChannelsUseCase.invoke()
             updateIsLoadingChannelList(false)
         }
     }
@@ -114,32 +130,47 @@ class ChannelViewModel @Inject constructor(
         return programs
     }
 
-    fun getSortedChannelsByIndexFavourite(): List<ChannelItem> {
-        Log.d("ChannelViewModel", channels.value?.size.toString())
-        return channels.value.orEmpty().sortedWith(compareBy(nullsLast()) { it.indexFavourite })
+    fun getSortedChannelsOfCategory(categoryId: Long): List<ChannelItem> {
+        Log.d("ChannelViewModel", "Category size: " + _categoriesWithChannels.value?.size.toString())
+        return if (categoryId == -1L) {
+            categoriesWithChannels.value.orEmpty().first { categoryId == it.id }.channels.sortedWith(compareBy(nullsLast()) { it.indexFavourite })
+        } else{
+            categoriesWithChannels.value.orEmpty().first { categoryId == it.id }.channels.sortedWith(compareBy(nullsLast()) { it.indexGroup })
+        }
     }
 
     fun channelExists(id: Long): Boolean {
-        return channels.value.orEmpty().any { it.id == id }
+        return categoriesWithChannels.value.orEmpty().any {
+            category -> category.channels.any {
+                channel -> channel.id == id
+            }
+        }
     }
 
     fun getChannelByFavouriteId(favId: Int): ChannelItem? {
-        return channels.value.orEmpty().firstOrNull { it.indexFavourite == favId }
+        return _categoriesWithChannels.value?.first{it.id == -1L}?.channels!!.firstOrNull { it.indexFavourite == favId }
     }
 
-    fun getChannelByGroupId(groupId: Int): ChannelItem? {
-        return channels.value.orEmpty().firstOrNull { it.indexGroup == groupId }
+    suspend fun getPreviousChannel(categoryId: Long, groupId: Int): ChannelItem {
+        return channelRepository.getPreviousChannel(categoryId, groupId)
+    }
+
+    suspend fun getNextChannel(categoryId: Long, groupId: Int): ChannelItem {
+        return channelRepository.getNextChannel(categoryId, groupId)
+    }
+
+    suspend fun getNextChannelIndex(categoryId: Long, groupId: Int): Int {
+        return channelRepository.getNextChannelIndex(categoryId, groupId)
+    }
+
+    suspend fun getPreviousChannelIndex(categoryId: Long, groupId: Int): Int {
+        return channelRepository.getPreviousChannelIndex(categoryId, groupId)
     }
 
     fun updateCurrentProgramForChannel(id: Long) {
         viewModelScope.launch {
-            val currentTime = System.currentTimeMillis()
-            val currentProgram = channels.value.orEmpty().first { it.id == id }.epgPrograms.firstOrNull{
-                it.startTime.time <= currentTime && it.stopTime.time >= currentTime
-            }
-            val nextProgram = channels.value.orEmpty().first { it.id == id }.epgPrograms.firstOrNull{
-                it.startTime.time > currentTime
-            }
+            val currentProgram = epgRepository.getCurrentProgramForChannel(id)?.toDomain()
+            val nextProgram = epgRepository.getNextProgramForChannel(id)?.toDomain()
             updateCurrentProgram(currentProgram)
             updateNextProgram(nextProgram)
         }
@@ -148,19 +179,10 @@ class ChannelViewModel @Inject constructor(
     fun updateEPG() {
         viewModelScope.launch {
             downloadEPGUseCase.invoke()
-            updateEPGUseCase.invoke(channels.value.orEmpty())
         }
     }
 
-    fun setCategories() {
-        viewModelScope.launch {
-            updateIsLoadingCategoryList(true)
-            _categories.value = getCategoriesUseCase.invoke()
-            updateIsLoadingCategoryList(false)
-        }
-    }
-
-    fun updateIsLoadingCategoryList(isLoading: Boolean) {
-        _isLoadingCategoryList.value = isLoading
+    suspend fun getCategories() : List<CategoryItem> {
+        return channelRepository.getCategories()
     }
 }

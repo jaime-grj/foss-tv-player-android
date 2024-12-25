@@ -11,12 +11,12 @@ class ChannelListViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     private val binding = ItemChannelListBinding.bind(view)
 
-    fun render(channel: ChannelItem, onChannelSelected: (ChannelItem) -> Unit){
-        if (channel.indexFavourite != null) {
+    fun render(currentCategoryId: Long, channel: ChannelItem, onChannelSelected: (ChannelItem) -> Unit){
+        if (currentCategoryId == -1L) {
             binding.tvChannelListName.text = channel.indexFavourite.toString() + "  " + channel.name
         }
         else {
-            binding.tvChannelListName.text = channel.name
+            binding.tvChannelListName.text = channel.indexGroup.toString() + "  " + channel.name
         }
         binding.tvChannelListSubtitle.text = channel.currentProgram?.title.orEmpty()
 
@@ -33,16 +33,6 @@ class ChannelListViewHolder(view: View) : RecyclerView.ViewHolder(view){
             binding.progressBar.progress = progress.toInt()
             binding.tvChannelListSubtitle.text = currentProgram[0].title
         }
-
-        /*if (channel.currentProgram != null) {
-            val currentProgramDuration = channel.currentProgram?.stopTime?.time?.minus(
-                channel.currentProgram?.startTime?.time ?: 0
-            ) ?: 0
-            val currentTime = System.currentTimeMillis()
-            val progress =
-                (currentTime - channel.currentProgram?.startTime?.time!!) * 100 / currentProgramDuration
-            binding.progressBar.progress = progress.toInt()
-        }*/
         else {
             binding.progressBar.progress = 0
             binding.progressBar.visibility = View.GONE

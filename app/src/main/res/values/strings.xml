@@ -23,7 +23,7 @@
     <string name="epg" translatable="false">EPG</string>
     <string name="guide">Show schedule</string>
     <string name="currentProgram">Current:</string>
-    <string name="nextProgram">Next:</string>
+    <string name="nextProgram">"Next: "</string>
     <string name="has_audio_description" >Audio description</string>
     <string name="midnight_time" translatable="false">00:00</string>
     <string name="view_coroutine_scope" translatable="false">view_coroutine_scope</string>

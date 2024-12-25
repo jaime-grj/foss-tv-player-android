@@ -340,18 +340,26 @@
         android:id="@+id/timeDate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_rounded"
-        android:textColor="@color/black"
+        android:background="@drawable/bg_rounded_timedate"
+        android:textColor="@color/white"
         android:textSize="18sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/channelNumber"
-        app:layout_constraintStart_toStartOf="@+id/channelNumber"
-        android:fontFamily="@font/lato_bold"
-        android:layout_marginHorizontal="0dp"
-        android:layout_marginTop="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:fontFamily="@font/lato_regular"
+        android:layout_marginEnd="64dp"
+        android:layout_marginTop="36dp"
+        android:paddingEnd="4dp"
+        android:paddingStart="4dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
         tools:layout_editor_absoluteX="8dp"
         tools:visibility="visible"
         tools:text="22 sept. 2024, 22:00"
+        android:shadowColor="#000000"
+        android:shadowDx="0"
+        android:shadowDy="0"
+        android:shadowRadius="3"
         android:paddingHorizontal="4dp"
         android:visibility="gone"/>
 
@@ -371,21 +379,22 @@
             android:layout_width="12dp"
             android:layout_height="12dp"
             android:layout_margin="4dp"
-            android:background="@drawable/bg_rounded"/>
+            tools:visibility="visible"
+            android:background="@drawable/element_dot_loading"/>
 
         <View
             android:id="@+id/dot2"
             android:layout_width="12dp"
             android:layout_height="12dp"
             android:layout_margin="4dp"
-            android:background="@drawable/bg_rounded"/>
+            android:background="@drawable/element_dot_loading"/>
 
         <View
             android:id="@+id/dot3"
             android:layout_width="12dp"
             android:layout_height="12dp"
             android:layout_margin="4dp"
-            android:background="@drawable/bg_rounded"/>
+            android:background="@drawable/element_dot_loading"/>
     </LinearLayout>
 
 
@@ -431,6 +440,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:visibility="gone"
+        tools:visibility="visible"
         android:translationZ="1dp"
         />
 
@@ -462,63 +472,32 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/channelBottomInfo"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
+        android:layout_width="600dp"
+        android:layout_height="wrap_content"
         android:background="@drawable/bg_rounded_gradient_transparent_vertical"
-        android:layout_marginBottom="0dp"
+        android:layout_marginBottom="50dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:visibility="gone"
-
         tools:visibility="visible">
-
-        <ImageView
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:contentDescription="@string/channel_logo"
-            app:layout_constraintEnd_toEndOf="@+id/tvChannelCurrentProgramPrev"
-            app:layout_constraintBottom_toTopOf="@+id/tvChannelCurrentProgramPrev"
-            android:layout_marginBottom="5dp"
-            android:layout_marginStart="40dp"
-            android:visibility="gone"
-            tools:visibility="visible"
-            />
-
-        <TextView
-            android:id="@+id/tvChannelCurrentProgramPrev"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintEnd_toStartOf="@+id/tvChannelCurrentProgram"
-            app:layout_constraintTop_toTopOf="@id/tvChannelCurrentProgram"
-            android:textSize="20sp"
-            android:fontFamily="@font/lato_regular"
-            android:layout_marginTop="0dp"
-            android:layout_marginStart="120dp"
-            android:layout_marginEnd="10dp"
-            tools:text="En emisión:"
-            android:text="@string/currentProgram"
-            android:textColor="@color/white"
-            android:shadowColor="#000000"
-            android:shadowDx="0"
-            android:shadowDy="0"
-            android:shadowRadius="3"
-            android:visibility="visible"
-            tools:visibility="visible"/>
 
         <TextView
             android:id="@+id/tvChannelCurrentProgram"
             android:layout_width="0dp"
+            android:paddingHorizontal="4dp"
+            android:paddingTop="0dp"
+            android:paddingBottom="2dp"
             android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             android:textSize="20sp"
             android:fontFamily="@font/lato_regular"
-            android:layout_marginTop="95dp"
-            android:layout_marginStart="220dp"
-            android:layout_marginEnd="100dp"
-            tools:text="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (17:00 - 21:00)"
+            android:layout_marginTop="0dp"
+            android:layout_marginStart="0dp"
+            android:layout_marginEnd="00dp"
+            tools:text="AAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             android:textColor="@color/white"
             android:shadowColor="#000000"
             android:shadowDx="0"
@@ -528,17 +507,16 @@
             tools:visibility="visible"/>
 
         <TextView
-            android:id="@+id/tvChannelNextProgramPrev"
-            android:layout_width="wrap_content"
+            android:id="@+id/tvStartTime"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintEnd_toStartOf="@+id/tvChannelNextProgram"
-            app:layout_constraintTop_toTopOf="@id/tvChannelNextProgram"
-            android:textSize="20sp"
+            app:layout_constraintStart_toStartOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintTop_toBottomOf="@+id/tvChannelCurrentProgram"
+            android:textSize="12sp"
             android:fontFamily="@font/lato_regular"
-            android:layout_marginStart="120dp"
-            android:layout_marginEnd="10dp"
-            tools:text="A continuación:"
-            android:text="@string/nextProgram"
+            android:paddingStart="2dp"
+            android:paddingEnd="0dp"
+            tools:text="19:00"
             android:textColor="@color/white"
             android:shadowColor="#000000"
             android:shadowDx="0"
@@ -546,19 +524,59 @@
             android:shadowRadius="3"
             android:visibility="visible"
             tools:visibility="visible"/>
+
+        <TextView
+            android:id="@+id/tvEndTime"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintTop_toBottomOf="@+id/tvChannelCurrentProgram"
+            android:textSize="12sp"
+            android:fontFamily="@font/lato_regular"
+            android:paddingEnd="2dp"
+            android:paddingStart="0dp"
+            tools:text="19:00"
+            android:textColor="@color/white"
+            android:shadowColor="#000000"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="3"
+            android:visibility="visible"
+            tools:visibility="visible"/>
+
+        <!-- Horizontal ProgressBar for Program Progress -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="0dp"
+            android:layout_height="4dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:progressDrawable="@drawable/progress_drawable"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:indeterminate="false"
+            android:progress="0"
+            app:layout_constraintStart_toEndOf="@+id/tvStartTime"
+            app:layout_constraintEnd_toStartOf="@+id/tvEndTime"
+            app:layout_constraintTop_toBottomOf="@id/tvChannelCurrentProgram"/>
 
         <TextView
             android:id="@+id/tvChannelNextProgram"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toEndOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintTop_toBottomOf="@+id/progressBar"
             app:layout_constraintStart_toStartOf="@+id/tvChannelCurrentProgram"
-            app:layout_constraintTop_toBottomOf="@+id/tvChannelCurrentProgram"
-            android:textSize="20sp"
+            app:layout_constraintBottom_toBottomOf="@id/channelBottomInfo"
+            android:paddingBottom="1dp"
+            android:paddingTop="10dp"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:textSize="12sp"
             android:fontFamily="@font/lato_regular"
             android:layout_marginStart="0dp"
-            android:layout_marginEnd="100dp"
-            tools:text="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (21:00 - 23:00)"
+            android:layout_marginEnd="0dp"
+            tools:text="Siguiente: AAAAAAAAAAAAAAAAAAAAAAAAA (21:00 - 23:00)"
             android:textColor="@color/white"
             android:shadowColor="#000000"
             android:shadowDx="0"

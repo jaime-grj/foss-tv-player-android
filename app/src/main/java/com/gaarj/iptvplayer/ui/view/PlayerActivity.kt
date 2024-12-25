@@ -30,13 +30,14 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.res.ResourcesCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.core.MediaUtils
+import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
 import com.gaarj.iptvplayer.data.services.ApiService
 import com.gaarj.iptvplayer.databinding.ActivityPlayerBinding
 import com.gaarj.iptvplayer.domain.model.AudioTrack
@@ -50,7 +51,6 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarj.iptvplayer.domain.model.VideoTrack
-import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
 import com.gaarj.iptvplayer.ui.adapters.AudioTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.CategoryListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelListAdapter
@@ -85,6 +85,7 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.CaptionStyleCompat
 import com.google.android.exoplayer2.ui.SubtitleView
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.util.MimeTypes
 import com.google.android.exoplayer2.video.VideoSize
@@ -96,6 +97,7 @@ import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ProxySelector
@@ -112,7 +114,7 @@ val Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).to
 
 
 @AndroidEntryPoint
-class PlayerActivity : AppCompatActivity() {
+class PlayerActivity : FragmentActivity() {
     private lateinit var binding: ActivityPlayerBinding
     private lateinit var animatorSet: AnimatorSet
 
@@ -127,6 +129,8 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var jobLoadStreamSource: Job
     private lateinit var jobUIChangeChannel: Job
     private lateinit var jobEPGRender : Job
+    private lateinit var jobFastChangeChannel : Job
+    private lateinit var jobSwitchChannel : Job
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -150,11 +154,24 @@ class PlayerActivity : AppCompatActivity() {
     private var isActivityPaused: Boolean = false
     private var isActivityStopped: Boolean = false
 
+    private var currentAudioTrack: AudioTrack? = null
+    private var currentVideoTrack: VideoTrack? = null
+    private var currentSubtitlesTrack: SubtitlesTrack? = null
+
+    private var isLongPress: Boolean = false
+    private var newChannelId: Int = 0
+    private var channelsSize: Int = 0
+
     private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
             val resultData = data?.getLongExtra("channelId", 0L)
-            val newChannel = channelViewModel.channels.value?.first { it.id == resultData }
+            val newChannel = channelViewModel.categoriesWithChannels
+                .value?.first {
+                    it.id == channelViewModel.currentCategoryId.value
+                }?.channels?.first{
+                    it.id == resultData
+                }
             if (newChannel != null) {
                 loadChannel(newChannel)
             }
@@ -208,22 +225,30 @@ class PlayerActivity : AppCompatActivity() {
         originalProxySelector = ProxySelector.getDefault()
         initPlayer()
 
-        channelViewModel.isLoadingCategoryList.observe(this) { isLoading ->
-            if (isLoading == false) {
-                initCategoryList()
+        channelViewModel.isImportingData.observe(this) { isImportingData ->
+            if (isImportingData == true) {
+                playerViewModel.showAnimatedLoadingIcon()
+            }
+            else{
+                channelViewModel.loadCategoriesWithChannels()
             }
         }
 
         channelViewModel.isLoadingChannelList.observe(this) { isLoading ->
             if (isLoading == false) {
-                channelViewModel.setCategories()
                 channelViewModel.downloadEPG()
-                initChannelList()
+                initCategoryList()
                 playerViewModel.hideAnimatedLoadingIcon()
-                Log.i(TAG, "Channel list loaded + ${channelViewModel.channels.value?.size}")
-                if (channelViewModel.channels.value?.isNotEmpty() == true) {
-                    loadChannel(channelViewModel.channels.value.orEmpty().first())
+                Log.i(TAG, "Channel list loaded + ${channelViewModel.categoriesWithChannels.value?.size}")
+                if (channelViewModel.categoriesWithChannels.value?.isNotEmpty() != true) {
+                    channelViewModel.updateCurrentCategoryId(-1L)
+                    lifecycleScope.launch {
+                        loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                    }
                 }
+            }
+            else{
+                Log.i(TAG, "isLoading channel list: $isLoading")
             }
         }
 
@@ -254,9 +279,13 @@ class PlayerActivity : AppCompatActivity() {
         setContentView(view)
 
         playerViewModel.onCreate()
-        channelViewModel.importJSONData()
-        channelViewModel.downloadEPG()
-        channelViewModel.updateIsInFavouriteCategory(true)
+        channelViewModel.updateIsLoadingChannelList(true)
+        channelViewModel.updateIsLoadingChannelList(false)
+        playerViewModel.updateCurrentItemSelectedFromChannelList(0)
+        channelViewModel.updateCurrentCategoryId(-1L)
+        lifecycleScope.launch {
+            channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
+        }
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -484,30 +513,29 @@ class PlayerActivity : AppCompatActivity() {
             if (currentProgram != null){
                 val currentProgramStartTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.startTime)
                 val currentProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.stopTime)
-                binding.tvChannelCurrentProgram.text = currentProgram.title + " (" +  currentProgramStartTimeFormatted + " - " + currentProgramStopTimeFormatted + ")"
+                binding.tvChannelCurrentProgram.text = currentProgram.title
                 binding.tvChannelCurrentProgram.visibility = View.VISIBLE
-                binding.tvChannelCurrentProgramPrev.visibility = View.VISIBLE
-                (binding.tvChannelNextProgram.layoutParams as ConstraintLayout.LayoutParams).apply {
-                    topToBottom = R.id.tvChannelCurrentProgram
-                    startToStart = R.id.tvChannelCurrentProgram
-                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                    topToTop = ConstraintLayout.LayoutParams.UNSET
-                    marginStart = 0
-                    marginEnd = 100.dp
-                    topMargin = 0
-                }.also { binding.tvChannelNextProgram.layoutParams = it }
+                binding.progressBar.visibility = View.VISIBLE
+                binding.tvStartTime.visibility = View.VISIBLE
+                binding.tvEndTime.visibility = View.VISIBLE
+                binding.tvStartTime.text = currentProgramStartTimeFormatted
+                binding.tvEndTime.text = currentProgramStopTimeFormatted
+                val currentTime = System.currentTimeMillis()
+                val currentProgramDuration = currentProgram.stopTime.time.minus(
+                    currentProgram.startTime.time
+                )
+                val progress =
+                    (currentTime - currentProgram.startTime.time) * 100 / currentProgramDuration
+                binding.progressBar.progress = progress.toInt()
             } else{
-                binding.tvChannelCurrentProgram.visibility = View.GONE
-                binding.tvChannelCurrentProgramPrev.visibility = View.GONE
-                (binding.tvChannelNextProgram.layoutParams as ConstraintLayout.LayoutParams).apply {
-                    topToTop = ConstraintLayout.LayoutParams.PARENT_ID
-                    topToBottom = ConstraintLayout.LayoutParams.UNSET
-                    startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                    marginStart = 220.dp
-                    marginEnd = 100.dp
-                    topMargin = 118.dp
-                }.also { binding.tvChannelNextProgram.layoutParams = it }
+                binding.tvChannelCurrentProgram.visibility = View.INVISIBLE
+                if (channelViewModel.nextProgram.value == null){
+                    println("viewbottominfo gone")
+                    binding.channelBottomInfo.visibility = View.GONE
+                }
+                binding.progressBar.visibility = View.GONE
+                binding.tvStartTime.visibility = View.GONE
+                binding.tvEndTime.visibility = View.GONE
             }
         }
 
@@ -515,13 +543,14 @@ class PlayerActivity : AppCompatActivity() {
             if (nextProgram != null){
                 val nextProgramStartTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextProgram.startTime)
                 val nextProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextProgram.stopTime)
-                binding.tvChannelNextProgram.text = nextProgram.title + " (" +  nextProgramStartTimeFormatted + " - " + nextProgramStopTimeFormatted + ")"
+                binding.tvChannelNextProgram.text = getString(R.string.nextProgram) + nextProgram.title + " (" +  nextProgramStartTimeFormatted + " - " + nextProgramStopTimeFormatted + ")"
                 binding.tvChannelNextProgram.visibility = View.VISIBLE
-                binding.tvChannelNextProgramPrev.visibility = View.VISIBLE
+                if (channelViewModel.currentProgram.value == null){
+                    binding.channelBottomInfo.visibility = View.VISIBLE
+                }
             }
             else{
                 binding.tvChannelNextProgram.visibility = View.GONE
-                binding.tvChannelNextProgramPrev.visibility = View.GONE
             }
         }
 
@@ -588,36 +617,6 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
-        channelViewModel.isInFavouriteCategory.observe(this) { isInFavouriteCategory ->
-            /*val constraints = ConstraintSet()
-
-            // Clone current constraints to modify them
-            constraints.clone(binding.playerContainer)
-
-            if (isInFavouriteCategory) {
-                // Set `channelName` to be constrained to the right of `channelNumber`
-                constraints.connect(
-                    binding.channelName.id,
-                    ConstraintSet.START,
-                    binding.channelNumber.id,
-                    ConstraintSet.END,
-                    4 // Optional margin in dp
-                )
-            } else {
-
-                constraints.connect(
-                    binding.channelName.id,
-                    ConstraintSet.START,
-                    binding.categoryName.id,
-                    ConstraintSet.END,
-                    4 // Optional margin in dp
-                )
-            }
-
-            // Apply the modified constraints
-            constraints.applyTo(binding.playerContainer)*/
-        }
-
         binding.playerView.setOnClickListener {
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
@@ -637,8 +636,10 @@ class PlayerActivity : AppCompatActivity() {
                     playerViewModel.hideButtonPiP()
                     playerViewModel.hideButtonCategoryList()
                 }
-                playerViewModel.hideChannelNumber()
-                playerViewModel.hideChannelNumberCategory()
+                if (!isLongPress){
+                    playerViewModel.hideChannelNumber()
+                    playerViewModel.hideChannelNumberCategory()
+                }
                 playerViewModel.hideChannelName()
                 playerViewModel.hideCategoryName()
                 playerViewModel.hideTimeDate()
@@ -709,7 +710,8 @@ class PlayerActivity : AppCompatActivity() {
             ChannelSettings(getString(R.string.video_track)),
             ChannelSettings(getString(R.string.change_source)),
             ChannelSettings("Actualizar EPG"),
-            ChannelSettings(getString(R.string.epg))
+            ChannelSettings(getString(R.string.epg)),
+            ChannelSettings("Actualizar lista canales")
         )
         rvChannelSettings.layoutManager = LinearLayoutManager(this)
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
@@ -778,6 +780,13 @@ class PlayerActivity : AppCompatActivity() {
                 resultLauncher.launch(intent)
 
             }
+            ChannelSettings.UPDATE_CHANNEL_LIST -> {
+                lifecycleScope.launch {
+                    channelViewModel.importJSONData()
+                    val firstChannel = channelViewModel.getNextChannel(-1L, 1)
+                    loadChannel(firstChannel)
+                }
+            }
         }
 
     }
@@ -809,18 +818,16 @@ class PlayerActivity : AppCompatActivity() {
     private fun loadVideoTracksMenu() {
         val videoTracksList = loadVideoTracks()
         rvVideoTracks.adapter = VideoTracksAdapter(videoTracksList) { selectedVideoTrack ->
-            loadVideoTrack(selectedVideoTrack)
-        }
-        if (videoTracksList.isNotEmpty()) {
-            playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
-        }
-        rvVideoTracks.adapter = VideoTracksAdapter(videoTracksList) { selectedVideoTrack ->
             if (selectedVideoTrack.id.toInt() == -1) {
                 playerViewModel.updateIsQualityForced(false)
             }
             else{
                 playerViewModel.updateIsQualityForced(true)
             }
+            loadVideoTrack(selectedVideoTrack)
+        }
+        if (videoTracksList.isNotEmpty()) {
+            playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
         }
         playerViewModel.showTrackMenu()
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.VIDEO_TRACKS)
@@ -934,24 +941,23 @@ class PlayerActivity : AppCompatActivity() {
 
     private fun initCategoryList() {
         rvCategoryList.layoutManager = LinearLayoutManager(this)
-        val favCategory = listOf(
-            CategoryItem(
-                id = -1,
-                name = "Favoritos",
-                description = "",
-                isSelected = false,
-                channels = listOf()
-            )
-        )
-        val categoriesDb = channelViewModel.categories.value
-        var categories: List<CategoryItem> = favCategory
-        if (categoriesDb != null) {
-            categories = categories.plus(categoriesDb)
-        }
-
-        Log.i("PlayerActivity", "Categories: $categories")
-        rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
-            loadCategory(selectedCategory)
+        lifecycleScope.launch {
+            val categories = listOf(CategoryItem(-1L, "Favoritos", null, false, listOf())) + channelViewModel.getCategories()
+            Log.i("PlayerActivity", "initCategoryList: ${categories.size}")
+            rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
+                channelViewModel.updateCurrentCategoryId(selectedCategory.id)
+                playerViewModel.updateCategoryName(selectedCategory.name)
+                val sortedChannels =
+                    channelViewModel.getSortedChannelsOfCategory(selectedCategory.id)
+                rvChannelList.adapter = ChannelListAdapter(
+                    channelViewModel.currentCategoryId.value!!,
+                    sortedChannels
+                ) { selectedChannel ->
+                    loadChannel(selectedChannel)
+                }
+                binding.channelNumber.visibility = View.GONE
+                loadChannel(selectedCategory.channels[0])
+            }
         }
     }
 
@@ -965,22 +971,10 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadCategory(category: CategoryItem) {
-        Log.i("PlayerActivity", "loadCategory: $category")
-        if (category.id == -1L) {
-            channelViewModel.updateIsInFavouriteCategory(true)
-        }
-        else {
-            channelViewModel.updateIsInFavouriteCategory(false)
-            playerViewModel.updateCategoryName(category.name)
-        }
-        channelViewModel.getChannelsByCategory(categoryId = category.id)
-    }
-
-    private fun initChannelList() {
+    private suspend fun initChannelList() {
         rvChannelList.layoutManager = LinearLayoutManager(this)
-        val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
-        rvChannelList.adapter = ChannelListAdapter(sortedChannels) { selectedChannel ->
+        val sortedChannels = channelViewModel.getSmChannelsByCategory(channelViewModel.currentCategoryId.value!!)
+        rvChannelList.adapter = ChannelListAdapter(channelViewModel.currentCategoryId.value!!, sortedChannels) { selectedChannel ->
             loadChannel(selectedChannel)
         }
     }
@@ -988,6 +982,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun initFocusInChannelList() {
         rvChannelList.viewTreeObserver.addOnGlobalLayoutListener {
             rvChannelList.scrollToPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
+            rvChannelList.layoutManager?.scrollToPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
             rvChannelList.post {
                 val viewHolder = rvChannelList.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
                 viewHolder?.itemView?.requestFocus()
@@ -1057,7 +1052,8 @@ class PlayerActivity : AppCompatActivity() {
             .buildUponParameters()
             //.setForceHighestSupportedBitrate(true) // Choose the highest quality
             //.setAllowVideoMixedMimeTypeAdaptiveness(false) // Disable adaptive switching between codecs
-            //.setMaxVideoBitrate(Int.MAX_VALUE)
+            //.setMaxVideoSize(1920, 1080)
+            //.setMaxVideoBitrate(80000000)
             //.setExceedRendererCapabilitiesIfNecessary(true)
             .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT)
             .build()
@@ -1068,11 +1064,15 @@ class PlayerActivity : AppCompatActivity() {
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                750,  // Min buffer before starting playback
-                12000,  // Max buffer size
-                750,   // Min buffer for playback start
-                750    // Min buffer for playback resume after a pause
+                1250,  // Min buffer before starting playback
+                25000,  // Max buffer size
+                1250,   // Min buffer for playback start
+                1250    // Min buffer for playback resume after a pause
             ).build()
+
+        val bandwidthMeter: DefaultBandwidthMeter = DefaultBandwidthMeter.Builder(this)
+            .setInitialBitrateEstimate(50_000_000)
+            .build()
 
         player = ExoPlayer.Builder(this)
             .setTrackSelector(trackSelector).setRenderersFactory(
@@ -1080,6 +1080,7 @@ class PlayerActivity : AppCompatActivity() {
                     .setEnableDecoderFallback(true)
                     .setMediaCodecSelector(MediaCodecSelector.DEFAULT))
             .setLoadControl(loadControl)
+            .setBandwidthMeter(bandwidthMeter)
             .build()
 
         setSubtitleTheme()
@@ -1168,6 +1169,9 @@ class PlayerActivity : AppCompatActivity() {
                     if (playerViewModel.isChannelLoading.value == true) cancelLoadingIndicatorTimer()
                     cancelTryNextStreamSourceTimer()
 
+                    playerViewModel.hideAnimatedLoadingIcon()
+                    playerViewModel.hideErrorMessage()
+
                     if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS && rvAudioTracks.adapter?.itemCount == 0) {
                         val audioTrackList = loadAudioTracks()
 
@@ -1190,6 +1194,8 @@ class PlayerActivity : AppCompatActivity() {
                         }
                         playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
                     }
+                    if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
+                    if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
                     // Dynamic FPS calculation (doesn't work very well)
                     /*val videoCounters = player.videoDecoderCounters
                     val framesRendered1 = videoCounters?.renderedOutputBufferCount
@@ -1245,11 +1251,6 @@ class PlayerActivity : AppCompatActivity() {
                         for (j in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(j)
                             Log.i(TAG, trackFormat.toString())
-                            /*val audioLanguage = trackFormat.language
-                            if(audioLanguage !in audioLanguages){
-                                audioLanguages += listOf(audioLanguage)
-                                Log.i(TAG, audioLanguages.toString())
-                            }*/
                             if (trackGroup.isTrackSelected(j)){
                                 val audioCodec: String?
                                 audioCodec = if (trackFormat.codecs != null) {
@@ -1299,11 +1300,6 @@ class PlayerActivity : AppCompatActivity() {
                         Log.i(TAG, subtitlesLanguages.toString())
                         mediaInfo.hasSubtitles = subtitlesLanguages.filterNotNull().isNotEmpty()
                     }
-                    /*if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
-                        for (j in 0 until trackGroup.length) {
-                            val trackFormat = trackGroup.getTrackFormat(j)
-                        }
-                    }*/
                     val currentProgram = channelViewModel.currentProgram.value
                     val nextProgram = channelViewModel.nextProgram.value
                     if (currentProgram != null || nextProgram != null) {
@@ -1564,7 +1560,7 @@ class PlayerActivity : AppCompatActivity() {
         playerViewModel.hidePlayer()
 
         currentNumberInput.clear()
-        if (channel.id < 0 || !channelViewModel.channelExists(channel.id)) {
+        if (channel.id < 0) {
             if (binding.channelNumber.visibility == View.VISIBLE) playerViewModel.hideChannelNumber()
             if (binding.channelName.visibility == View.VISIBLE) playerViewModel.hideChannelName()
             return
@@ -1584,24 +1580,29 @@ class PlayerActivity : AppCompatActivity() {
             player.stop()
         }
 
+        currentAudioTrack = null
+        currentVideoTrack = null
+        currentSubtitlesTrack = null
+
         if (binding.loadingDots.visibility == View.VISIBLE) playerViewModel.hideAnimatedLoadingIcon()
         if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
         Log.i(TAG,channel.name)
 
-        val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
+        /*val sortedChannels = channelViewModel.getSortedChannelsOfCategory(channelViewModel.currentCategoryId.value!!)
 
         for (i in sortedChannels.indices) {
             if (sortedChannels[i] == channel) {
                 playerViewModel.updateCurrentItemSelectedFromChannelList(i)
                 break
             }
-        }
+        }*/
+
 
         playerViewModel.updateChannelName(channel.name)
-        if (channelViewModel.isInFavouriteCategory.value == true) {
+        if (channelViewModel.currentCategoryId.value == -1L) {
             playerViewModel.updateChannelNumber(channel.indexFavourite!!)
         }
-        else if (channelViewModel.isInFavouriteCategory.value == false) {
+        else {
             playerViewModel.updateChannelNumber(channel.indexGroup!!)
         }
 
@@ -1739,13 +1740,15 @@ class PlayerActivity : AppCompatActivity() {
                                             .Builder(C.WIDEVINE_UUID)
                                             .setLicenseUri("https://drmnew.tvup.cloud/license/SAT53")
                                             .setLicenseRequestHeaders(
-                                                mapOf("Origin" to "https://www.tivify.tv",
+                                                mapOf(
+                                                    "Origin" to "https://www.tivify.tv",
                                                     "Referer" to "https://www.tivify.tv/",
                                                     "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
                                                     "X-Access-Token" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
                                                     "Accept-Encoding" to "gzip, deflate, br, zstd",
                                                     "Content-Type" to "application/octet-stream",
-                                                    "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",)
+                                                    "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",
+                                                )
                                             )
                                             .build()
                                     )
@@ -1839,6 +1842,7 @@ class PlayerActivity : AppCompatActivity() {
                                     TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
                                 )
                                 .build()
+                        currentSubtitlesTrack = subtitlesTrack
                     }
                 }
             }
@@ -1859,6 +1863,7 @@ class PlayerActivity : AppCompatActivity() {
                                     TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
                                 )
                                 .build()
+                        currentAudioTrack = audioTrack
                     }
                 }
             }
@@ -1929,7 +1934,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonCategoryList()
                     }
                     playerViewModel.hideTimeDate()
-                    if (channelViewModel.isInFavouriteCategory.value == true) {
+                    if (channelViewModel.currentCategoryId.value == -1L) {
                         playerViewModel.showChannelNumber()
                     }
                     else{
@@ -1953,8 +1958,10 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonPiP()
                         playerViewModel.hideButtonCategoryList()
                     }
-                    playerViewModel.hideChannelNumber()
-                    playerViewModel.hideChannelNumberCategory()
+                    if (!isLongPress){
+                        playerViewModel.hideChannelNumber()
+                        playerViewModel.hideChannelNumberCategory()
+                    }
                     playerViewModel.hideChannelName()
                     playerViewModel.hideCategoryName()
                     playerViewModel.hideTimeDate()
@@ -1982,7 +1989,7 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.showButtonPiP()
                         playerViewModel.showButtonCategoryList()
                     }
-                    if (channelViewModel.isInFavouriteCategory.value == true) {
+                    if (channelViewModel.currentCategoryId.value == -1L) {
                         playerViewModel.showChannelNumber()
                     }
                     else{
@@ -1995,7 +2002,9 @@ class PlayerActivity : AppCompatActivity() {
                     if (playerViewModel.isSourceLoading.value == false) {
                         playerViewModel.showMediaInfo()
                     }
-                    playerViewModel.showBottomInfo()
+                    if (channelViewModel.currentProgram.value != null || channelViewModel.nextProgram.value != null) {
+                        playerViewModel.showBottomInfo()
+                    }
                 }
                 delay(timeout)
                 ensureActive()
@@ -2008,8 +2017,10 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideButtonPiP()
                         playerViewModel.hideButtonCategoryList()
                     }
-                    playerViewModel.hideChannelNumber()
-                    playerViewModel.hideChannelNumberCategory()
+                    if (!isLongPress){
+                        playerViewModel.hideChannelNumber()
+                        playerViewModel.hideChannelNumberCategory()
+                    }
                     playerViewModel.hideChannelName()
                     playerViewModel.hideCategoryName()
                     playerViewModel.hideTimeDate()
@@ -2035,10 +2046,11 @@ class PlayerActivity : AppCompatActivity() {
                 }
                 delay(timeout)
                 ensureActive()
-                val newChannel = channelViewModel.getChannelByFavouriteId(currentNumberInput.toString().toInt())
+                val newChannel = channelViewModel.getNextChannel(categoryId = -1L, currentNumberInput.toString().toInt())
                 runOnUiThread {
                     playerViewModel.hideChannelNumberKeyboard()
-                    if (newChannel != null && newChannel != channelViewModel.currentChannel.value) {
+                    if (newChannel != channelViewModel.currentChannel.value) {
+                        channelViewModel.updateCurrentCategoryId(-1L)
                         loadChannel(newChannel)
                     }
                     else if (newChannel == channelViewModel.currentChannel.value){
@@ -2054,35 +2066,83 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (channelViewModel.isLoadingChannelList.value == true) return true
+        if (channelViewModel.isLoadingChannelList.value == true
+            || channelViewModel.isImportingData.value == true
+            || channelViewModel.isLoadingChannel.value == true) return true
         val code = event.keyCode
         val action = event.action
         val isDown = action == 0
 
-        if (!isDown) return super.dispatchKeyEvent(event)
+        if (!isDown){
+            if (isLongPress){
+                channelViewModel.updateIsLoadingChannel(true)
+                if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancel()
+                isLongPress = false
+                if (channelViewModel.currentCategoryId.value == -1L){
+                    jobFastChangeChannel = lifecycleScope.launch {
+                        Log.i(TAG, "After pressing long button: get newChannelId: $newChannelId")
+                        val newChannel = channelViewModel.getNextChannel(-1L, newChannelId)
+                        Log.i(TAG, "After pressing long button: load newChannelId: $newChannelId")
+                        channelViewModel.updateIsLoadingChannel(false)
+                        loadChannel(newChannel)
+                    }
+                }
+                else{
+                    jobFastChangeChannel = lifecycleScope.launch {
+                        val newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, newChannelId)
+                        loadChannel(newChannel)
+                        channelViewModel.updateIsLoadingChannel(false)
+                    }
+                }
+            }
+            else{
+                return super.dispatchKeyEvent(event)
+            }
+        }
         else{
             when (code) {
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     // Load channel from channel list
                     if (playerViewModel.isChannelListVisible.value == true) {
-                        var currentChannelIndex: Int = -1
-                        val sortedChannels = channelViewModel.getSortedChannelsByIndexFavourite()
-                        for (i in sortedChannels.indices){
-                            if (sortedChannels[i] == channelViewModel.currentChannel.value){
-                                currentChannelIndex = i
-                            }
+                        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
+                            channelViewModel.currentChannel.value?.indexFavourite!!
+                        } else {
+                            channelViewModel.currentChannel.value?.indexGroup!!
                         }
+                        Log.i(TAG, "dispatchKeyEvent: currentChannelIndex: $currentChannelIndex")
                         val currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        if (currentItemSelectedFromChannelList != currentChannelIndex){
-                            val newChannel = (rvChannelList.adapter as? ChannelListAdapter)?.getItemAtPosition(currentItemSelectedFromChannelList) as ChannelItem
-                            loadChannel(newChannel)
+                        Log.i(TAG, "dispatchKeyEvent: currentItemSelectedFromChannelList: $currentItemSelectedFromChannelList")
+                        val newChannelSm = (rvChannelList.adapter as? ChannelListAdapter)?.getItemAtPosition(currentItemSelectedFromChannelList) as ChannelItem
+                        var newChannel: ChannelItem?
+                        if (channelViewModel.currentCategoryId.value == -1L) {
+                            lifecycleScope.launch {
+                                newChannel = channelViewModel.getNextChannel(-1L, newChannelSm.indexFavourite!!)
+                                newChannel?.let { loadChannel(it) }
+                            }
+                        } else{
+                            println("newChannelSm.indexFavourite: ${newChannelSm.indexFavourite}, channelViewModel.currentCategoryId.value: ${channelViewModel.currentCategoryId.value}")
+                            lifecycleScope.launch {
+                                newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, newChannelSm.indexGroup!!)
+                                newChannel?.let { loadChannel(it) }
+                            }
                         }
                     }
                     else if (playerViewModel.isCategoryListVisible.value == true) {
                         val currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
                         val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(currentItemSelectedFromCategoryList) as CategoryItem
-                        loadCategory(newCategory)
+                        channelViewModel.updateCurrentCategoryId(newCategory.id)
+                        playerViewModel.updateCategoryName(newCategory.name)
+                        lifecycleScope.launch {
+                            loadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
+                        }
+                        /*if (newCategory.id == -1L){
+                            playerViewModel.hideChannelNumberCategory()
+                        }
+                        else{
+                            playerViewModel.hideChannelNumber()
+                        }*/
                         playerViewModel.hideCategoryList()
                     }
                     // Enter specific setting
@@ -2107,6 +2167,9 @@ class PlayerActivity : AppCompatActivity() {
                             }
                             ChannelSettings.SHOW_EPG -> {
                                 loadSetting(ChannelSettings.SHOW_EPG)
+                            }
+                            ChannelSettings.UPDATE_CHANNEL_LIST -> {
+                                loadSetting(ChannelSettings.UPDATE_CHANNEL_LIST)
                             }
                         }
                     }
@@ -2171,11 +2234,14 @@ class PlayerActivity : AppCompatActivity() {
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
                         jobUIChangeChannel.cancel()
                         playerViewModel.hideChannelNumberKeyboard()
-                        val newChannel = channelViewModel.getChannelByFavouriteId(currentNumberInput.toString().toInt())
-                        if (newChannel != null) {
+                        lifecycleScope.launch {
+                            val newChannel = channelViewModel.getNextChannel(
+                                -1L,
+                                currentNumberInput.toString().toInt()
+                            )
                             loadChannel(newChannel)
+                            currentNumberInput.clear()
                         }
-                        currentNumberInput.clear()
                     }
                     else if (playerViewModel.isChannelNumberVisible.value == true || playerViewModel.isChannelNumberCategoryVisible.value == true) {
                         if (!isAndroidTV(this)) {
@@ -2212,11 +2278,14 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     if (binding.channelList.visibility == View.VISIBLE) { // Navigate through menu
                         var currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        val channelsSize = channelViewModel.channels.value?.size ?: 0
-                        currentItemSelectedFromChannelList = if (currentItemSelectedFromChannelList - 1 < 0) {
-                            channelsSize - 1
-                        } else {
-                            (currentItemSelectedFromChannelList - 1) % channelsSize
+                        lifecycleScope.launch {
+                            val channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
+                            currentItemSelectedFromChannelList = if (currentItemSelectedFromChannelList - 1 < 0) {
+                                channelsSize - 1
+                            } else {
+                                (currentItemSelectedFromChannelList - 1) % channelsSize
+                            }
+                            playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
                         }
                         playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
                     }
@@ -2281,7 +2350,40 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
                     }
                     else{
-                        loadNextChannel()
+                        if (event.repeatCount > 0){
+                            isLongPress = true
+                            if (channelViewModel.currentCategoryId.value == -1L) {
+                                binding.channelNumber.visibility = View.VISIBLE
+                                binding.channelName.visibility = View.GONE
+                                binding.channelMediaInfo.visibility = View.GONE
+                                if (event.repeatCount == 1) {
+                                    newChannelId = channelViewModel.currentChannel.value?.indexFavourite!!
+                                }
+                                jobFastChangeChannel = lifecycleScope.launch {
+                                    newChannelId = channelViewModel.getNextChannelIndex(-1L, newChannelId)
+                                    println("newChannelIndex: $newChannelId")
+                                    binding.channelNumber.text = (newChannelId).toString()
+                                }
+                            }
+                            else{
+                                binding.channelNumberCategory.visibility = View.VISIBLE
+                                binding.channelName.visibility = View.INVISIBLE
+                                binding.channelMediaInfo.visibility = View.GONE
+                                if (event.repeatCount == 1) {
+                                    newChannelId = channelViewModel.currentChannel.value?.indexGroup!!
+                                }
+                                jobFastChangeChannel = lifecycleScope.launch {
+                                    newChannelId = channelViewModel.getNextChannelIndex(channelViewModel.currentCategoryId.value!!, newChannelId)
+                                    println("newChannelIndex: $newChannelId")
+                                    binding.channelNumber.text = (newChannelId).toString()
+                                    binding.channelNumberCategory.text = (newChannelId).toString()
+                                }
+                            }
+
+                        }
+                        else{
+                            loadNextChannel()
+                        }
                     }
                     return true
                 }
@@ -2289,9 +2391,11 @@ class PlayerActivity : AppCompatActivity() {
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     if (binding.channelList.visibility == View.VISIBLE) { // Navigate through menu
                         var currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        val channelsSize = channelViewModel.channels.value?.size ?: 0
-                        currentItemSelectedFromChannelList = (currentItemSelectedFromChannelList + 1) % channelsSize
-                        playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
+                        lifecycleScope.launch {
+                            val channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
+                            currentItemSelectedFromChannelList = (currentItemSelectedFromChannelList + 1) % channelsSize
+                            playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
+                        }
                     }
                     else if (binding.rvChannelSettings.visibility == View.VISIBLE) { // Navigate through menu
                         var currentItemSelectedFromChannelSettingsMenu = playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0
@@ -2329,7 +2433,40 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
                     }
                     else{ // Change to previous channel
-                        loadPreviousChannel()
+                        if (event.repeatCount > 0){
+                            isLongPress = true
+                            if (channelViewModel.currentCategoryId.value == -1L) {
+                                binding.channelNumber.visibility = View.VISIBLE
+                                binding.channelName.visibility = View.INVISIBLE
+                                binding.channelMediaInfo.visibility = View.GONE
+                                if (event.repeatCount == 1) {
+                                    newChannelId = channelViewModel.currentChannel.value?.indexFavourite!!
+                                }
+                                jobFastChangeChannel = lifecycleScope.launch {
+                                    newChannelId = channelViewModel.getPreviousChannelIndex(-1L, newChannelId)
+                                    println("newChannelIndex: $newChannelId")
+                                    binding.channelNumber.text = (newChannelId).toString()
+                                }
+                            }
+                            else{
+                                binding.channelNumberCategory.visibility = View.VISIBLE
+                                binding.channelName.visibility = View.INVISIBLE
+                                binding.channelMediaInfo.visibility = View.GONE
+                                if (event.repeatCount == 1) {
+                                    newChannelId = channelViewModel.currentChannel.value?.indexGroup!!
+                                }
+                                jobFastChangeChannel = lifecycleScope.launch {
+                                    newChannelId = channelViewModel.getPreviousChannelIndex(channelViewModel.currentCategoryId.value!!, newChannelId)
+                                    println("newChannelIndex: $newChannelId")
+                                    binding.channelNumber.text = (newChannelId).toString()
+                                    binding.channelNumberCategory.text = (newChannelId).toString()
+                                }
+                            }
+
+                        }
+                        else{
+                            loadPreviousChannel()
+                        }
                     }
                     return true
                 }
@@ -2339,10 +2476,9 @@ class PlayerActivity : AppCompatActivity() {
                         playerViewModel.hideSettingsMenu()
                         return true
                     }
-                    else if (binding.channelList.visibility == View.VISIBLE) {
-                        playerViewModel.hideChannelList()
-                    }
-                    else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
+                    else if (binding.channelList.visibility == View.VISIBLE
+                        || binding.rvCategoryList.visibility == View.VISIBLE
+                        || binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
                         return true
                     }
                     else{
@@ -2353,13 +2489,19 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (binding.rvCategoryList.visibility != View.VISIBLE) {
+                    if (binding.rvChannelTrackSettings.visibility == View.VISIBLE
+                        || binding.rvChannelSettings.visibility == View.VISIBLE
+                        || binding.channelList.visibility == View.VISIBLE) {
+                        return true
+                    }
+                    else if (binding.rvCategoryList.visibility != View.VISIBLE) {
                         initFocusInCategoryList()
                         playerViewModel.showCategoryList()
                     }
                     else if (binding.rvCategoryList.visibility == View.VISIBLE) {
                         playerViewModel.hideCategoryList()
                     }
+
                 }
 
                 KeyEvent.KEYCODE_MENU -> {
@@ -2373,9 +2515,14 @@ class PlayerActivity : AppCompatActivity() {
                     else if (playerViewModel.isTrackMenuVisible.value == true) {
                         playerViewModel.hideTrackMenu()
                     }
-                    initFocusInChannelList()
-                    //channelViewModel.updateCurrentProgramForChannels()
-                    playerViewModel.showChannelList()
+                    else if (playerViewModel.isCategoryListVisible.value == true) {
+                        playerViewModel.hideCategoryList()
+                    }
+                    lifecycleScope.launch {
+                        initChannelList()
+                        initFocusInChannelList()
+                        playerViewModel.showChannelList()
+                    }
                     return true
                 }
 
@@ -2421,68 +2568,43 @@ class PlayerActivity : AppCompatActivity() {
 
                     return true
                 }
-
             }
         }
         return super.dispatchKeyEvent(event)
     }
 
     private fun loadPreviousChannel(){
-        var channel: ChannelItem? = null
-        var currentChannelIndex = if (channelViewModel.isInFavouriteCategory.value == true) {
+        var channel: ChannelItem?
+        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
             channelViewModel.currentChannel.value?.indexFavourite!!
         } else {
             channelViewModel.currentChannel.value?.indexGroup!!
         }
-        while (channel == null) {
-            currentChannelIndex--
-            if (currentChannelIndex < 1) {
-                val lastChannelId = if (channelViewModel.isInFavouriteCategory.value == true){
-                    channelViewModel.channels.value
-                        ?.filter { it.indexFavourite != null }
-                        ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
-                }
-                else {
-                    channelViewModel.channels.value
-                        ?.filter { it.indexGroup != null }
-                        ?.maxByOrNull { it.indexGroup!! }?.indexGroup
-                }
-                currentChannelIndex = lastChannelId!!
-            }
-            channel = if (channelViewModel.isInFavouriteCategory.value == true) channelViewModel.getChannelByFavouriteId(currentChannelIndex)
-            else channelViewModel.getChannelByGroupId(currentChannelIndex)
+        if (::jobSwitchChannel.isInitialized && jobSwitchChannel.isActive) jobSwitchChannel.cancel()
+        jobSwitchChannel = lifecycleScope.launch {
+            channelViewModel.updateIsLoadingChannel(true)
+            channel = channelViewModel.getPreviousChannel(channelViewModel.currentCategoryId.value!!, currentChannelIndex - 1)
+            channelViewModel.updateIsLoadingChannel(false)
+            loadChannel(channel!!)
         }
-        loadChannel(channel)
+
     }
 
     private fun loadNextChannel(){
         println("loadNextChannel")
-        var channel: ChannelItem? = null
-        var currentChannelIndex = if (channelViewModel.isInFavouriteCategory.value == true) {
+        var channel: ChannelItem?
+        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
             channelViewModel.currentChannel.value?.indexFavourite!!
         } else {
             channelViewModel.currentChannel.value?.indexGroup!!
         }
-        while (channel == null) {
-            println("loadNextChannelWhile")
-            currentChannelIndex++
-            val lastChannelId = if (channelViewModel.isInFavouriteCategory.value == true){
-               channelViewModel.channels.value
-                    ?.filter { it.indexFavourite != null }
-                    ?.maxByOrNull { it.indexFavourite!! }?.indexFavourite
-            }
-            else {
-                channelViewModel.channels.value
-                    ?.filter { it.indexGroup != null }
-                    ?.maxByOrNull { it.indexGroup!! }?.indexGroup
-            }
-            if (currentChannelIndex - 1 == lastChannelId!!) {
-                currentChannelIndex = 1
-            }
-            channel = if (channelViewModel.isInFavouriteCategory.value == true) channelViewModel.getChannelByFavouriteId(currentChannelIndex)
-            else channelViewModel.getChannelByGroupId(currentChannelIndex)
+        if (::jobSwitchChannel.isInitialized && jobSwitchChannel.isActive) jobSwitchChannel.cancel()
+        jobSwitchChannel = lifecycleScope.launch {
+            channelViewModel.updateIsLoadingChannel(true)
+            channel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, currentChannelIndex + 1)
+            channelViewModel.updateIsLoadingChannel(false)
+            loadChannel(channel!!)
         }
-        loadChannel(channel)
     }
 
     private fun showLoadingDots() {
@@ -2661,7 +2783,6 @@ class CustomProxySelector(private val proxyHost: String, private val proxyPort: 
     }
 
     override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
-        // You could log or handle connection failures here
         Log.e("ProxySelector", "Connection failed: $uri", ioe)
     }
 }

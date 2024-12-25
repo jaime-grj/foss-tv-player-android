@@ -37,10 +37,10 @@ class MediaUtils {
         fun getUserFriendlyCodec(codec: String?): String? {
             return when {
                 // Video codecs
-                codec?.startsWith("avc1") == true -> "H.264"
-                codec?.startsWith("avc3") == true -> "H.264"
-                codec?.startsWith("hvc") == true -> "H.265"
-                codec?.startsWith("hev") == true -> "H.265"
+                codec?.startsWith("avc1") == true -> "H.264/AVC"
+                codec?.startsWith("avc3") == true -> "H.264/AVC"
+                codec?.startsWith("hvc") == true -> "H.265/HEVC"
+                codec?.startsWith("hev") == true -> "H.265/HEVC"
                 codec?.startsWith("vp9") == true -> "VP9"
                 codec?.startsWith("vp08") == true -> "VP8"
                 codec?.startsWith("av1") == true -> "AV1"
@@ -54,7 +54,6 @@ class MediaUtils {
                 codec?.startsWith("opus") == true -> "Opus"
                 codec?.startsWith("flac") == true -> "FLAC"
                 codec?.startsWith("vorbis") == true -> "Vorbis"
-                codec?.startsWith("mp3") == true -> "MP3"
                 codec?.startsWith("audio/mpeg-L2") == true -> "MPEG-2 Audio"
                 codec?.startsWith("audio/mpeg2") == true -> "MPEG-2 Audio"
                 codec?.startsWith("audio/mpeg") == true -> "MP3"
