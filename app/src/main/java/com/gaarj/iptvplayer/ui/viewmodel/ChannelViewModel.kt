@@ -153,13 +153,15 @@ class ChannelViewModel @Inject constructor(
         return channelRepository.getPreviousChannelIndex(categoryId, groupId)
     }
 
-    fun updateCurrentProgramForChannel(id: Long) {
-        viewModelScope.launch {
-            val currentProgram = epgRepository.getCurrentProgramForChannel(id)?.toDomain()
-            val nextProgram = epgRepository.getNextProgramForChannel(id)?.toDomain()
-            updateCurrentProgram(currentProgram)
-            updateNextProgram(nextProgram)
-        }
+    suspend fun getChannel(categoryId: Long, groupId: Int): ChannelItem {
+        return channelRepository.getChannel(categoryId, groupId)
+    }
+
+    suspend fun updateCurrentProgramForChannel(id: Long) {
+        val currentProgram = epgRepository.getCurrentProgramForChannel(id)?.toDomain()
+        val nextProgram = epgRepository.getNextProgramForChannel(id)?.toDomain()
+        updateCurrentProgram(currentProgram)
+        updateNextProgram(nextProgram)
     }
 
     fun updateEPG() {
@@ -194,6 +196,10 @@ class ChannelViewModel @Inject constructor(
 
     suspend fun getCategoryById(id: Long): CategoryItem? {
         return channelRepository.getCategoryById(id)
+    }
+
+    suspend fun getChannelCount(): Int {
+        return channelRepository.getChannelCount()
     }
 
 }

@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -14,6 +15,7 @@ class SettingsService(private val context: Context) {
         private const val EPG_LAST_DOWNLOADED_TIME = "lastDownloadedTime"
         private const val LAST_CHANNEL_LOADED = "lastChannelLoaded"
         private const val LAST_CATEGORY_LOADED = "lastCategoryLoaded"
+        private const val EPG_SOURCES = "epgSources"
     }
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -51,6 +53,18 @@ class SettingsService(private val context: Context) {
     suspend fun getLastCategoryLoaded(): Long {
         return context.dataStore.data.map { preferences ->
             preferences[longPreferencesKey(LAST_CATEGORY_LOADED)] ?: 0
+        }.first()
+    }
+
+    suspend fun updateEpgSource(epgSource: String) {
+        context.dataStore.edit { preferences ->
+            preferences[stringPreferencesKey(EPG_SOURCES)] = epgSource
+        }
+    }
+
+    suspend fun getEpgSource(): String {
+        return context.dataStore.data.map { preferences ->
+            preferences[stringPreferencesKey(EPG_SOURCES)] ?: ""
         }.first()
     }
 }

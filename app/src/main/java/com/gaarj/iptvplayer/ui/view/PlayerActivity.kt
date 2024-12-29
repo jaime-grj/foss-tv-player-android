@@ -51,6 +51,7 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.gaarj.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarj.iptvplayer.domain.model.VideoTrack
+import com.gaarj.iptvplayer.exceptions.ChannelNotFoundException
 import com.gaarj.iptvplayer.ui.adapters.AudioTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.CategoryListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelListAdapter
@@ -94,10 +95,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ProxySelector
@@ -158,9 +159,9 @@ class PlayerActivity : FragmentActivity() {
     private var currentVideoTrack: VideoTrack? = null
     private var currentSubtitlesTrack: SubtitlesTrack? = null
 
-    private var isLongPress: Boolean = false
-    private var newChannelId: Int = 0
-    private var channelsSize: Int = 0
+    private var isLongPressDown: Boolean = false
+    private var isLongPressUp: Boolean = false
+    private var channelIdFastSwitch: Int = 0
 
     private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -219,6 +220,7 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        channelViewModel.updateIsLoadingChannel(true)
         switchRefreshRate(DEFAULT_REFRESH_RATE)
         initUI()
         playerViewModel.showAnimatedLoadingIcon()
@@ -239,7 +241,6 @@ class PlayerActivity : FragmentActivity() {
         initAudioTracksMenu()
         initSubtitlesTracksMenu()
         initSourcesMenu()
-        initCategoryList()
 
         binding.buttonPiP.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -253,7 +254,17 @@ class PlayerActivity : FragmentActivity() {
             val lastChannelId = channelViewModel.getLastChannelLoaded()
             val lastCategoryId = channelViewModel.getLastCategoryLoaded()
             Log.i("PlayerActivity", "lastChannelId: $lastChannelId. lastCategoryId: $lastCategoryId")
-            if (lastChannelId != 0L && lastCategoryId != 0L){
+
+            val channelCount = channelViewModel.getChannelCount()
+            if (channelCount == 0) {
+                channelViewModel.updateIsImportingData(true)
+                channelViewModel.importJSONData()
+                channelViewModel.updateIsImportingData(false)
+                channelViewModel.updateCurrentCategoryId(-1L)
+                playerViewModel.updateCategoryName("")
+                loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+            }
+            else if (lastChannelId != 0L && lastCategoryId != 0L){
                 val channel = channelViewModel.getChannelById(lastChannelId)
                 println("lastcategoryid: $lastCategoryId")
                 if (channel != null) {
@@ -276,8 +287,9 @@ class PlayerActivity : FragmentActivity() {
                 playerViewModel.updateCategoryName("")
                 loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
             }
+            channelViewModel.updateIsLoadingChannel(false)
         }
-
+        initCategoryList()
     }
 
     private fun isAndroidTV(context: Context): Boolean {
@@ -327,7 +339,6 @@ class PlayerActivity : FragmentActivity() {
 
         playerViewModel.channelNumber.observe(this) { channelNumber ->
             binding.channelNumber.text = channelNumber.toString()
-            binding.channelNumberCategory.text = channelNumber.toString()
         }
 
         playerViewModel.categoryName.observe(this) { categoryName ->
@@ -379,6 +390,7 @@ class PlayerActivity : FragmentActivity() {
             else{
                 binding.channelVideoCodec.visibility = View.GONE
             }
+            // Video bitrate values are only those defined in the manifest
             if (mediaInfo.videoBitrate != null) {
                 binding.channelVideoBitrate.visibility = View.VISIBLE
                 binding.channelVideoBitrate.text = mediaInfo.videoBitrate
@@ -400,6 +412,7 @@ class PlayerActivity : FragmentActivity() {
             else{
                 binding.channelAudioCodec.visibility = View.GONE
             }
+            // Values are sometimes inaccurate
             if (mediaInfo.audioBitrate != null) {
                 binding.channelAudioBitrate.visibility = View.VISIBLE
                 binding.channelAudioBitrate.text = mediaInfo.audioBitrate
@@ -522,13 +535,6 @@ class PlayerActivity : FragmentActivity() {
             if (currentProgram != null){
                 val currentProgramStartTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.startTime)
                 val currentProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.stopTime)
-                binding.tvChannelCurrentProgram.text = currentProgram.title
-                binding.tvChannelCurrentProgram.visibility = View.VISIBLE
-                binding.progressBar.visibility = View.VISIBLE
-                binding.tvStartTime.visibility = View.VISIBLE
-                binding.tvEndTime.visibility = View.VISIBLE
-                binding.tvStartTime.text = currentProgramStartTimeFormatted
-                binding.tvEndTime.text = currentProgramStopTimeFormatted
                 val currentTime = System.currentTimeMillis()
                 val currentProgramDuration = currentProgram.stopTime.time.minus(
                     currentProgram.startTime.time
@@ -536,6 +542,16 @@ class PlayerActivity : FragmentActivity() {
                 val progress =
                     (currentTime - currentProgram.startTime.time) * 100 / currentProgramDuration
                 binding.progressBar.progress = progress.toInt()
+                binding.tvChannelCurrentProgram.text = currentProgram.title
+                binding.tvChannelCurrentProgram.visibility = View.VISIBLE
+                binding.progressBar.visibility = View.VISIBLE
+                binding.tvStartTime.visibility = View.VISIBLE
+                binding.tvEndTime.visibility = View.VISIBLE
+                binding.tvStartTime.text = currentProgramStartTimeFormatted
+                binding.tvEndTime.text = currentProgramStopTimeFormatted
+                if (playerViewModel.isChannelNameVisible.value == true){
+                    binding.channelBottomInfo.visibility = View.VISIBLE
+                }
             } else{
                 binding.tvChannelCurrentProgram.visibility = View.INVISIBLE
                 if (channelViewModel.nextProgram.value == null){
@@ -554,30 +570,21 @@ class PlayerActivity : FragmentActivity() {
                 val nextProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextProgram.stopTime)
                 binding.tvChannelNextProgram.text = getString(R.string.nextProgram) + nextProgram.title + " (" +  nextProgramStartTimeFormatted + " - " + nextProgramStopTimeFormatted + ")"
                 binding.tvChannelNextProgram.visibility = View.VISIBLE
-                if (channelViewModel.currentProgram.value == null){
+                if (channelViewModel.currentProgram.value == null && playerViewModel.isChannelNameVisible.value == true){
                     binding.channelBottomInfo.visibility = View.VISIBLE
                 }
             }
             else{
+                if (channelViewModel.currentProgram.value == null){
+                    binding.channelBottomInfo.visibility = View.GONE
+                }
                 binding.tvChannelNextProgram.visibility = View.GONE
             }
         }
 
         playerViewModel.isBottomInfoVisible.observe(this) { isVisible ->
             if (isVisible) {
-                if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
-                    jobEPGRender.cancel()
-                }
-                jobEPGRender = CoroutineScope(Dispatchers.IO).launch {
-                    val currentChannel = channelViewModel.currentChannel.value
-                    if (currentChannel != null){
-                        delay(100)
-                        channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
-                    }
-
-                }
                 binding.channelBottomInfo.visibility = View.VISIBLE
-
             }
             else{
                 binding.channelBottomInfo.visibility = View.GONE
@@ -617,15 +624,6 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isChannelNumberCategoryVisible.observe(this) { isVisible ->
-            if (isVisible) {
-                binding.channelNumberCategory.visibility = View.VISIBLE
-            }
-            else{
-                binding.channelNumberCategory.visibility = View.GONE
-            }
-        }
-
         binding.playerView.setOnClickListener {
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
@@ -636,7 +634,7 @@ class PlayerActivity : FragmentActivity() {
             else if (playerViewModel.isTrackMenuVisible.value == true) {
                 playerViewModel.hideTrackMenu()
             }
-            else if (playerViewModel.isChannelNumberVisible.value == true || playerViewModel.isChannelNumberCategoryVisible.value == true) {
+            else if (playerViewModel.isChannelNumberVisible.value == true) {
                 if (!isAndroidTV(this)) {
                     playerViewModel.hideButtonUp()
                     playerViewModel.hideButtonDown()
@@ -645,9 +643,8 @@ class PlayerActivity : FragmentActivity() {
                     playerViewModel.hideButtonPiP()
                     playerViewModel.hideButtonCategoryList()
                 }
-                if (!isLongPress){
+                if (!isLongPressDown && !isLongPressUp) {
                     playerViewModel.hideChannelNumber()
-                    playerViewModel.hideChannelNumberCategory()
                 }
                 playerViewModel.hideChannelName()
                 playerViewModel.hideCategoryName()
@@ -790,6 +787,8 @@ class PlayerActivity : FragmentActivity() {
                 lifecycleScope.launch {
                     channelViewModel.importJSONData()
                     initCategoryList()
+                    channelViewModel.updateCurrentCategoryId(-1L)
+                    playerViewModel.updateCategoryName("Favoritos")
                     val firstChannel = channelViewModel.getNextChannel(-1L, 1)
                     loadChannel(firstChannel)
                 }
@@ -933,6 +932,7 @@ class PlayerActivity : FragmentActivity() {
             if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
                 for (j in 0 until trackGroup.length) {
                     val trackFormat = trackGroup.getTrackFormat(j)
+                    println(trackFormat)
                     videoTrackList += if (playerViewModel.isQualityForced.value == false) {
                         listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), false))
                     } else{
@@ -980,6 +980,12 @@ class PlayerActivity : FragmentActivity() {
     private suspend fun initChannelList() {
         rvChannelList.layoutManager = LinearLayoutManager(this)
         val sortedChannels = channelViewModel.getSmChannelsByCategory(channelViewModel.currentCategoryId.value!!)
+        for (i in sortedChannels.indices) {
+            if (sortedChannels[i].id == channelViewModel.currentChannel.value?.id) {
+                playerViewModel.updateCurrentItemSelectedFromChannelList(i)
+                break
+            }
+        }
         rvChannelList.adapter = ChannelListAdapter(channelViewModel.currentCategoryId.value!!, sortedChannels) { selectedChannel ->
             loadChannel(selectedChannel)
         }
@@ -1202,6 +1208,32 @@ class PlayerActivity : FragmentActivity() {
                     }
                     if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
                     if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
+                    if (currentVideoTrack != null){
+                        loadVideoTrack(currentVideoTrack!!)
+                    }
+
+                    else if (playerViewModel.currentStreamSource.value?.forceUseBestVideoResolution == true){ // Select best quality by default (some streams fail)
+                        val tracks = player.currentTracks
+                        val highestResolution = getHighestResolution()
+                        for (trackGroup in tracks.groups) {
+                            if (trackGroup.type == C.TRACK_TYPE_VIDEO){
+                                for (i in 0 until trackGroup.length) {
+                                    val trackFormat = trackGroup.getTrackFormat(i)
+                                    if (highestResolution == trackFormat.height) {
+                                        player.trackSelectionParameters =
+                                            player.trackSelectionParameters
+                                                .buildUpon()
+                                                .setOverrideForType(
+                                                    TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+                                                )
+                                                .build()
+                                        currentVideoTrack = VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), true)
+                                        playerViewModel.updateIsQualityForced(true)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     // Dynamic FPS calculation (doesn't work very well)
                     /*val videoCounters = player.videoDecoderCounters
                     val framesRendered1 = videoCounters?.renderedOutputBufferCount
@@ -1265,7 +1297,11 @@ class PlayerActivity : FragmentActivity() {
                                     trackFormat.sampleMimeType
                                 }
                                 MediaUtils.getUserFriendlyCodec(audioCodec)?.let { mediaInfo.audioCodec = it }
-                                if (trackFormat.bitrate > 0) mediaInfo.audioBitrate = (trackFormat.bitrate / 1000).toString() + " kbps" else mediaInfo.audioBitrate = null
+                                if (trackFormat.bitrate > 0){
+                                    mediaInfo.audioBitrate = (trackFormat.bitrate / 1000).toString() + " kbps"
+                                } else{
+                                    mediaInfo.audioBitrate = null
+                                }
                                 when (trackFormat.channelCount) {
                                     1 -> {
                                         mediaInfo.audioChannels = "Mono"
@@ -1347,7 +1383,11 @@ class PlayerActivity : FragmentActivity() {
                     format.sampleMimeType
                 }
                 MediaUtils.getUserFriendlyCodec(audioCodec)?.let { mediaInfo.audioCodec = it }
-                if (format.bitrate > 0) mediaInfo.audioBitrate =(format.bitrate / 1000).toString() + " kbps" else mediaInfo.audioBitrate = null
+                if (format.bitrate > 0){
+                    mediaInfo.audioBitrate =(format.bitrate / 1000).toString() + " kbps"
+                } else{
+                    mediaInfo.audioBitrate = null
+                }
                 when (format.channelCount) {
                     1 -> {
                         mediaInfo.audioChannels = "Mono"
@@ -1423,6 +1463,24 @@ class PlayerActivity : FragmentActivity() {
                 playerViewModel.updateMediaInfo(mediaInfo)
             }
         })
+    }
+
+    private fun getHighestResolution() : Int {
+        val tracks = player.currentTracks
+        var lastPixelCount = 0
+        var lastHeight = 0
+        for (trackGroup in tracks.groups) {
+            if (trackGroup.type == C.TRACK_TYPE_VIDEO){
+                for (i in 0 until trackGroup.length) {
+                    val trackFormat = trackGroup.getTrackFormat(i)
+                    if ((trackFormat.height * trackFormat.width) > lastPixelCount) {
+                        lastHeight = trackFormat.height
+                        lastPixelCount = trackFormat.height * trackFormat.width
+                    }
+                }
+            }
+        }
+        return lastHeight
     }
 
     private fun setSubtitleTheme() {
@@ -1563,15 +1621,21 @@ class PlayerActivity : FragmentActivity() {
         if (::jobLoadStreamSource.isInitialized && (jobLoadStreamSource.isActive)) {
             jobLoadStreamSource.cancel()
         }
+        if (::jobUIChangeChannel.isInitialized && (jobUIChangeChannel.isActive)) {
+            jobUIChangeChannel.cancel()
+        }
+        if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
+            jobEPGRender.cancel()
+        }
+        currentNumberInput.clear()
         playerViewModel.hidePlayer()
 
-        currentNumberInput.clear()
         if (channel.id < 0) {
             if (binding.channelNumber.visibility == View.VISIBLE) playerViewModel.hideChannelNumber()
             if (binding.channelName.visibility == View.VISIBLE) playerViewModel.hideChannelName()
             return
         }
-        resetMediaInfo()
+        playerViewModel.hideBottomInfo()
         if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         cancelCheckPlayingCorrectlyTimer()
@@ -1580,7 +1644,6 @@ class PlayerActivity : FragmentActivity() {
         startLoadingIndicatorTimer()
 
         if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
-        resetMediaInfo()
         playerViewModel.updateIsQualityForced(false)
 
         if (player.isPlaying || player.isLoading){
@@ -1598,23 +1661,26 @@ class PlayerActivity : FragmentActivity() {
         playerViewModel.updateChannelName(channel.name)
         if (channelViewModel.currentCategoryId.value == -1L) {
             playerViewModel.updateChannelNumber(channel.indexFavourite!!)
+            channelIdFastSwitch = channel.indexFavourite
         }
         else {
             playerViewModel.updateChannelNumber(channel.indexGroup!!)
+            channelIdFastSwitch = channel.indexGroup
         }
 
         channelViewModel.updateCurrentProgram(null)
         channelViewModel.updateNextProgram(null)
 
-        showChannelInfoWithTimeout(timeout = TIMEOUT_UI_CHANNEL_LOAD)
-        val streamSources = channel.streamSources
 
         playerViewModel.updateIsSourceForced(false)
         channelViewModel.updateCurrentChannel(channel)
+        showChannelInfoWithTimeout(timeout = TIMEOUT_UI_CHANNEL_LOAD)
         lifecycleScope.launch {
             channelViewModel.updateLastChannelLoaded(channel.id)
+            channelViewModel.updateLastCategoryLoaded(channelViewModel.currentCategoryId.value ?: -1L)
         }
 
+        val streamSources = channel.streamSources
         Log.i(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
             loadStreamSource(streamSources.minBy { it.index })
@@ -1892,6 +1958,7 @@ class PlayerActivity : FragmentActivity() {
                                     TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
                                 )
                                 .build()
+                        currentVideoTrack = videoTrack
                     }
                 }
             }
@@ -1922,8 +1989,17 @@ class PlayerActivity : FragmentActivity() {
         if (::jobUITimeout.isInitialized && jobUITimeout.isActive) {
             jobUITimeout.cancel()
         }
+        if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
+            jobEPGRender.cancel()
+        }
+        jobEPGRender = lifecycleScope.launch {
+            val currentChannel = channelViewModel.currentChannel.value
+            if (currentChannel != null){
+                channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
+            }
 
-        jobUITimeout = CoroutineScope(Dispatchers.IO).launch {
+        }
+        jobUITimeout = lifecycleScope.launch {
             try{
                 runOnUiThread {
                     if (!isAndroidTV(this@PlayerActivity)) {
@@ -1935,12 +2011,9 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.showButtonCategoryList()
                     }
                     playerViewModel.hideTimeDate()
-                    if (channelViewModel.currentCategoryId.value == -1L) {
-                        playerViewModel.showChannelNumber()
-                    }
-                    else{
+                    playerViewModel.showChannelNumber()
+                    if (channelViewModel.currentCategoryId.value != -1L) {
                         Log.i("PlayerActivity", "showChannelNumberCategory: ${channelViewModel.currentCategoryId.value}")
-                        playerViewModel.showChannelNumberCategory()
                         playerViewModel.showCategoryName()
                     }
                     playerViewModel.showChannelName()
@@ -1960,9 +2033,8 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.hideButtonPiP()
                         playerViewModel.hideButtonCategoryList()
                     }
-                    if (!isLongPress){
+                    if (!isLongPressDown && !isLongPressUp) {
                         playerViewModel.hideChannelNumber()
-                        playerViewModel.hideChannelNumberCategory()
                     }
                     playerViewModel.hideChannelName()
                     playerViewModel.hideCategoryName()
@@ -1980,7 +2052,17 @@ class PlayerActivity : FragmentActivity() {
         if (::jobUITimeout.isInitialized && jobUITimeout.isActive) {
             jobUITimeout.cancel()
         }
-        jobUITimeout = CoroutineScope(Dispatchers.IO).launch {
+        if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
+            jobEPGRender.cancel()
+        }
+        jobEPGRender = lifecycleScope.launch {
+            val currentChannel = channelViewModel.currentChannel.value
+            if (currentChannel != null){
+                delay(100)
+                channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
+            }
+        }
+        jobUITimeout = lifecycleScope.launch {
             try{
                 runOnUiThread {
                     if (!isAndroidTV(this@PlayerActivity)) {
@@ -1991,11 +2073,8 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.showButtonPiP()
                         playerViewModel.showButtonCategoryList()
                     }
-                    if (channelViewModel.currentCategoryId.value == -1L) {
-                        playerViewModel.showChannelNumber()
-                    }
-                    else{
-                        playerViewModel.showChannelNumberCategory()
+                    playerViewModel.showChannelNumber()
+                    if (channelViewModel.currentCategoryId.value != -1L) {
                         playerViewModel.showCategoryName()
                     }
                     playerViewModel.showChannelName()
@@ -2019,9 +2098,8 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.hideButtonPiP()
                         playerViewModel.hideButtonCategoryList()
                     }
-                    if (!isLongPress){
+                    if (!isLongPressDown && !isLongPressUp){
                         playerViewModel.hideChannelNumber()
-                        playerViewModel.hideChannelNumberCategory()
                     }
                     playerViewModel.hideChannelName()
                     playerViewModel.hideCategoryName()
@@ -2040,7 +2118,7 @@ class PlayerActivity : FragmentActivity() {
             jobUIChangeChannel.cancel()
         }
         jobUIChangeChannel =
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch {
             try{
                 runOnUiThread {
                     playerViewModel.showChannelNumberKeyboard()
@@ -2048,22 +2126,32 @@ class PlayerActivity : FragmentActivity() {
                 }
                 delay(timeout)
                 ensureActive()
-                val newChannel = channelViewModel.getNextChannel(categoryId = -1L, currentNumberInput.toString().toInt())
-                runOnUiThread {
-                    playerViewModel.hideChannelNumberKeyboard()
-                    if (newChannel != channelViewModel.currentChannel.value) {
-                        channelViewModel.updateCurrentCategoryId(-1L)
-                        loadChannel(newChannel)
-                    }
-                    else if (newChannel == channelViewModel.currentChannel.value){
-                        showChannelInfoWithTimeout(TIMEOUT_UI_CHANNEL_LOAD)
-                    }
+                channelViewModel.updateIsLoadingChannel(true)
+                val newChannel = channelViewModel.getChannel(categoryId = -1L, currentNumberInput.toString().toInt())
+                playerViewModel.hideChannelNumberKeyboard()
+                if (newChannel.id != channelViewModel.currentChannel.value?.id) {
+                    channelViewModel.updateCurrentCategoryId(-1L)
+                    playerViewModel.updateCategoryName("Favoritos")
+                    loadChannel(newChannel)
+                    currentNumberInput.clear()
+                    channelViewModel.updateLastCategoryLoaded(-1L)
                 }
-                currentNumberInput.clear()
+                else{
+                    showChannelInfoWithTimeout(TIMEOUT_UI_CHANNEL_LOAD)
+                }
+                channelViewModel.updateIsLoadingChannel(false)
+
             } catch (_: CancellationException){
-                runOnUiThread {
-                    playerViewModel.hideChannelNumber()
-                }
+                playerViewModel.hideChannelNumberKeyboard()
+                channelViewModel.updateIsLoadingChannel(false)
+            } catch (_: ChannelNotFoundException){
+                playerViewModel.hideChannelNumberKeyboard()
+                currentNumberInput.clear()
+                channelViewModel.updateIsLoadingChannel(false)
+            } catch (_: NumberFormatException){
+                playerViewModel.hideChannelNumberKeyboard()
+                currentNumberInput.clear()
+                channelViewModel.updateIsLoadingChannel(false)
             }
         }
     }
@@ -2078,22 +2166,27 @@ class PlayerActivity : FragmentActivity() {
         val isDown = action == 0
 
         if (!isDown){
-            if (isLongPress){
+            if (isLongPressDown || isLongPressUp){
                 channelViewModel.updateIsLoadingChannel(true)
-                if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancel()
-                isLongPress = false
+                if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive){
+                    lifecycleScope.launch {
+                        jobFastChangeChannel.cancelAndJoin()
+                    }
+                }
+                isLongPressUp = false
+                isLongPressDown = false
                 if (channelViewModel.currentCategoryId.value == -1L){
                     jobFastChangeChannel = lifecycleScope.launch {
-                        Log.i(TAG, "After pressing long button: get newChannelId: $newChannelId")
-                        val newChannel = channelViewModel.getNextChannel(-1L, newChannelId)
-                        Log.i(TAG, "After pressing long button: load newChannelId: $newChannelId")
+                        Log.i(TAG, "After pressing long button: get newChannelId: $channelIdFastSwitch")
+                        val newChannel = channelViewModel.getNextChannel(-1L, channelIdFastSwitch)
+                        Log.i(TAG, "After pressing long button: load newChannelId: $channelIdFastSwitch")
                         channelViewModel.updateIsLoadingChannel(false)
                         loadChannel(newChannel)
                     }
                 }
                 else{
                     jobFastChangeChannel = lifecycleScope.launch {
-                        val newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, newChannelId)
+                        val newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
                         loadChannel(newChannel)
                         channelViewModel.updateIsLoadingChannel(false)
                     }
@@ -2106,6 +2199,7 @@ class PlayerActivity : FragmentActivity() {
         else{
             when (code) {
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
+                    if (isLongPressDown || isLongPressUp) return true
                     // Load channel from channel list
                     if (playerViewModel.isChannelListVisible.value == true) {
                         val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
@@ -2132,17 +2226,18 @@ class PlayerActivity : FragmentActivity() {
                         }
                     }
                     else if (playerViewModel.isCategoryListVisible.value == true) {
+                        channelViewModel.updateIsLoadingChannel(true)
                         val currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
                         val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(currentItemSelectedFromCategoryList) as CategoryItem
                         channelViewModel.updateCurrentCategoryId(newCategory.id)
                         playerViewModel.updateCategoryName(newCategory.name)
                         lifecycleScope.launch {
                             loadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
+                            channelViewModel.updateIsLoadingChannel(false)
                             Log.i(TAG, "dispatchKeyEvent: newCategory: $newCategory")
                             channelViewModel.updateLastCategoryLoaded(newCategory.id)
                         }
 
-                        playerViewModel.hideChannelNumberCategory()
                         playerViewModel.hideChannelName()
                         playerViewModel.hideCategoryName()
                         playerViewModel.hideChannelNumber()
@@ -2239,18 +2334,42 @@ class PlayerActivity : FragmentActivity() {
                         }
                     }
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
-                        jobUIChangeChannel.cancel()
+                        channelViewModel.updateIsLoadingChannel(true)
+                        if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) jobUIChangeChannel.cancel()
+                        val channelIndex = currentNumberInput.toString().toInt()
                         playerViewModel.hideChannelNumberKeyboard()
+                        currentNumberInput.clear()
                         lifecycleScope.launch {
-                            val newChannel = channelViewModel.getNextChannel(
-                                -1L,
-                                currentNumberInput.toString().toInt()
-                            )
-                            loadChannel(newChannel)
-                            currentNumberInput.clear()
+                            try{
+                                channelViewModel.updateIsLoadingChannel(true)
+                                val newChannel = channelViewModel.getChannel(
+                                    -1L,
+                                    channelIndex
+                                )
+                                channelViewModel.updateCurrentCategoryId(-1L)
+                                playerViewModel.updateCategoryName("Favoritos")
+                                channelViewModel.updateLastCategoryLoaded(-1L)
+                                if (channelViewModel.currentChannel.value?.id != newChannel.id) {
+                                    loadChannel(newChannel)
+                                }
+                                else{
+                                    showChannelInfoWithTimeout(TIMEOUT_UI_CHANNEL_LOAD)
+                                }
+                                currentNumberInput.clear()
+                                channelViewModel.updateIsLoadingChannel(false)
+                            } catch (_: ChannelNotFoundException) {
+                                playerViewModel.hideChannelNumberKeyboard()
+                                currentNumberInput.clear()
+                                channelViewModel.updateIsLoadingChannel(false)
+                            } catch (_: NumberFormatException) {
+                                playerViewModel.hideChannelNumberKeyboard()
+                                currentNumberInput.clear()
+                                channelViewModel.updateIsLoadingChannel(false)
+                            }
                         }
                     }
-                    else if (playerViewModel.isChannelNumberVisible.value == true || playerViewModel.isChannelNumberCategoryVisible.value == true) {
+                    else if (playerViewModel.isChannelNumberVisible.value == true) {
+                        if (event.repeatCount > 0) return true
                         if (!isAndroidTV(this)) {
                             playerViewModel.hideButtonUp()
                             playerViewModel.hideButtonDown()
@@ -2260,7 +2379,6 @@ class PlayerActivity : FragmentActivity() {
                             playerViewModel.hideButtonCategoryList()
                         }
                         playerViewModel.hideChannelNumber()
-                        playerViewModel.hideChannelNumberCategory()
                         playerViewModel.hideChannelName()
                         playerViewModel.hideCategoryName()
                         playerViewModel.hideTimeDate()
@@ -2269,6 +2387,7 @@ class PlayerActivity : FragmentActivity() {
                     }
                     // Show current channel info
                     else{
+                        if (event.repeatCount > 0) return true
                         if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
                             jobUIChangeChannel.cancel()
                         }
@@ -2358,38 +2477,45 @@ class PlayerActivity : FragmentActivity() {
                     }
                     else{
                         if (event.repeatCount > 0){
-                            isLongPress = true
+                            //if (isLongPressDown) return true // Uncomment to disallow 'channel fast switch direction' change
+                            isLongPressUp = true
                             if (channelViewModel.currentCategoryId.value == -1L) {
                                 binding.channelNumber.visibility = View.VISIBLE
-                                binding.channelName.visibility = View.GONE
+                                binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
-                                if (event.repeatCount == 1) {
-                                    newChannelId = channelViewModel.currentChannel.value?.indexFavourite!!
-                                }
+
                                 jobFastChangeChannel = lifecycleScope.launch {
-                                    newChannelId = channelViewModel.getNextChannelIndex(-1L, newChannelId)
-                                    println("newChannelIndex: $newChannelId")
-                                    binding.channelNumber.text = (newChannelId).toString()
+                                    if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
+                                    println("newChannelIndex before: $channelIdFastSwitch")
+                                    channelIdFastSwitch = channelViewModel.getNextChannelIndex(-1L, channelIdFastSwitch)
+                                    println("newChannelIndex after: $channelIdFastSwitch")
+                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
                                 }
                             }
                             else{
-                                binding.channelNumberCategory.visibility = View.VISIBLE
+                                binding.channelNumber.visibility = View.VISIBLE
                                 binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
-                                if (event.repeatCount == 1) {
-                                    newChannelId = channelViewModel.currentChannel.value?.indexGroup!!
-                                }
+
                                 jobFastChangeChannel = lifecycleScope.launch {
-                                    newChannelId = channelViewModel.getNextChannelIndex(channelViewModel.currentCategoryId.value!!, newChannelId)
-                                    println("newChannelIndex: $newChannelId")
-                                    binding.channelNumber.text = (newChannelId).toString()
-                                    binding.channelNumberCategory.text = (newChannelId).toString()
+                                    if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
+                                    println("newChannelIndex before: $channelIdFastSwitch")
+                                    channelIdFastSwitch = channelViewModel.getNextChannelIndex(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
+                                    println("newChannelIndex after: $channelIdFastSwitch")
+                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
                                 }
                             }
-
                         }
                         else{
-                            loadNextChannel()
+                            if (!isLongPressDown){
+                                if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
+                                    playerViewModel.hideChannelNumberKeyboard()
+                                    if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive){
+                                        jobUIChangeChannel.cancel()
+                                    }
+                                }
+                                loadNextChannel()
+                            }
                         }
                     }
                     return true
@@ -2441,38 +2567,44 @@ class PlayerActivity : FragmentActivity() {
                     }
                     else{ // Change to previous channel
                         if (event.repeatCount > 0){
-                            isLongPress = true
+                            //if (isLongPressUp) return true // Uncomment to disallow 'channel fast switch direction' change
+                            isLongPressDown = true
                             if (channelViewModel.currentCategoryId.value == -1L) {
                                 binding.channelNumber.visibility = View.VISIBLE
                                 binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
-                                if (event.repeatCount == 1) {
-                                    newChannelId = channelViewModel.currentChannel.value?.indexFavourite!!
-                                }
+
                                 jobFastChangeChannel = lifecycleScope.launch {
-                                    newChannelId = channelViewModel.getPreviousChannelIndex(-1L, newChannelId)
-                                    println("newChannelIndex: $newChannelId")
-                                    binding.channelNumber.text = (newChannelId).toString()
+                                        println("newChannelIndex before: $channelIdFastSwitch")
+                                        channelIdFastSwitch = channelViewModel.getPreviousChannelIndex(-1L, channelIdFastSwitch)
+                                        println("newChannelIndex after: $channelIdFastSwitch")
+                                        binding.channelNumber.text = (channelIdFastSwitch).toString()
                                 }
                             }
                             else{
-                                binding.channelNumberCategory.visibility = View.VISIBLE
+                                binding.channelNumber.visibility = View.VISIBLE
                                 binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
-                                if (event.repeatCount == 1) {
-                                    newChannelId = channelViewModel.currentChannel.value?.indexGroup!!
-                                }
                                 jobFastChangeChannel = lifecycleScope.launch {
-                                    newChannelId = channelViewModel.getPreviousChannelIndex(channelViewModel.currentCategoryId.value!!, newChannelId)
-                                    println("newChannelIndex: $newChannelId")
-                                    binding.channelNumber.text = (newChannelId).toString()
-                                    binding.channelNumberCategory.text = (newChannelId).toString()
+                                    if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
+                                    println("newChannelIndex before: $channelIdFastSwitch")
+                                    channelIdFastSwitch = channelViewModel.getPreviousChannelIndex(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
+                                    println("newChannelIndex after: $channelIdFastSwitch")
+                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
                                 }
                             }
 
                         }
                         else{
-                            loadPreviousChannel()
+                            if (!isLongPressUp){
+                                if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
+                                    playerViewModel.hideChannelNumberKeyboard()
+                                    if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive){
+                                        jobUIChangeChannel.cancel()
+                                    }
+                                }
+                                loadPreviousChannel()
+                            }
                         }
                     }
                     return true
@@ -2480,6 +2612,7 @@ class PlayerActivity : FragmentActivity() {
 
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     if (binding.rvChannelSettings.visibility == View.VISIBLE) {
+                        if (event.repeatCount > 0) return true
                         playerViewModel.hideSettingsMenu()
                         return true
                     }
@@ -2489,6 +2622,7 @@ class PlayerActivity : FragmentActivity() {
                         return true
                     }
                     else{
+                        if (event.repeatCount > 0) return true
                         initFocusInChannelSettingsMenu()
                         playerViewModel.showSettingsMenu()
                         return true
@@ -2502,16 +2636,19 @@ class PlayerActivity : FragmentActivity() {
                         return true
                     }
                     else if (binding.rvCategoryList.visibility != View.VISIBLE) {
+                        if (event.repeatCount > 0) return true
                         initFocusInCategoryList()
                         playerViewModel.showCategoryList()
                     }
                     else if (binding.rvCategoryList.visibility == View.VISIBLE) {
+                        if (event.repeatCount > 0) return true
                         playerViewModel.hideCategoryList()
                     }
 
                 }
 
                 KeyEvent.KEYCODE_MENU -> {
+                    if (event.repeatCount > 0) return true
                     if (binding.channelList.visibility == View.VISIBLE) {
                         playerViewModel.hideChannelList()
                         return true
@@ -2557,10 +2694,15 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> {
+                    if (isLongPressUp || isLongPressDown) return true
+                    if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
+                        jobUIChangeChannel.cancel()
+                    }
                     if (binding.channelList.visibility == View.VISIBLE) return true
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                     if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
                     if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
+                    if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
                     if (currentNumberInput.length >= MAX_DIGITS) {
                         currentNumberInput.clear()
                     }
@@ -2602,8 +2744,10 @@ class PlayerActivity : FragmentActivity() {
         var channel: ChannelItem?
         val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
             channelViewModel.currentChannel.value?.indexFavourite!!
-        } else {
+        } else if (channelViewModel.currentChannel.value != null) {
             channelViewModel.currentChannel.value?.indexGroup!!
+        } else {
+            0
         }
         if (::jobSwitchChannel.isInitialized && jobSwitchChannel.isActive) jobSwitchChannel.cancel()
         jobSwitchChannel = lifecycleScope.launch {
@@ -2774,8 +2918,8 @@ class PlayerActivity : FragmentActivity() {
         private const val TIMEOUT_UI_INFO = 5000L
         private const val RETRY_DELAY_MS = 150L
         private const val BUFFERING_TIMEOUT_MS = 3000L
-        private const val SOURCE_LOADING_TIMEOUT_MS = 8000L
-        private const val CHANNEL_LOADING_TIMEOUT_MS = 8000L
+        private const val SOURCE_LOADING_TIMEOUT_MS = 8500L
+        private const val CHANNEL_LOADING_TIMEOUT_MS = 8500L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 2L

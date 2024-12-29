@@ -38,6 +38,7 @@ import com.gaarj.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceItem
 import com.gaarj.iptvplayer.domain.model.StreamSourceTypeItem
 import com.gaarj.iptvplayer.domain.model.toDomain
+import com.gaarj.iptvplayer.exceptions.ChannelNotFoundException
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
@@ -54,7 +55,8 @@ class ChannelRepository @Inject constructor(
     private val proxyDao: ProxyDao,
     private val epgDao: EPGDao,
     private val drmHeaderDao: DrmHeaderDao,
-    private val epgRepository: EPGRepository
+    private val epgRepository: EPGRepository,
+    private val settingsRepository: SettingsRepository
 ) {
 
     suspend fun getChannelCountByCategory(categoryId: Long): Int {
@@ -179,6 +181,26 @@ class ChannelRepository @Inject constructor(
             }
         }
         return channelIndex
+    }
+
+    suspend fun getChannel(categoryId: Long, groupId: Int): ChannelItem {
+        val channelEntity: ChannelEntity? = if (categoryId == -1L){
+            channelDao.getChannelByFavouriteId(groupId)
+        } else{
+            channelDao.getChannelByGroupId(categoryId, groupId)
+        }
+        if (channelEntity != null) {
+            val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
+            val relatedChannels = fetchRelatedChannels(channelEntity.id)
+            val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
+            return channelEntity.toDomain(
+                streamSources = streamSources,
+                relatedChannels = relatedChannels,
+                channelShortnames = channelShortnames
+            )
+        } else {
+            throw ChannelNotFoundException("Channel not found")
+        }
     }
 
     suspend fun getFavouriteChannels(): List<ChannelItem> {
@@ -504,6 +526,11 @@ class ChannelRepository @Inject constructor(
                     } catch (e: Exception) {
                         false
                     }
+                    val forceUseBestVideoResolution = try {
+                        streamSource.getBoolean("forceUseBestVideoResolution")
+                    } catch (e: Exception) {
+                        false
+                    }
 
                     val streamSourceTypeInt = try{
                         streamSource.getInt("type")
@@ -527,6 +554,7 @@ class ChannelRepository @Inject constructor(
                         pssh = pssh,
                         licenseUrl = licenseUrl,
                         useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
+                        forceUseBestVideoResolution = forceUseBestVideoResolution
                     )
                     val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
 
@@ -625,6 +653,11 @@ class ChannelRepository @Inject constructor(
             }
         }
 
+        val epgSources : JSONArray = data.getJSONArray("epgSources")
+        for (i in 0 until epgSources.length()) {
+            val epgSourceUrl = epgSources.getString(i)
+            settingsRepository.updateEpgSource(epgSourceUrl)
+        }
         return true
     }
 
@@ -728,5 +761,9 @@ class ChannelRepository @Inject constructor(
     suspend fun getCategoryById(id: Long): CategoryItem? {
         val categoryEntity = categoryDao.getCategoryById(id)
         return categoryEntity?.toDomain()
+    }
+
+    suspend fun getChannelCount(): Int {
+        return channelDao.getChannelCount()
     }
 }

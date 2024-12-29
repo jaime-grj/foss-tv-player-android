@@ -129,4 +129,24 @@ interface ChannelDao {
 
     @Query("SELECT * FROM channel WHERE id = :id")
     suspend fun getChannelById(id: Long): ChannelEntity?
+
+    @Query("SELECT COUNT(*) FROM channel")
+    suspend fun getChannelCount(): Int
+
+    @Query("""
+        SELECT * FROM channel 
+        WHERE index_favourite = :favouriteId
+        ORDER BY index_group ASC 
+        LIMIT 1
+    """)
+    suspend fun getChannelByFavouriteId(favouriteId: Int) : ChannelEntity?
+
+    @Query("""
+        SELECT * FROM channel 
+        WHERE index_group = :groupId AND category_id = :categoryId
+        ORDER BY index_group ASC 
+        LIMIT 1
+    """)
+    suspend fun getChannelByGroupId(categoryId: Long, groupId: Int) : ChannelEntity?
+
 }

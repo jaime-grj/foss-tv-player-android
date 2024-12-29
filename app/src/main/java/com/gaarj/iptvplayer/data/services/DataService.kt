@@ -16,13 +16,15 @@ class DataService @Inject constructor() {
     companion object {
 
         private const val CONNECT_TIMEOUT = 5000
+        private const val DATA_URL = "http://filehost.zhnx.lan/channels.json"
+
         suspend fun getJSONString(): String {
             var json = ""
             var connection: HttpURLConnection? = null
             try {
 
                 val urlObj =
-                    URL("http://filehost.zhnx.lan/channels.json")
+                    URL(DATA_URL)
                 connection = withContext(Dispatchers.IO) {
                     urlObj.openConnection()
                 } as HttpURLConnection

@@ -30,4 +30,12 @@ class SettingsRepository @Inject constructor(
     suspend fun getLastCategoryLoaded(): Long {
         return settingsService.getLastCategoryLoaded()
     }
+
+    suspend fun updateEpgSource(epgSource: String) {
+        settingsService.updateEpgSource(epgSource)
+    }
+
+    suspend fun getEpgSource() : String {
+        return settingsService.getEpgSource()
+    }
 }

@@ -56,7 +56,10 @@ class StreamSourceEntity (
     val licenseUrl : String?,
 
     @ColumnInfo(name = "use_unofficial_drm_method")
-    val useUnofficialDrmLicenseMethod : Boolean
+    val useUnofficialDrmLicenseMethod : Boolean,
+
+    @ColumnInfo(name = "force_use_best_video_resolution")
+    val forceUseBestVideoResolution: Boolean
 
 )
 
@@ -71,5 +74,6 @@ fun StreamSourceItem.toDatabase(channelId: Long) = StreamSourceEntity(
     drmKeys = drmKeys,
     pssh = pssh,
     licenseUrl = licenseUrl,
-    useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod
+    useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
+    forceUseBestVideoResolution = forceUseBestVideoResolution
 )

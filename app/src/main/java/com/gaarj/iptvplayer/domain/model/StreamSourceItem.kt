@@ -19,7 +19,8 @@ data class StreamSourceItem (
     val drmHeaders: List<DrmHeaderItem>? = null,
     val pssh: String? = null,
     val licenseUrl : String? = null,
-    val useUnofficialDrmLicenseMethod: Boolean = false
+    val useUnofficialDrmLicenseMethod: Boolean = false,
+    val forceUseBestVideoResolution: Boolean = false
 )
 
 fun StreamSourceEntity.toDomain(
@@ -42,5 +43,6 @@ fun StreamSourceEntity.toDomain(
     pssh = pssh,
     licenseUrl = licenseUrl,
     useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
+    forceUseBestVideoResolution = forceUseBestVideoResolution,
     drmHeaders = drmHeaders
 )
