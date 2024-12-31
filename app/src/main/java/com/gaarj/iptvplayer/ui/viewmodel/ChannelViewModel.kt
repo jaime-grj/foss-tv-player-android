@@ -128,15 +128,6 @@ class ChannelViewModel @Inject constructor(
         return programs
     }
 
-    fun getSortedChannelsOfCategory(categoryId: Long): List<ChannelItem> {
-        Log.d("ChannelViewModel", "Category size: " + _categoriesWithChannels.value?.size.toString())
-        return if (categoryId == -1L) {
-            categoriesWithChannels.value.orEmpty().first { categoryId == it.id }.channels.sortedWith(compareBy(nullsLast()) { it.indexFavourite })
-        } else{
-            categoriesWithChannels.value.orEmpty().first { categoryId == it.id }.channels.sortedWith(compareBy(nullsLast()) { it.indexGroup })
-        }
-    }
-
     suspend fun getPreviousChannel(categoryId: Long, groupId: Int): ChannelItem {
         return channelRepository.getPreviousChannel(categoryId, groupId)
     }

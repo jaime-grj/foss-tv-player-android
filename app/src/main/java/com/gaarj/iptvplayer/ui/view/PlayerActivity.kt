@@ -680,7 +680,11 @@ class PlayerActivity : FragmentActivity() {
             if (playerViewModel.isChannelListVisible.value == true) {
                 playerViewModel.hideChannelList()
             } else {
-                playerViewModel.showChannelList()
+                lifecycleScope.launch {
+                    initChannelList()
+                    initFocusInChannelList()
+                    playerViewModel.showChannelList()
+                }
             }
         }
 
@@ -688,6 +692,7 @@ class PlayerActivity : FragmentActivity() {
             if (playerViewModel.isCategoryListVisible.value == true) {
                 playerViewModel.hideCategoryList()
             } else {
+                initFocusInCategoryList()
                 playerViewModel.showCategoryList()
             }
         }
@@ -951,18 +956,24 @@ class PlayerActivity : FragmentActivity() {
             val categories = listOf(CategoryItem(-1L, "Favoritos", null, false, listOf())) + channelViewModel.getCategories()
             Log.i("PlayerActivity", "initCategoryList: ${categories.size}")
             rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
+                channelViewModel.updateIsLoadingChannel(true)
                 channelViewModel.updateCurrentCategoryId(selectedCategory.id)
                 playerViewModel.updateCategoryName(selectedCategory.name)
-                val sortedChannels =
-                    channelViewModel.getSortedChannelsOfCategory(selectedCategory.id)
-                rvChannelList.adapter = ChannelListAdapter(
-                    channelViewModel.currentCategoryId.value!!,
-                    sortedChannels
-                ) { selectedChannel ->
-                    loadChannel(selectedChannel)
+                lifecycleScope.launch {
+                    loadChannel(channelViewModel.getNextChannel(categoryId = selectedCategory.id, groupId = 1))
+                    channelViewModel.updateIsLoadingChannel(false)
+                    Log.i(TAG, "dispatchKeyEvent: newCategory: $selectedCategory")
+                    channelViewModel.updateLastCategoryLoaded(selectedCategory.id)
                 }
-                binding.channelNumber.visibility = View.GONE
-                loadChannel(selectedCategory.channels[0])
+
+                playerViewModel.hideChannelName()
+                playerViewModel.hideCategoryName()
+                playerViewModel.hideChannelNumber()
+                playerViewModel.hideBottomInfo()
+                playerViewModel.hideMediaInfo()
+                playerViewModel.hideTimeDate()
+
+                playerViewModel.hideCategoryList()
             }
         }
     }
@@ -1207,12 +1218,13 @@ class PlayerActivity : FragmentActivity() {
                         playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
                     }
                     if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
+                    println(currentAudioTrack)
                     if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
                     if (currentVideoTrack != null){
                         loadVideoTrack(currentVideoTrack!!)
                     }
-
                     else if (playerViewModel.currentStreamSource.value?.forceUseBestVideoResolution == true){ // Select best quality by default (some streams fail)
+                        Log.i(TAG, playerViewModel.currentStreamSource.value.toString())
                         val tracks = player.currentTracks
                         val highestResolution = getHighestResolution()
                         for (trackGroup in tracks.groups) {
@@ -1650,10 +1662,6 @@ class PlayerActivity : FragmentActivity() {
             player.stop()
         }
 
-        currentAudioTrack = null
-        currentVideoTrack = null
-        currentSubtitlesTrack = null
-
         if (binding.loadingDots.visibility == View.VISIBLE) playerViewModel.hideAnimatedLoadingIcon()
         if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
         Log.i(TAG,channel.name)
@@ -1700,6 +1708,12 @@ class PlayerActivity : FragmentActivity() {
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         cancelCheckPlayingCorrectlyTimer()
         cancelTryNextStreamSourceTimer()
+
+        if (playerViewModel.currentStreamSource.value?.id != streamSource.id) {
+            currentAudioTrack = null
+            currentVideoTrack = null
+            currentSubtitlesTrack = null
+        }
 
         if (player.isLoading || player.isPlaying) {
             player.stop()
