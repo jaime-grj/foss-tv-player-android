@@ -682,7 +682,7 @@ class PlayerActivity : FragmentActivity() {
             } else {
                 lifecycleScope.launch {
                     initChannelList()
-                    initFocusInChannelList()
+                    //initFocusInChannelList()
                     playerViewModel.showChannelList()
                 }
             }
@@ -692,7 +692,6 @@ class PlayerActivity : FragmentActivity() {
             if (playerViewModel.isCategoryListVisible.value == true) {
                 playerViewModel.hideCategoryList()
             } else {
-                initFocusInCategoryList()
                 playerViewModel.showCategoryList()
             }
         }
