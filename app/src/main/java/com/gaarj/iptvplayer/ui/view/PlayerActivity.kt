@@ -32,6 +32,7 @@ import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.leanback.widget.VerticalGridView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -57,6 +58,7 @@ import com.gaarj.iptvplayer.ui.adapters.CategoryListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelListAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelSettingsAdapter
 import com.gaarj.iptvplayer.ui.adapters.ChannelSourcesAdapter
+import com.gaarj.iptvplayer.ui.adapters.NumberListAdapter
 import com.gaarj.iptvplayer.ui.adapters.SubtitlesTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.VideoTracksAdapter
 import com.gaarj.iptvplayer.ui.viewmodel.ChannelViewModel
@@ -135,13 +137,14 @@ class PlayerActivity : FragmentActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    private lateinit var rvChannelList: RecyclerView
+    private lateinit var rvChannelList: VerticalGridView
     private lateinit var rvChannelSettings: RecyclerView
     private lateinit var rvAudioTracks: RecyclerView
     private lateinit var rvSubtitlesTracks: RecyclerView
     private lateinit var rvChannelSources: RecyclerView
     private lateinit var rvVideoTracks: RecyclerView
     private lateinit var rvCategoryList: RecyclerView
+    private lateinit var rvNumberList: RecyclerView
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private val channelViewModel: ChannelViewModel by viewModels()
@@ -237,10 +240,11 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        initSettingsMenu()
         initAudioTracksMenu()
         initSubtitlesTracksMenu()
         initSourcesMenu()
+        initNumberList()
+
 
         binding.buttonPiP.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -332,6 +336,7 @@ class PlayerActivity : FragmentActivity() {
         rvChannelSources = binding.rvChannelTrackSettings
         rvVideoTracks = binding.rvChannelTrackSettings
         rvCategoryList = binding.rvCategoryList
+        rvNumberList = binding.rvNumberList
 
         playerViewModel.channelName.observe(this) { channelName ->
             binding.channelName.text = channelName
@@ -624,6 +629,15 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
+        playerViewModel.isNumberListMenuVisible.observe(this) { isVisible ->
+            if (isVisible) {
+                binding.rvNumberList.visibility = View.VISIBLE
+            }
+            else{
+                binding.rvNumberList.visibility = View.GONE
+            }
+        }
+
         binding.playerView.setOnClickListener {
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
@@ -672,6 +686,7 @@ class PlayerActivity : FragmentActivity() {
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
             } else {
+                initSettingsMenu()
                 playerViewModel.showSettingsMenu()
             }
         }
@@ -693,6 +708,7 @@ class PlayerActivity : FragmentActivity() {
                 playerViewModel.hideCategoryList()
             } else {
                 playerViewModel.showCategoryList()
+                rvCategoryList.requestFocus()
             }
         }
     }
@@ -756,27 +772,27 @@ class PlayerActivity : FragmentActivity() {
     private fun loadSetting(settingIndex: Int) {
         when (settingIndex) {
             ChannelSettings.AUDIO_TRACKS -> {
-                if (isAndroidTV(this)) {
+                /*if (isAndroidTV(this)) {
                     initFocusInAudioTracksMenu()
-                }
+                }*/
                 loadAudioTracksMenu()
             }
             ChannelSettings.SUBTITLES_TRACKS -> {
-                if (isAndroidTV(this)) {
+                /*if (isAndroidTV(this)) {
                     initFocusInSubtitlesTracksMenu()
-                }
+                }*/
                 loadSubtitlesTracksMenu()
             }
             ChannelSettings.VIDEO_TRACKS -> {
-                if (isAndroidTV(this)) {
+                /*if (isAndroidTV(this)) {
                     initFocusInVideoTracksMenu()
-                }
+                }*/
                 loadVideoTracksMenu()
             }
             ChannelSettings.SOURCES -> {
-                if (isAndroidTV(this)) {
+                /*if (isAndroidTV(this)) {
                     initFocusInSourcesMenu()
-                }
+                }*/
                 loadSourcesMenu()
             }
             ChannelSettings.UPDATE_EPG -> {
@@ -805,10 +821,8 @@ class PlayerActivity : FragmentActivity() {
         rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
             loadAudioTrack(selectedAudioTrack)
         }
-        if (audioTrackList.isNotEmpty()) {
-            playerViewModel.updateCurrentItemSelectedFromAudioTracksMenu(0)
-        }
         playerViewModel.showTrackMenu()
+        rvAudioTracks.requestFocus()
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.AUDIO_TRACKS)
     }
 
@@ -817,10 +831,8 @@ class PlayerActivity : FragmentActivity() {
         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
             loadSubtitlesTrack(selectedSubtitlesTrack)
         }
-        if (subtitlesTrackList.isNotEmpty()) {
-            playerViewModel.updateCurrentItemSelectedFromSubtitlesTracksMenu(0)
-        }
         playerViewModel.showTrackMenu()
+        rvSubtitlesTracks.requestFocus()
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.SUBTITLES_TRACKS)
     }
 
@@ -835,10 +847,8 @@ class PlayerActivity : FragmentActivity() {
             }
             loadVideoTrack(selectedVideoTrack)
         }
-        if (videoTracksList.isNotEmpty()) {
-            playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
-        }
         playerViewModel.showTrackMenu()
+        rvVideoTracks.requestFocus()
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.VIDEO_TRACKS)
 
     }
@@ -856,8 +866,6 @@ class PlayerActivity : FragmentActivity() {
                 drmType = DrmTypeItem.NONE
             )
         )
-
-        playerViewModel.updateCurrentItemSelectedFromChannelSourcesMenu(0)
 
         sourcesList += channelViewModel.currentChannel.value?.streamSources!!.sortedBy { it.index }
         for (i in sourcesList.indices) {
@@ -881,6 +889,7 @@ class PlayerActivity : FragmentActivity() {
         }
 
         playerViewModel.showTrackMenu()
+        rvChannelSources.requestFocus()
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.SOURCES)
     }
 
@@ -977,18 +986,7 @@ class PlayerActivity : FragmentActivity() {
         }
     }
 
-    private fun initFocusInCategoryList() {
-        rvCategoryList.viewTreeObserver.addOnGlobalLayoutListener {
-            rvCategoryList.scrollToPosition(playerViewModel.currentItemSelectedFromCategoryList.value ?: 0)
-            rvCategoryList.post {
-                val viewHolder = rvCategoryList.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromCategoryList.value ?: 0)
-                viewHolder?.itemView?.requestFocus()
-            }
-        }
-    }
-
     private suspend fun initChannelList() {
-        rvChannelList.layoutManager = LinearLayoutManager(this)
         val sortedChannels = channelViewModel.getSmChannelsByCategory(channelViewModel.currentCategoryId.value!!)
         for (i in sortedChannels.indices) {
             if (sortedChannels[i].id == channelViewModel.currentChannel.value?.id) {
@@ -1001,69 +999,30 @@ class PlayerActivity : FragmentActivity() {
         }
     }
 
-    private fun initFocusInChannelList() {
-        rvChannelList.viewTreeObserver.addOnGlobalLayoutListener {
-            rvChannelList.scrollToPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
-            rvChannelList.layoutManager?.scrollToPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
-            rvChannelList.post {
-                val viewHolder = rvChannelList.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromChannelList.value ?: 0)
-                viewHolder?.itemView?.requestFocus()
+    private fun initNumberList(){
+        rvNumberList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        val numbers = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
+        rvNumberList.adapter = NumberListAdapter(numbers) { selectedNumber ->
+            if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
+                jobUIChangeChannel.cancel()
             }
-        }
-    }
+            if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
+            if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
+            if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
+            if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
+            if (currentNumberInput.length >= MAX_DIGITS) {
+                currentNumberInput.clear()
+            }
 
-    private fun initFocusInChannelSettingsMenu() {
-        if (isAndroidTV(this)) {
-            rvChannelSettings.viewTreeObserver.addOnGlobalLayoutListener {
-                rvChannelSettings.scrollToPosition(playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0)
-                rvChannelSettings.post {
-                    val viewHolder = rvChannelSettings.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0)
-                    viewHolder?.itemView?.requestFocus()
-                }
-            }
-        }
-    }
+            val number = (selectedNumber).toString()
 
-    private fun initFocusInAudioTracksMenu() {
-        if (isAndroidTV(this)) {
-            rvAudioTracks.viewTreeObserver.addOnGlobalLayoutListener {
-                rvAudioTracks.scrollToPosition(playerViewModel.currentItemSelectedFromAudioTracksMenu.value ?: 0)
-                rvAudioTracks.post {
-                    val viewHolder = rvAudioTracks.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromAudioTracksMenu.value ?: 0)
-                    viewHolder?.itemView?.requestFocus()
-                }
-            }
-        }
-    }
+            currentNumberInput.append(number)
 
-    private fun initFocusInSubtitlesTracksMenu() {
-        rvSubtitlesTracks.viewTreeObserver.addOnGlobalLayoutListener {
-            rvSubtitlesTracks.scrollToPosition(playerViewModel.currentItemSelectedFromSubtitlesTracksMenu.value ?: 0)
-            rvSubtitlesTracks.post {
-                val viewHolder = rvSubtitlesTracks.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromSubtitlesTracksMenu.value ?: 0)
-                viewHolder?.itemView?.requestFocus()
-            }
-        }
-    }
+            binding.channelNumberKeyboard.text = currentNumberInput.toString()
 
-    private fun initFocusInSourcesMenu() {
-        rvChannelSources.viewTreeObserver.addOnGlobalLayoutListener {
-            rvChannelSources.scrollToPosition(playerViewModel.currentItemSelectedFromChannelSourcesMenu.value ?: 0)
-            rvChannelSources.post {
-                val viewHolder = rvChannelSources.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromChannelSourcesMenu.value ?: 0)
-                viewHolder?.itemView?.requestFocus()
-            }
+            showChannelNumberWithTimeoutAndChangeChannel(3000)
         }
-    }
 
-    private fun initFocusInVideoTracksMenu() {
-        rvVideoTracks.viewTreeObserver.addOnGlobalLayoutListener {
-            rvVideoTracks.scrollToPosition(playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0)
-            rvVideoTracks.post {
-                val viewHolder = rvVideoTracks.findViewHolderForAdapterPosition(playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0)
-                viewHolder?.itemView?.requestFocus()
-            }
-        }
     }
 
     private fun initPlayer(){
@@ -1200,21 +1159,18 @@ class PlayerActivity : FragmentActivity() {
                         rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
                             loadAudioTrack(selectedAudioTrack)
                         }
-                        playerViewModel.updateCurrentItemSelectedFromAudioTracksMenu(0)
                     }
                     else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SUBTITLES_TRACKS && rvSubtitlesTracks.adapter?.itemCount == 1) {
                         val subtitlesTrackList = loadSubtitlesTracks()
                         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
                             loadSubtitlesTrack(selectedSubtitlesTrack)
                         }
-                        playerViewModel.updateCurrentItemSelectedFromSubtitlesTracksMenu(0)
                     }
                     else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS && rvVideoTracks.adapter?.itemCount == 1) {
                         val videoTrackList = loadVideoTracks()
                         rvVideoTracks.adapter = VideoTracksAdapter(videoTrackList) { selectedVideoTrack ->
                             loadVideoTrack(selectedVideoTrack)
                         }
-                        playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(0)
                     }
                     if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
                     println(currentAudioTrack)
@@ -1647,6 +1603,8 @@ class PlayerActivity : FragmentActivity() {
             return
         }
         playerViewModel.hideBottomInfo()
+        playerViewModel.hideNumberListMenu()
+
         if (playerViewModel.isSourceLoading.value == true) cancelSourceLoadingTimer()
         if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
         cancelCheckPlayingCorrectlyTimer()
@@ -2145,14 +2103,16 @@ class PlayerActivity : FragmentActivity() {
                 if (newChannel.id != channelViewModel.currentChannel.value?.id) {
                     channelViewModel.updateCurrentCategoryId(-1L)
                     playerViewModel.updateCategoryName("Favoritos")
-                    loadChannel(newChannel)
                     currentNumberInput.clear()
                     channelViewModel.updateLastCategoryLoaded(-1L)
+                    channelViewModel.updateIsLoadingChannel(false)
+                    loadChannel(newChannel)
                 }
                 else{
+                    currentNumberInput.clear()
+                    channelViewModel.updateIsLoadingChannel(false)
                     showChannelInfoWithTimeout(TIMEOUT_UI_CHANNEL_LOAD)
                 }
-                channelViewModel.updateIsLoadingChannel(false)
 
             } catch (_: CancellationException){
                 playerViewModel.hideChannelNumberKeyboard()
@@ -2221,96 +2181,144 @@ class PlayerActivity : FragmentActivity() {
                             channelViewModel.currentChannel.value?.indexGroup!!
                         }
                         Log.i(TAG, "dispatchKeyEvent: currentChannelIndex: $currentChannelIndex")
-                        val currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        Log.i(TAG, "dispatchKeyEvent: currentItemSelectedFromChannelList: $currentItemSelectedFromChannelList")
-                        val newChannelSm = (rvChannelList.adapter as? ChannelListAdapter)?.getItemAtPosition(currentItemSelectedFromChannelList) as ChannelItem
-                        var newChannel: ChannelItem?
-                        if (channelViewModel.currentCategoryId.value == -1L) {
-                            lifecycleScope.launch {
-                                newChannel = channelViewModel.getNextChannel(-1L, newChannelSm.indexFavourite!!)
-                                newChannel?.let { loadChannel(it) }
+                        val focusedView = rvChannelList.focusedChild
+                        if (focusedView != null) {
+                            val position = rvChannelList.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            Log.i(
+                                TAG,
+                                "dispatchKeyEvent: currentItemSelectedFromChannelList: $position"
+                            )
+                            val newChannelSm =
+                                (rvChannelList.adapter as? ChannelListAdapter)?.getItemAtPosition(
+                                    position
+                                ) as ChannelItem
+                            var newChannel: ChannelItem?
+                            if (channelViewModel.currentCategoryId.value == -1L) {
+                                lifecycleScope.launch {
+                                    newChannel = channelViewModel.getNextChannel(
+                                        -1L,
+                                        newChannelSm.indexFavourite!!
+                                    )
+                                    newChannel?.let { loadChannel(it) }
+                                }
+                            } else {
+                                println("newChannelSm.indexFavourite: ${newChannelSm.indexFavourite}, channelViewModel.currentCategoryId.value: ${channelViewModel.currentCategoryId.value}")
+                                lifecycleScope.launch {
+                                    newChannel = channelViewModel.getNextChannel(
+                                        channelViewModel.currentCategoryId.value!!,
+                                        newChannelSm.indexGroup!!
+                                    )
+                                    newChannel?.let { loadChannel(it) }
+                                }
                             }
-                        } else{
-                            println("newChannelSm.indexFavourite: ${newChannelSm.indexFavourite}, channelViewModel.currentCategoryId.value: ${channelViewModel.currentCategoryId.value}")
-                            lifecycleScope.launch {
-                                newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, newChannelSm.indexGroup!!)
-                                newChannel?.let { loadChannel(it) }
-                            }
+                        }
+                        else{
+                            channelViewModel.updateIsLoadingChannel(false)
+                            showChannelInfoWithTimeout(TIMEOUT_UI_CHANNEL_LOAD)
                         }
                     }
                     else if (playerViewModel.isCategoryListVisible.value == true) {
                         channelViewModel.updateIsLoadingChannel(true)
-                        val currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
-                        val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(currentItemSelectedFromCategoryList) as CategoryItem
-                        channelViewModel.updateCurrentCategoryId(newCategory.id)
-                        playerViewModel.updateCategoryName(newCategory.name)
-                        lifecycleScope.launch {
-                            loadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
-                            channelViewModel.updateIsLoadingChannel(false)
-                            Log.i(TAG, "dispatchKeyEvent: newCategory: $newCategory")
-                            channelViewModel.updateLastCategoryLoaded(newCategory.id)
+                        val focusedView = rvCategoryList.focusedChild
+                        if (focusedView != null) {
+                            val position = rvCategoryList.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(position) as CategoryItem
+                            channelViewModel.updateCurrentCategoryId(newCategory.id)
+                            playerViewModel.updateCategoryName(newCategory.name)
+                            lifecycleScope.launch {
+                                loadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
+                                channelViewModel.updateIsLoadingChannel(false)
+                                Log.i(TAG, "dispatchKeyEvent: newCategory: $newCategory")
+                                channelViewModel.updateLastCategoryLoaded(newCategory.id)
+                            }
+
+                            playerViewModel.hideChannelName()
+                            playerViewModel.hideCategoryName()
+                            playerViewModel.hideChannelNumber()
+                            playerViewModel.hideBottomInfo()
+                            playerViewModel.hideMediaInfo()
+                            playerViewModel.hideTimeDate()
+
+                            playerViewModel.hideCategoryList()
                         }
-
-                        playerViewModel.hideChannelName()
-                        playerViewModel.hideCategoryName()
-                        playerViewModel.hideChannelNumber()
-                        playerViewModel.hideBottomInfo()
-                        playerViewModel.hideMediaInfo()
-                        playerViewModel.hideTimeDate()
-
-                        playerViewModel.hideCategoryList()
+                        else{
+                            channelViewModel.updateIsLoadingChannel(false)
+                            playerViewModel.hideCategoryList()
+                        }
                     }
                     // Enter specific setting
                     else if (playerViewModel.isSettingsMenuVisible.value == true) {
-                        playerViewModel.hideSettingsMenu()
-                        val currentItemSelectedFromChannelSettingsMenu = playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0
-                        when (currentItemSelectedFromChannelSettingsMenu) {
-                            ChannelSettings.AUDIO_TRACKS -> {
-                                loadSetting(ChannelSettings.AUDIO_TRACKS)
+                        val focusedView = rvChannelSettings.focusedChild
+                        if (focusedView != null) {
+                            val position = rvChannelSettings.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            playerViewModel.hideSettingsMenu()
+
+                            when (position) {
+                                ChannelSettings.AUDIO_TRACKS -> {
+                                    loadSetting(ChannelSettings.AUDIO_TRACKS)
+                                }
+                                ChannelSettings.SUBTITLES_TRACKS -> {
+                                    loadSetting(ChannelSettings.SUBTITLES_TRACKS)
+                                }
+                                ChannelSettings.SOURCES -> {
+                                    loadSetting(ChannelSettings.SOURCES)
+                                }
+                                ChannelSettings.VIDEO_TRACKS -> {
+                                    loadSetting(ChannelSettings.VIDEO_TRACKS)
+                                }
+                                ChannelSettings.UPDATE_EPG -> {
+                                    loadSetting(ChannelSettings.UPDATE_EPG)
+                                }
+                                ChannelSettings.SHOW_EPG -> {
+                                    loadSetting(ChannelSettings.SHOW_EPG)
+                                }
+                                ChannelSettings.UPDATE_CHANNEL_LIST -> {
+                                    loadSetting(ChannelSettings.UPDATE_CHANNEL_LIST)
+                                }
                             }
-                            ChannelSettings.SUBTITLES_TRACKS -> {
-                                loadSetting(ChannelSettings.SUBTITLES_TRACKS)
-                            }
-                            ChannelSettings.SOURCES -> {
-                                loadSetting(ChannelSettings.SOURCES)
-                            }
-                            ChannelSettings.VIDEO_TRACKS -> {
-                                loadSetting(ChannelSettings.VIDEO_TRACKS)
-                            }
-                            ChannelSettings.UPDATE_EPG -> {
-                                loadSetting(ChannelSettings.UPDATE_EPG)
-                            }
-                            ChannelSettings.SHOW_EPG -> {
-                                loadSetting(ChannelSettings.SHOW_EPG)
-                            }
-                            ChannelSettings.UPDATE_CHANNEL_LIST -> {
-                                loadSetting(ChannelSettings.UPDATE_CHANNEL_LIST)
-                            }
+                        }
+                        else{
+                            playerViewModel.hideSettingsMenu()
                         }
                     }
                     else if (playerViewModel.isTrackMenuVisible.value == true && playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS) {
-                        val currentItemSelectedFromAudioTracksMenu = playerViewModel.currentItemSelectedFromAudioTracksMenu.value ?: 0
-                        if (currentItemSelectedFromAudioTracksMenu >= 0){
-                            val audioTrack = (rvAudioTracks.adapter as? AudioTracksAdapter)?.getItemAtPosition(currentItemSelectedFromAudioTracksMenu) as AudioTrack
+                        val focusedView = rvAudioTracks.focusedChild
+                        if (focusedView != null) {
+                            val position = rvAudioTracks.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            val audioTrack = (rvAudioTracks.adapter as? AudioTracksAdapter)?.getItemAtPosition(position) as AudioTrack
                             loadAudioTrack(audioTrack)
+                            playerViewModel.hideTrackMenu()
+                        }
+                        else{
                             playerViewModel.hideTrackMenu()
                         }
                     }
                     else if (playerViewModel.isTrackMenuVisible.value == true && playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SUBTITLES_TRACKS) {
-                        val currentItemSelectedFromSubtitlesTracksMenu = playerViewModel.currentItemSelectedFromSubtitlesTracksMenu.value ?: 0
-                        if (currentItemSelectedFromSubtitlesTracksMenu >= 0){
-                            val subtitlesTrack = (rvSubtitlesTracks.adapter as? SubtitlesTracksAdapter)?.getItemAtPosition(currentItemSelectedFromSubtitlesTracksMenu) as SubtitlesTrack
+                        val focusedView = rvSubtitlesTracks.focusedChild
+                        if (focusedView != null) {
+                            val position = rvSubtitlesTracks.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            val subtitlesTrack = (rvSubtitlesTracks.adapter as? SubtitlesTracksAdapter)?.getItemAtPosition(position) as SubtitlesTrack
                             loadSubtitlesTrack(subtitlesTrack)
+                            playerViewModel.hideTrackMenu()
+                        }
+                        else{
                             playerViewModel.hideTrackMenu()
                         }
                     }
                     else if (playerViewModel.isTrackMenuVisible.value == true && playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SOURCES) {
-                        val currentItemSelectedFromSourcesMenu = playerViewModel.currentItemSelectedFromChannelSourcesMenu.value ?: 0
-                        if (currentItemSelectedFromSourcesMenu >= 0){
+                        val focusedView = rvChannelSources.focusedChild
+                        if (focusedView != null) {
+                            val position = rvChannelSources.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
                             if (playerViewModel.isErrorMessageVisible.value == true) {
                                 playerViewModel.hideErrorMessage()
                             }
-                            var streamSource = (rvChannelSources.adapter as? ChannelSourcesAdapter)?.getItemAtPosition(currentItemSelectedFromSourcesMenu) as StreamSourceItem
+                            var streamSource = (rvChannelSources.adapter as? ChannelSourcesAdapter)?.getItemAtPosition(position) as StreamSourceItem
                             if (streamSource.id.toInt() == -1) {
                                 playerViewModel.updateIsSourceForced(false)
                                 val currentChannel = channelViewModel.currentChannel.value
@@ -2328,11 +2336,16 @@ class PlayerActivity : FragmentActivity() {
                             playerViewModel.hideTrackMenu()
                             playerViewModel.hidePlayer()
                         }
+                        else{
+                            playerViewModel.hideTrackMenu()
+                        }
                     }
                     else if (playerViewModel.isTrackMenuVisible.value == true && playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS) {
-                        val currentItemSelectedFromVideoTracksMenu = playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0
-                        if (currentItemSelectedFromVideoTracksMenu >= 0){
-                            val videoTrack = (rvVideoTracks.adapter as? VideoTracksAdapter)?.getItemAtPosition(currentItemSelectedFromVideoTracksMenu) as VideoTrack
+                        val focusedView = rvChannelSources.focusedChild
+                        if (focusedView != null) {
+                            val position = rvChannelSources.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            val videoTrack = (rvVideoTracks.adapter as? VideoTracksAdapter)?.getItemAtPosition(position) as VideoTrack
                             try{
                                 if (videoTrack.id.toInt() == -1) {
                                     playerViewModel.updateIsQualityForced(false)
@@ -2344,6 +2357,42 @@ class PlayerActivity : FragmentActivity() {
                             catch (_: Exception) {}
                             loadVideoTrack(videoTrack)
                             playerViewModel.hideTrackMenu()
+                        }
+                        else{
+                            playerViewModel.hideTrackMenu()
+                        }
+                    }
+                    else if (playerViewModel.isNumberListMenuVisible.value == true) {
+                        if (event.repeatCount > 0) {
+                            return true
+                        }
+                        if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
+                            jobUIChangeChannel.cancel()
+                        }
+                        if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
+                        if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
+                        if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
+                        if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
+                        if (currentNumberInput.length >= MAX_DIGITS) {
+                            currentNumberInput.clear()
+                        }
+
+                        val focusedView = rvNumberList.focusedChild
+                        if (focusedView != null) {
+                            val position = rvNumberList.getChildAdapterPosition(focusedView)
+                            println("Focused Item Position: $position")
+                            val selectedNumber = (rvNumberList.adapter as? NumberListAdapter)?.getItemAtPosition(position) as Int
+                            val number = selectedNumber.toString()
+
+                            currentNumberInput.append(number)
+
+                            binding.channelNumberKeyboard.text = currentNumberInput.toString()
+
+                            showChannelNumberWithTimeoutAndChangeChannel(3000)
+
+                        }
+                        else{
+                            playerViewModel.hideNumberListMenu()
                         }
                     }
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
@@ -2382,111 +2431,82 @@ class PlayerActivity : FragmentActivity() {
                         }
                     }
                     else if (playerViewModel.isChannelNumberVisible.value == true) {
-                        if (event.repeatCount > 0) return true
-                        if (!isAndroidTV(this)) {
-                            playerViewModel.hideButtonUp()
-                            playerViewModel.hideButtonDown()
-                            playerViewModel.hideButtonChannelList()
-                            playerViewModel.hideButtonSettings()
-                            playerViewModel.hideButtonPiP()
-                            playerViewModel.hideButtonCategoryList()
+                        if (event.repeatCount > 0) {
+                            Log.i(TAG, "event repeat center")
+                            if (playerViewModel.isNumberListMenuVisible.value != true) {
+                                Log.i(TAG, "showNumberListMenu")
+                                playerViewModel.hideMediaInfo()
+                                playerViewModel.hideChannelName()
+                                playerViewModel.hideChannelNumber()
+                                playerViewModel.hideCategoryName()
+                                playerViewModel.hideTimeDate()
+                                playerViewModel.hideBottomInfo()
+                                playerViewModel.showNumberListMenu()
+                                rvNumberList.requestFocus()
+                            }
+                            return true
                         }
-                        playerViewModel.hideChannelNumber()
-                        playerViewModel.hideChannelName()
-                        playerViewModel.hideCategoryName()
-                        playerViewModel.hideTimeDate()
-                        playerViewModel.hideMediaInfo()
-                        playerViewModel.hideBottomInfo()
+                        else{
+                            if (!isAndroidTV(this)) {
+                                playerViewModel.hideButtonUp()
+                                playerViewModel.hideButtonDown()
+                                playerViewModel.hideButtonChannelList()
+                                playerViewModel.hideButtonSettings()
+                                playerViewModel.hideButtonPiP()
+                                playerViewModel.hideButtonCategoryList()
+                            }
+                            playerViewModel.hideChannelNumber()
+                            playerViewModel.hideChannelName()
+                            playerViewModel.hideCategoryName()
+                            playerViewModel.hideTimeDate()
+                            playerViewModel.hideMediaInfo()
+                            playerViewModel.hideBottomInfo()
+                        }
+                        return true
                     }
                     // Show current channel info
                     else{
-                        if (event.repeatCount > 0) return true
-                        if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
-                            jobUIChangeChannel.cancel()
+                        if (event.repeatCount > 0) {
+                            Log.i(TAG, "event repeat center")
+                            if (playerViewModel.isNumberListMenuVisible.value != true) {
+                                Log.i(TAG, "showNumberListMenu")
+                                playerViewModel.hideMediaInfo()
+                                playerViewModel.hideChannelName()
+                                playerViewModel.hideChannelNumber()
+                                playerViewModel.hideCategoryName()
+                                playerViewModel.hideTimeDate()
+                                playerViewModel.hideBottomInfo()
+                                playerViewModel.showNumberListMenu()
+                                rvNumberList.requestFocus()
+                            }
+                            return true
                         }
-                        if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
-                            playerViewModel.hideChannelNumberKeyboard()
-                            currentNumberInput.clear()
+                        else{
+                            if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
+                                jobUIChangeChannel.cancel()
+                            }
+                            if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
+                                playerViewModel.hideChannelNumberKeyboard()
+                                currentNumberInput.clear()
+                            }
+                            showFullChannelUIWithTimeout(timeout = TIMEOUT_UI_INFO)
                         }
-                        showFullChannelUIWithTimeout(timeout = TIMEOUT_UI_INFO)
                     }
-
                     return true
                 }
 
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (binding.channelList.visibility == View.VISIBLE) { // Navigate through menu
-                        var currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        lifecycleScope.launch {
-                            val channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
-                            currentItemSelectedFromChannelList = if (currentItemSelectedFromChannelList - 1 < 0) {
-                                channelsSize - 1
-                            } else {
-                                (currentItemSelectedFromChannelList - 1) % channelsSize
-                            }
-                            playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
-                        }
-                        playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
-                    }
-                    else if (binding.rvChannelSettings.visibility == View.VISIBLE) {
-                        var currentItemSelectedFromChannelSettingsMenu = playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0
-                        currentItemSelectedFromChannelSettingsMenu = if (currentItemSelectedFromChannelSettingsMenu - 1 < 0) {
-                            rvChannelSettings.adapter!!.itemCount - 1
-                        } else {
-                            (currentItemSelectedFromChannelSettingsMenu - 1) % rvChannelSettings.adapter!!.itemCount
-                        }
-                        playerViewModel.updateCurrentItemSelectedFromChannelSettingsMenu(currentItemSelectedFromChannelSettingsMenu)
+                    if (binding.channelList.visibility == View.VISIBLE
+                        || binding.rvChannelSettings.visibility == View.VISIBLE
+                        || binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
+                        return super.dispatchKeyEvent(event)
                     }
                     else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
                         if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
-                        val currentLoadedMenuSetting = playerViewModel.currentLoadedMenuSetting.value ?: 0
-                        when (currentLoadedMenuSetting) {
-                            ChannelSettings.AUDIO_TRACKS -> {
-                                var currentItemSelectedFromAudioTracksMenu = playerViewModel.currentItemSelectedFromAudioTracksMenu.value ?: 0
-                                currentItemSelectedFromAudioTracksMenu = if (currentItemSelectedFromAudioTracksMenu - 1 < 0) {
-                                    rvAudioTracks.adapter!!.itemCount - 1
-                                } else {
-                                    (currentItemSelectedFromAudioTracksMenu - 1) % rvAudioTracks.adapter!!.itemCount
-                                }
-                                playerViewModel.updateCurrentItemSelectedFromAudioTracksMenu(currentItemSelectedFromAudioTracksMenu)
-                            }
-                            ChannelSettings.SUBTITLES_TRACKS -> {
-                                var currentItemSelectedFromSubtitlesTracksMenu = playerViewModel.currentItemSelectedFromSubtitlesTracksMenu.value ?: 0
-                                currentItemSelectedFromSubtitlesTracksMenu = if (currentItemSelectedFromSubtitlesTracksMenu - 1 < 0) {
-                                    rvSubtitlesTracks.adapter!!.itemCount - 1
-                                } else {
-                                    (currentItemSelectedFromSubtitlesTracksMenu - 1) % rvSubtitlesTracks.adapter!!.itemCount
-                                }
-                                playerViewModel.updateCurrentItemSelectedFromSubtitlesTracksMenu(currentItemSelectedFromSubtitlesTracksMenu)
-                            }
-                            ChannelSettings.SOURCES -> {
-                                var currentItemSelectedFromSourcesMenu = playerViewModel.currentItemSelectedFromChannelSourcesMenu.value ?: 0
-                                currentItemSelectedFromSourcesMenu = if (currentItemSelectedFromSourcesMenu - 1 < 0) {
-                                    rvChannelSources.adapter!!.itemCount - 1
-                                } else {
-                                    (currentItemSelectedFromSourcesMenu - 1) % rvChannelSources.adapter!!.itemCount
-                                }
-                                playerViewModel.updateCurrentItemSelectedFromChannelSourcesMenu(currentItemSelectedFromSourcesMenu)
-                            }
-                            ChannelSettings.VIDEO_TRACKS -> {
-                                var currentItemSelectedFromVideoTracksMenu = playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0
-                                currentItemSelectedFromVideoTracksMenu = if (currentItemSelectedFromVideoTracksMenu - 1 < 0) {
-                                    rvVideoTracks.adapter!!.itemCount - 1
-                                } else {
-                                    (currentItemSelectedFromVideoTracksMenu - 1) % rvVideoTracks.adapter!!.itemCount
-                                }
-                                playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(currentItemSelectedFromVideoTracksMenu)
-                            }
-                        }
+                        return super.dispatchKeyEvent(event)
                     }
-                    else if (binding.rvCategoryList.visibility == View.VISIBLE) {
-                        var currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
-                        currentItemSelectedFromCategoryList = if (currentItemSelectedFromCategoryList - 1 < 0) {
-                            rvCategoryList.adapter!!.itemCount - 1
-                        } else {
-                            (currentItemSelectedFromCategoryList - 1) % rvCategoryList.adapter!!.itemCount
-                        }
-                        playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
+                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                        return true
                     }
                     else{
                         if (event.repeatCount > 0){
@@ -2535,48 +2555,17 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (binding.channelList.visibility == View.VISIBLE) { // Navigate through menu
-                        var currentItemSelectedFromChannelList = playerViewModel.currentItemSelectedFromChannelList.value ?: 0
-                        lifecycleScope.launch {
-                            val channelsSize = channelViewModel.getChannelCountByCategory(channelViewModel.currentCategoryId.value!!)
-                            currentItemSelectedFromChannelList = (currentItemSelectedFromChannelList + 1) % channelsSize
-                            playerViewModel.updateCurrentItemSelectedFromChannelList(currentItemSelectedFromChannelList)
-                        }
-                    }
-                    else if (binding.rvChannelSettings.visibility == View.VISIBLE) { // Navigate through menu
-                        var currentItemSelectedFromChannelSettingsMenu = playerViewModel.currentItemSelectedFromChannelSettingsMenu.value ?: 0
-                        currentItemSelectedFromChannelSettingsMenu = (currentItemSelectedFromChannelSettingsMenu + 1) % rvChannelSettings.adapter!!.itemCount
-                        playerViewModel.updateCurrentItemSelectedFromChannelSettingsMenu(currentItemSelectedFromChannelSettingsMenu)
+                    if (binding.channelList.visibility == View.VISIBLE
+                        || binding.rvChannelSettings.visibility == View.VISIBLE
+                        || binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
+                        return super.dispatchKeyEvent(event)
                     }
                     else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
                         if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
-                        when (playerViewModel.currentLoadedMenuSetting.value) {
-                            ChannelSettings.AUDIO_TRACKS -> {
-                                var currentItemSelectedFromAudioTracksMenu = playerViewModel.currentItemSelectedFromAudioTracksMenu.value ?: 0
-                                currentItemSelectedFromAudioTracksMenu = (currentItemSelectedFromAudioTracksMenu + 1) % rvAudioTracks.adapter!!.itemCount
-                                playerViewModel.updateCurrentItemSelectedFromAudioTracksMenu(currentItemSelectedFromAudioTracksMenu)
-                            }
-                            ChannelSettings.SUBTITLES_TRACKS -> {
-                                var currentItemSelectedFromSubtitlesTracksMenu = playerViewModel.currentItemSelectedFromSubtitlesTracksMenu.value ?: 0
-                                currentItemSelectedFromSubtitlesTracksMenu = (currentItemSelectedFromSubtitlesTracksMenu + 1) % rvSubtitlesTracks.adapter!!.itemCount
-                                playerViewModel.updateCurrentItemSelectedFromSubtitlesTracksMenu(currentItemSelectedFromSubtitlesTracksMenu)
-                            }
-                            ChannelSettings.SOURCES -> {
-                                var currentItemSelectedFromSourcesMenu = playerViewModel.currentItemSelectedFromChannelSourcesMenu.value ?: 0
-                                currentItemSelectedFromSourcesMenu = (currentItemSelectedFromSourcesMenu + 1) % rvChannelSources.adapter!!.itemCount
-                                playerViewModel.updateCurrentItemSelectedFromChannelSourcesMenu(currentItemSelectedFromSourcesMenu)
-                            }
-                            ChannelSettings.VIDEO_TRACKS -> {
-                                var currentItemSelectedFromVideoTracksMenu = playerViewModel.currentItemSelectedFromVideoTracksMenu.value ?: 0
-                                currentItemSelectedFromVideoTracksMenu = (currentItemSelectedFromVideoTracksMenu + 1) % rvVideoTracks.adapter!!.itemCount
-                                playerViewModel.updateCurrentItemSelectedFromVideoTracksMenu(currentItemSelectedFromVideoTracksMenu)
-                            }
-                        }
+                        return super.dispatchKeyEvent(event)
                     }
-                    else if (binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
-                        var currentItemSelectedFromCategoryList = playerViewModel.currentItemSelectedFromCategoryList.value ?: 0
-                        currentItemSelectedFromCategoryList = (currentItemSelectedFromCategoryList + 1) % rvCategoryList.adapter!!.itemCount
-                        playerViewModel.updateCurrentItemSelectedFromCategoryList(currentItemSelectedFromCategoryList)
+                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                        return true
                     }
                     else{ // Change to previous channel
                         if (event.repeatCount > 0){
@@ -2634,10 +2623,14 @@ class PlayerActivity : FragmentActivity() {
                         || binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
                         return true
                     }
+                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                        return super.dispatchKeyEvent(event)
+                    }
                     else{
                         if (event.repeatCount > 0) return true
-                        initFocusInChannelSettingsMenu()
+                        initSettingsMenu()
                         playerViewModel.showSettingsMenu()
+                        rvChannelSettings.requestFocus()
                         return true
                     }
                 }
@@ -2648,19 +2641,22 @@ class PlayerActivity : FragmentActivity() {
                         || binding.channelList.visibility == View.VISIBLE) {
                         return true
                     }
+                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                        return super.dispatchKeyEvent(event)
+                    }
                     else if (binding.rvCategoryList.visibility != View.VISIBLE) {
                         if (event.repeatCount > 0) return true
-                        initFocusInCategoryList()
                         playerViewModel.showCategoryList()
+                        rvCategoryList.requestFocus()
+                        return true
                     }
                     else if (binding.rvCategoryList.visibility == View.VISIBLE) {
                         if (event.repeatCount > 0) return true
                         playerViewModel.hideCategoryList()
                     }
-
                 }
 
-                KeyEvent.KEYCODE_MENU -> {
+                (KeyEvent.KEYCODE_MENU) -> {
                     if (event.repeatCount > 0) return true
                     if (binding.channelList.visibility == View.VISIBLE) {
                         playerViewModel.hideChannelList()
@@ -2677,8 +2673,9 @@ class PlayerActivity : FragmentActivity() {
                     }
                     lifecycleScope.launch {
                         initChannelList()
-                        initFocusInChannelList()
+                        rvChannelList.scrollToPosition(playerViewModel.currentItemSelectedFromChannelList.value!!)
                         playerViewModel.showChannelList()
+                        rvChannelList.requestFocus()
                     }
                     return true
                 }
@@ -2698,6 +2695,10 @@ class PlayerActivity : FragmentActivity() {
                     }
                     else if (playerViewModel.isCategoryListVisible.value == true) {
                         playerViewModel.hideCategoryList()
+                        return true
+                    }
+                    else if (playerViewModel.isNumberListMenuVisible.value == true) {
+                        playerViewModel.hideNumberListMenu()
                         return true
                     }
                     else{

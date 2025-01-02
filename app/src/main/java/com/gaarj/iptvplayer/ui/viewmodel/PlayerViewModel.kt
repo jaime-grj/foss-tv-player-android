@@ -43,26 +43,14 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _currentItemSelectedFromChannelSettingsMenu: MutableLiveData<Int> = MutableLiveData()
     val currentItemSelectedFromChannelSettingsMenu: LiveData<Int> get() = _currentItemSelectedFromChannelSettingsMenu
 
-    private val _currentItemSelectedFromAudioTracksMenu: MutableLiveData<Int> = MutableLiveData()
-    val currentItemSelectedFromAudioTracksMenu: LiveData<Int> get() = _currentItemSelectedFromAudioTracksMenu
-
-    private val _currentItemSelectedFromSubtitlesTracksMenu: MutableLiveData<Int> = MutableLiveData()
-    val currentItemSelectedFromSubtitlesTracksMenu: LiveData<Int> get() = _currentItemSelectedFromSubtitlesTracksMenu
-
-    private val _currentItemSelectedFromChannelSourcesMenu: MutableLiveData<Int> = MutableLiveData()
-    val currentItemSelectedFromChannelSourcesMenu: LiveData<Int> get() = _currentItemSelectedFromChannelSourcesMenu
-
-    private val _currentItemSelectedFromVideoTracksMenu: MutableLiveData<Int> = MutableLiveData()
-    val currentItemSelectedFromVideoTracksMenu: LiveData<Int> get() = _currentItemSelectedFromVideoTracksMenu
-
     private val _currentItemSelectedFromCategoryList: MutableLiveData<Int> = MutableLiveData()
     val currentItemSelectedFromCategoryList: LiveData<Int> get() = _currentItemSelectedFromCategoryList
 
     private val _currentLoadedMenuSetting: MutableLiveData<Int> = MutableLiveData()
     val currentLoadedMenuSetting: LiveData<Int> get() = _currentLoadedMenuSetting
 
-    private val _currentChannelSourcesList = MutableLiveData<List<StreamSourceItem>>()
-    val currentChannelSourcesList: LiveData<List<StreamSourceItem>> get() = _currentChannelSourcesList
+    private val _isNumberListMenuVisible = MutableLiveData<Boolean>()
+    val isNumberListMenuVisible: LiveData<Boolean> get() = _isNumberListMenuVisible
 
     fun onCreate() {
         _isSourceForced.value = false
@@ -73,10 +61,6 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _isBuffering.value = false
         _currentItemSelectedFromChannelList.value = -1
         _currentItemSelectedFromChannelSettingsMenu.value = 0
-        _currentItemSelectedFromAudioTracksMenu.value = -1
-        _currentItemSelectedFromSubtitlesTracksMenu.value = -1
-        _currentItemSelectedFromChannelSourcesMenu.value = -1
-        _currentItemSelectedFromVideoTracksMenu.value = -1
         _currentItemSelectedFromCategoryList.value = 0
         _currentLoadedMenuSetting.value = -1
     }
@@ -155,9 +139,6 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     private val _isCategoryListVisible = MutableLiveData<Boolean>()
     val isCategoryListVisible: LiveData<Boolean> get() = _isCategoryListVisible
-
-    private val _isChannelNumberCategoryVisible = MutableLiveData<Boolean>()
-    val isChannelNumberCategoryVisible: LiveData<Boolean> get() = _isChannelNumberCategoryVisible
 
     private val _isCategoryNameVisible = MutableLiveData<Boolean>()
     val isCategoryNameVisible: LiveData<Boolean> get() = _isCategoryNameVisible
@@ -338,22 +319,6 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _currentItemSelectedFromChannelSettingsMenu.value = i
     }
 
-    fun updateCurrentItemSelectedFromAudioTracksMenu(i: Int) {
-        _currentItemSelectedFromAudioTracksMenu.value = i
-    }
-
-    fun updateCurrentItemSelectedFromVideoTracksMenu(i: Int) {
-        _currentItemSelectedFromVideoTracksMenu.value = i
-    }
-
-    fun updateCurrentItemSelectedFromSubtitlesTracksMenu(i: Int) {
-        _currentItemSelectedFromSubtitlesTracksMenu.value = i
-    }
-
-    fun updateCurrentItemSelectedFromChannelSourcesMenu(i: Int) {
-        _currentItemSelectedFromChannelSourcesMenu.value = i
-    }
-
     fun updateCurrentItemSelectedFromCategoryList(i: Int) {
         _currentItemSelectedFromCategoryList.value = i
     }
@@ -410,16 +375,16 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _isCategoryNameVisible.value = false
     }
 
-
     fun updateCategoryName(name: String) {
         _categoryName.value = name
     }
 
-    fun showChannelNumberCategory() {
-        _isChannelNumberCategoryVisible.value = true
+    fun showNumberListMenu(){
+        _isNumberListMenuVisible.value = true
     }
 
-    fun hideChannelNumberCategory() {
-        _isChannelNumberCategoryVisible.value = false
+    fun hideNumberListMenu(){
+        _isNumberListMenuVisible.value = false
     }
+
 }
