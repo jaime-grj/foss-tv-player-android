@@ -7,7 +7,7 @@ import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.domain.model.VideoTrack
 import com.gaarj.iptvplayer.ui.viewholders.VideoTracksViewHolder
 
-class VideoTracksAdapter(private val videoTrackList: List<VideoTrack>, private val onItemSelected: (VideoTrack) -> Unit) : RecyclerView.Adapter<VideoTracksViewHolder>() {
+class VideoTracksAdapter(private val isQualityForced: Boolean, private val videoTrackList: List<VideoTrack>, private val onItemSelected: (VideoTrack) -> Unit) : RecyclerView.Adapter<VideoTracksViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoTracksViewHolder {
         val layoutInflater = LayoutInflater.from(parent.context)
@@ -16,7 +16,7 @@ class VideoTracksAdapter(private val videoTrackList: List<VideoTrack>, private v
 
     override fun onBindViewHolder(holder: VideoTracksViewHolder, position: Int) {
         val videoTrack = videoTrackList[position]
-        holder.render(videoTrack, onItemSelected)
+        holder.render(isQualityForced, videoTrack, onItemSelected)
     }
 
     override fun getItemCount(): Int = videoTrackList.size

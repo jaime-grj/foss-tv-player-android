@@ -109,17 +109,13 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
+    suspend fun getSmChannelsWithSchedule(): List<ChannelItem> {
+        return channelRepository.getSmChannelsWithSchedule()
+    }
+
     fun updateIsLoadingChannelList(isLoading: Boolean) {
         Log.d("ChannelViewModel", "isLoading: $isLoading")
         _isLoadingChannelList.value = isLoading
-    }
-
-    fun loadCategoriesWithChannels() {
-        viewModelScope.launch {
-            updateIsLoadingChannelList(true)
-            _categoriesWithChannels.value = getChannelsUseCase.invoke()
-            updateIsLoadingChannelList(false)
-        }
     }
 
     suspend fun getEPGProgramsForChannel(channelId: Long): List<EPGProgramItem> {

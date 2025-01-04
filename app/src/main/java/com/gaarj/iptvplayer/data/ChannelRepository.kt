@@ -734,6 +734,15 @@ class ChannelRepository @Inject constructor(
         }
     }
 
+    suspend fun getSmChannelsWithSchedule(): List<ChannelItem> {
+        return channelDao.getFavouriteChannels().map { channelEntity ->
+            val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
+            channelEntity.toDomain(
+                epgPrograms = epgPrograms
+            )
+        }
+    }
+
     suspend fun getCategories(): List<CategoryItem> {
         val categories = categoryDao.getAllCategories()
         return categories.map { categoryEntity ->

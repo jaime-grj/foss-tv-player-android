@@ -13,7 +13,13 @@ class CategoryListViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     fun render(category: CategoryItem, onCategorySelected: (CategoryItem) -> Unit){
         binding.tvCategoryListName.text = category.name
-        binding.tvCategoryListSubtitle.text = category.description.orEmpty()
+        if (category.description.isNullOrEmpty()) {
+            binding.tvCategoryListSubtitle.visibility = View.GONE
+        } else {
+            binding.tvCategoryListSubtitle.visibility = View.VISIBLE
+            binding.tvCategoryListSubtitle.text = category.description
+        }
+
 
         binding.tvCategoryListName.post{
             binding.tvCategoryListName.requestLayout()

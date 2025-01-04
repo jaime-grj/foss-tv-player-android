@@ -10,7 +10,7 @@
     android:focusableInTouchMode="true"
     android:background="?android:attr/selectableItemBackground"
     android:layout_marginHorizontal="2dp"
-    android:layout_marginVertical="1dp"
+    android:layout_marginVertical="2dp"
     android:padding="4dp">
 
     <!-- Main Channel Name TextView -->

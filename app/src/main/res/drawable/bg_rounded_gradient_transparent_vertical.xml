@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <solid android:color="#CC000000" /> <!-- Background color -->
-    <corners android:radius="4dp" />  <!-- Corner radius (set to 0dp for sharp corners) -->
+    <corners android:radius="2dp" />  <!-- Corner radius (set to 0dp for sharp corners) -->
 
     <padding
         android:left="6dp"

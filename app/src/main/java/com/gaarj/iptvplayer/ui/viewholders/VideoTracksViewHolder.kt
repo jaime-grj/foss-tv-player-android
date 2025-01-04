@@ -12,17 +12,23 @@ class VideoTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
 
     private val binding = ItemChannelTrackSettingsBinding.bind(view)
 
-    fun render(videoTrack: VideoTrack, onItemSelected: (VideoTrack) -> Unit){
-        if (videoTrack.isSelected) {
-            binding.rbChannelSettingsTrack.isChecked = true
-        }
-        if (videoTrack.id != "-1") {
-            binding.tvChannelSettingsTrackName.text = MediaUtils.calculateVideoQuality(videoTrack.width, videoTrack.height) + " " + videoTrack.width.toString() + "x" + videoTrack.height.toString()
-            binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
-        }
-        else{
+    fun render(isQualityForced: Boolean, videoTrack: VideoTrack, onItemSelected: (VideoTrack) -> Unit){
+        if (videoTrack.id == "-1") {
+            binding.rbChannelSettingsTrack.isChecked = isQualityForced == false
+
             binding.tvChannelSettingsTrackName.text = videoTrack.name
             binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+        }
+        else{
+            if (isQualityForced){
+                binding.rbChannelSettingsTrack.isChecked = videoTrack.isSelected
+            }
+            else{
+                binding.rbChannelSettingsTrack.isChecked = false
+            }
+            binding.tvChannelSettingsTrackName.text = MediaUtils.calculateVideoQuality(videoTrack.width, videoTrack.height) + " " + videoTrack.width.toString() + "x" + videoTrack.height.toString()
+            binding.tvChannelSettingsTrackSubtitle.text = "ID " + videoTrack.id + " - " + videoTrack.codec
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
         }
 
         binding.tvChannelSettingsTrackName.post{

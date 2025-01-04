@@ -26,6 +26,7 @@ class SubtitlesTracksViewHolder(view: View) : RecyclerView.ViewHolder(view){
         else{
             binding.tvChannelSettingsTrackName.text = subtitlesTrack.language
             binding.tvChannelSettingsTrackSubtitle.text = subtitlesTrack.id + " - " + subtitlesTrack.codec
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
         }
 
         binding.tvChannelSettingsTrackName.post{

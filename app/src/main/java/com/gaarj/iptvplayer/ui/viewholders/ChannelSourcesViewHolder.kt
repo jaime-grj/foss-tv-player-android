@@ -1,6 +1,7 @@
 package com.gaarj.iptvplayer.ui.viewholders
 
 import android.graphics.Color
+import android.util.Log
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
 import com.gaarj.iptvplayer.R
@@ -12,17 +13,19 @@ class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
 
     fun render(source: StreamSourceItem, onItemSelected: (StreamSourceItem) -> Unit){
 
-        if (source.isSelected) {
-            binding.rbChannelSettingsTrack.isChecked = true
-        }
+        Log.i("ChannelSourcesViewHolder", "render: ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
+        binding.rbChannelSettingsTrack.isChecked = source.isSelected
 
-        if (source.index != -1) {
-            binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
-            binding.tvChannelSettingsTrackSubtitle.text = source.url
-        }
-        else{
+        if (source.index == -1) {
+            Log.i("ChannelSourcesViewHolder", "RENDER: -1 - ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
             binding.tvChannelSettingsTrackName.text = source.name
             binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+        }
+        else{
+            Log.i("ChannelSourcesViewHolder", "RENDER: ${source.index} - ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
+            binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
+            binding.tvChannelSettingsTrackSubtitle.text = source.url
+            binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
         }
 
         binding.tvChannelSettingsTrackName.post{

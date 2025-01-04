@@ -342,6 +342,7 @@
         android:shadowDy="0"
         android:shadowRadius="3"
         android:paddingHorizontal="4dp"
+        android:elevation="2dp"
         android:visibility="gone"/>
 
     <LinearLayout
@@ -412,9 +413,10 @@
         android:translationZ="1dp"
         android:clipToPadding="false"
         lb:rowHeight="wrap_content"
+        android:elevation="2dp"
         tools:visibility="visible"/>
 
-    <androidx.recyclerview.widget.RecyclerView
+    <androidx.leanback.widget.VerticalGridView
         android:id="@+id/rvCategoryList"
         android:layout_width="200dp"
         android:layout_height="400dp"
@@ -426,6 +428,7 @@
         android:visibility="gone"
         tools:visibility="visible"
         android:translationZ="1dp"
+        android:elevation="2dp"
         />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -438,13 +441,13 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:visibility="gone"
-        android:translationZ="1dp"
+        android:translationZ="11dp"
         android:paddingTop="9dp"
         android:paddingEnd="16dp"
         tools:visibility="visible"
         tools:ignore="RtlSymmetry" />
 
-    <androidx.recyclerview.widget.RecyclerView
+    <androidx.leanback.widget.VerticalGridView
         android:id="@+id/rvChannelTrackSettings"
         android:layout_width="300dp"
         android:layout_height="350dp"
@@ -455,6 +458,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:visibility="gone"
         android:translationZ="1dp"
+        android:elevation="2dp"
         tools:visibility="visible"/>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -466,12 +470,12 @@
         app:layout_constraintStart_toStartOf="parent"
         android:background="@drawable/bg_rounded_gradient_transparent2"
         android:visibility="gone"
-        android:translationZ="1dp"
+        android:translationZ="10dp"
         android:paddingTop="60dp"
         android:paddingHorizontal="160dp"
         tools:visibility="visible"/>
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/channelBottomInfo"
         android:layout_width="600dp"
         android:layout_height="wrap_content"
@@ -481,6 +485,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:visibility="gone"
+        android:elevation="2dp"
         tools:visibility="visible">
 
         <TextView
@@ -565,9 +570,9 @@
             android:id="@+id/tvChannelNextProgram"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            app:layout_constraintEnd_toEndOf="@+id/tvChannelCurrentProgram"
             app:layout_constraintTop_toBottomOf="@+id/progressBar"
-            app:layout_constraintStart_toStartOf="@+id/tvChannelCurrentProgram"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="@id/channelBottomInfo"
             android:paddingBottom="1dp"
             android:paddingTop="10dp"

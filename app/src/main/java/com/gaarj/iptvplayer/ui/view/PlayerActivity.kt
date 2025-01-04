@@ -139,11 +139,11 @@ class PlayerActivity : FragmentActivity() {
 
     private lateinit var rvChannelList: VerticalGridView
     private lateinit var rvChannelSettings: RecyclerView
-    private lateinit var rvAudioTracks: RecyclerView
-    private lateinit var rvSubtitlesTracks: RecyclerView
-    private lateinit var rvChannelSources: RecyclerView
-    private lateinit var rvVideoTracks: RecyclerView
-    private lateinit var rvCategoryList: RecyclerView
+    private lateinit var rvAudioTracks: VerticalGridView
+    private lateinit var rvSubtitlesTracks: VerticalGridView
+    private lateinit var rvChannelSources: VerticalGridView
+    private lateinit var rvVideoTracks: VerticalGridView
+    private lateinit var rvCategoryList: VerticalGridView
     private lateinit var rvNumberList: RecyclerView
 
     private val playerViewModel: PlayerViewModel by viewModels()
@@ -170,14 +170,18 @@ class PlayerActivity : FragmentActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
             val resultData = data?.getLongExtra("channelId", 0L)
-            val newChannel = channelViewModel.categoriesWithChannels
-                .value?.first {
-                    it.id == channelViewModel.currentCategoryId.value
-                }?.channels?.first{
-                    it.id == resultData
+            if (resultData != null) {
+                lifecycleScope.launch {
+                    channelViewModel.updateIsLoadingChannel(true)
+                    val newChannel = channelViewModel.getChannelById(resultData)
+                    if (newChannel != null) {
+                        channelViewModel.updateCurrentCategoryId(-1L)
+                        channelViewModel.updateLastCategoryLoaded(-1L)
+                        playerViewModel.updateCategoryName("Favoritos")
+                        channelViewModel.updateIsLoadingChannel(false)
+                        loadChannel(newChannel)
+                    }
                 }
-            if (newChannel != null) {
-                loadChannel(newChannel)
             }
         }
     }
@@ -242,7 +246,6 @@ class PlayerActivity : FragmentActivity() {
 
         initAudioTracksMenu()
         initSubtitlesTracksMenu()
-        initSourcesMenu()
         initNumberList()
 
 
@@ -359,7 +362,12 @@ class PlayerActivity : FragmentActivity() {
         }
 
         playerViewModel.isSettingsMenuVisible.observe(this) { isVisible ->
-            binding.rvChannelSettings.visibility = if (isVisible) View.VISIBLE else View.GONE
+            binding.rvChannelSettings.visibility = if (isVisible){
+                View.VISIBLE
+
+            } else{
+                View.GONE
+            }
         }
 
         playerViewModel.isTrackMenuVisible.observe(this) { isVisible ->
@@ -558,7 +566,6 @@ class PlayerActivity : FragmentActivity() {
                     binding.channelBottomInfo.visibility = View.VISIBLE
                 }
             } else{
-                binding.tvChannelCurrentProgram.visibility = View.INVISIBLE
                 if (channelViewModel.nextProgram.value == null){
                     println("viewbottominfo gone")
                     binding.channelBottomInfo.visibility = View.GONE
@@ -566,6 +573,7 @@ class PlayerActivity : FragmentActivity() {
                 binding.progressBar.visibility = View.GONE
                 binding.tvStartTime.visibility = View.GONE
                 binding.tvEndTime.visibility = View.GONE
+                binding.tvChannelCurrentProgram.visibility = View.GONE
             }
         }
 
@@ -749,7 +757,6 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun initAudioTracksMenu() {
-        rvAudioTracks.layoutManager = LinearLayoutManager(this)
         rvAudioTracks.adapter = AudioTracksAdapter(listOf()) { selectedAudioTrack ->
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
@@ -759,40 +766,23 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun initSubtitlesTracksMenu() {
-        rvSubtitlesTracks.layoutManager = LinearLayoutManager(this)
         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(listOf()) { selectedSubtitlesTrack ->
             loadSubtitlesTrack(selectedSubtitlesTrack)
         }
     }
 
-    private fun initSourcesMenu() {
-        rvChannelSources.layoutManager = LinearLayoutManager(this)
-    }
-
     private fun loadSetting(settingIndex: Int) {
         when (settingIndex) {
             ChannelSettings.AUDIO_TRACKS -> {
-                /*if (isAndroidTV(this)) {
-                    initFocusInAudioTracksMenu()
-                }*/
                 loadAudioTracksMenu()
             }
             ChannelSettings.SUBTITLES_TRACKS -> {
-                /*if (isAndroidTV(this)) {
-                    initFocusInSubtitlesTracksMenu()
-                }*/
                 loadSubtitlesTracksMenu()
             }
             ChannelSettings.VIDEO_TRACKS -> {
-                /*if (isAndroidTV(this)) {
-                    initFocusInVideoTracksMenu()
-                }*/
                 loadVideoTracksMenu()
             }
             ChannelSettings.SOURCES -> {
-                /*if (isAndroidTV(this)) {
-                    initFocusInSourcesMenu()
-                }*/
                 loadSourcesMenu()
             }
             ChannelSettings.UPDATE_EPG -> {
@@ -838,7 +828,8 @@ class PlayerActivity : FragmentActivity() {
 
     private fun loadVideoTracksMenu() {
         val videoTracksList = loadVideoTracks()
-        rvVideoTracks.adapter = VideoTracksAdapter(videoTracksList) { selectedVideoTrack ->
+        val isQualityForced = playerViewModel.isQualityForced.value!!
+        rvVideoTracks.adapter = VideoTracksAdapter(isQualityForced, videoTracksList) { selectedVideoTrack ->
             if (selectedVideoTrack.id.toInt() == -1) {
                 playerViewModel.updateIsQualityForced(false)
             }
@@ -871,9 +862,14 @@ class PlayerActivity : FragmentActivity() {
         for (i in sourcesList.indices) {
             if (i != 0) {
                 if (playerViewModel.isSourceForced.value == true) {
-                    sourcesList[i].isSelected = sourcesList[i].id == playerViewModel.currentStreamSource.value?.id
+                    if (playerViewModel.currentStreamSource.value!!.id == sourcesList[i].id){
+                        sourcesList[i].isSelected = true
+                    }
+                     else {
+                        sourcesList[i].isSelected = false
+                    }
                 }
-                else {
+                else{
                     sourcesList[i].isSelected = false
                 }
             }
@@ -959,7 +955,6 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun initCategoryList() {
-        rvCategoryList.layoutManager = LinearLayoutManager(this)
         lifecycleScope.launch {
             val categories = listOf(CategoryItem(-1L, "Favoritos", null, false, listOf())) + channelViewModel.getCategories()
             Log.i("PlayerActivity", "initCategoryList: ${categories.size}")
@@ -1153,30 +1148,28 @@ class PlayerActivity : FragmentActivity() {
                     playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
 
-                    if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS && rvAudioTracks.adapter?.itemCount == 0) {
+                    if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS) {
                         val audioTrackList = loadAudioTracks()
 
                         rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
                             loadAudioTrack(selectedAudioTrack)
                         }
+                        rvAudioTracks.requestFocus()
                     }
-                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SUBTITLES_TRACKS && rvSubtitlesTracks.adapter?.itemCount == 1) {
+                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SUBTITLES_TRACKS) {
                         val subtitlesTrackList = loadSubtitlesTracks()
                         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
                             loadSubtitlesTrack(selectedSubtitlesTrack)
                         }
+                        rvSubtitlesTracks.requestFocus()
                     }
-                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS && rvVideoTracks.adapter?.itemCount == 1) {
+                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS) {
                         val videoTrackList = loadVideoTracks()
-                        rvVideoTracks.adapter = VideoTracksAdapter(videoTrackList) { selectedVideoTrack ->
+                        val isQualityForced = playerViewModel.isQualityForced.value!!
+                        rvVideoTracks.adapter = VideoTracksAdapter(isQualityForced, videoTrackList) { selectedVideoTrack ->
                             loadVideoTrack(selectedVideoTrack)
                         }
-                    }
-                    if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
-                    println(currentAudioTrack)
-                    if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
-                    if (currentVideoTrack != null){
-                        loadVideoTrack(currentVideoTrack!!)
+                        rvVideoTracks.requestFocus()
                     }
                     else if (playerViewModel.currentStreamSource.value?.forceUseBestVideoResolution == true){ // Select best quality by default (some streams fail)
                         Log.i(TAG, playerViewModel.currentStreamSource.value.toString())
@@ -1200,6 +1193,12 @@ class PlayerActivity : FragmentActivity() {
                                 }
                             }
                         }
+                    }
+                    if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
+                    println(currentAudioTrack)
+                    if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
+                    if (currentVideoTrack != null){
+                        loadVideoTrack(currentVideoTrack!!)
                     }
                     // Dynamic FPS calculation (doesn't work very well)
                     /*val videoCounters = player.videoDecoderCounters
@@ -1865,6 +1864,7 @@ class PlayerActivity : FragmentActivity() {
                 .buildUpon()
                 .clearOverrides()
                 .build()
+            currentSubtitlesTrack = null
             return
         }
         val tracks = player.currentTracks
@@ -1914,6 +1914,7 @@ class PlayerActivity : FragmentActivity() {
                 .buildUpon()
                 .clearOverrides()
                 .build()
+            currentVideoTrack = null
             return
         }
         val tracks = player.currentTracks
@@ -2932,8 +2933,8 @@ class PlayerActivity : FragmentActivity() {
         private const val TIMEOUT_UI_INFO = 5000L
         private const val RETRY_DELAY_MS = 150L
         private const val BUFFERING_TIMEOUT_MS = 3000L
-        private const val SOURCE_LOADING_TIMEOUT_MS = 8500L
-        private const val CHANNEL_LOADING_TIMEOUT_MS = 8500L
+        private const val SOURCE_LOADING_TIMEOUT_MS = 9000L
+        private const val CHANNEL_LOADING_TIMEOUT_MS = 9000L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 2L

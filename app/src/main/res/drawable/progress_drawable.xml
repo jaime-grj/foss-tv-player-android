@@ -4,7 +4,7 @@
     <!-- Background Layer (Unfilled Portion) -->
     <item android:id="@android:id/background">
         <shape android:shape="rectangle">
-            <corners android:radius="4dp" />
+            <corners android:radius="1dp" />
             <solid android:color="#CCCCCC" /> <!-- Light gray for the background -->
         </shape>
     </item>
@@ -13,7 +13,7 @@
     <item android:id="@android:id/progress">
         <clip>
             <shape android:shape="rectangle">
-                <corners android:radius="4dp" />
+                <corners android:radius="1dp" />
                 <solid android:color="#0B31ED" /> <!-- Orange for the progress bar -->
             </shape>
         </clip>
