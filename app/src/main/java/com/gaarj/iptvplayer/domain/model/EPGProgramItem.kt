@@ -11,7 +11,9 @@ data class EPGProgramItem (
     val stopTime: Date,
     val channelShortname: String,
     var category: String,
-    var icon: String
+    var icon: String,
+    var ageRating: String? = null,
+    var ageRatingIcon: String? = null
 )
 
 fun EPGProgramEntity.toDomain() = EPGProgramItem(
@@ -22,5 +24,7 @@ fun EPGProgramEntity.toDomain() = EPGProgramItem(
     stopTime = stopTime,
     channelShortname = channelShortname,
     category = category,
-    icon = icon
+    icon = icon,
+    ageRating = ageRating,
+    ageRatingIcon = ageRatingIcon
 )

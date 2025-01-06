@@ -36,6 +36,8 @@ import androidx.leanback.widget.VerticalGridView
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.gaarj.iptvplayer.R
 import com.gaarj.iptvplayer.core.MediaUtils
 import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
@@ -554,6 +556,20 @@ class PlayerActivity : FragmentActivity() {
                 )
                 val progress =
                     (currentTime - currentProgram.startTime.time) * 100 / currentProgramDuration
+                val ageRatingIcon = currentProgram.ageRatingIcon
+                val ageRatingText = currentProgram.ageRating
+                if (!ageRatingIcon.isNullOrBlank()) {
+                    binding.ivAgeRating.visibility = View.VISIBLE
+                } else {
+                    if (ageRatingText != null) {
+                        binding.tvAgeRating.text = ageRatingText
+                        binding.tvAgeRating.visibility = View.VISIBLE
+                    }
+                    else{
+                        binding.tvAgeRating.visibility = View.GONE
+                    }
+                    binding.ivAgeRating.visibility = View.GONE
+                }
                 binding.progressBar.progress = progress.toInt()
                 binding.tvChannelCurrentProgram.text = currentProgram.title
                 binding.tvChannelCurrentProgram.visibility = View.VISIBLE
@@ -562,6 +578,11 @@ class PlayerActivity : FragmentActivity() {
                 binding.tvEndTime.visibility = View.VISIBLE
                 binding.tvStartTime.text = currentProgramStartTimeFormatted
                 binding.tvEndTime.text = currentProgramStopTimeFormatted
+                // Load image into ImageView
+                Glide.with(this)
+                    .load(ageRatingIcon)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL) // Cache both original and resized versions
+                    .into(binding.ivAgeRating) // Target ImageView
                 if (playerViewModel.isChannelNameVisible.value == true){
                     binding.channelBottomInfo.visibility = View.VISIBLE
                 }
@@ -574,6 +595,8 @@ class PlayerActivity : FragmentActivity() {
                 binding.tvStartTime.visibility = View.GONE
                 binding.tvEndTime.visibility = View.GONE
                 binding.tvChannelCurrentProgram.visibility = View.GONE
+                binding.ivAgeRating.visibility = View.GONE
+                binding.tvAgeRating.visibility = View.GONE
             }
         }
 

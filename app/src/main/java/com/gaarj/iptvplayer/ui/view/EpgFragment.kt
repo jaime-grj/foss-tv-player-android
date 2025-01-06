@@ -143,7 +143,7 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
         setState(State.Loading)
 
         lifecycleScope.launch {
-            val channelItems = channelViewModel.getSmChannelsWithSchedule()
+            val channelItems = channelViewModel.getSmChannelsByCategory(-1L)
 
             if (channelItems.isNotEmpty()) {
                 val channelMap = ConcurrentHashMap<String, List<ProgramGuideSchedule<SimpleProgram>>>()
@@ -166,7 +166,9 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
                     channels.forEach { channel ->
                         val scheduleList = mutableListOf<ProgramGuideSchedule<SimpleProgram>>()
 
-                        val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong())
+                        val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong()).distinctBy {
+                            it.title to it.startTime
+                        }
                         Log.d(TAG, "Found ${programs.size} programs for channel ${channel.id}.")
 
                         for (program in programs) {

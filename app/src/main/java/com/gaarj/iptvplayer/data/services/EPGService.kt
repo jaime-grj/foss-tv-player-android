@@ -104,8 +104,15 @@ class EPGService(private val context: Context) {
                                         startTime = epgDateFormat.parse(start)!!,
                                         stopTime = epgDateFormat.parse(stop)!!,
                                         category = "",
-                                        icon = ""
+                                        icon = "",
+                                        ageRating = "",
+                                        ageRatingIcon = ""
                                     )
+                                }else if (currentTag == "icon" && epgProgramItem != null) {
+                                    val iconSrc = parser.getAttributeValue(null, "src")
+                                    if (!iconSrc.isNullOrEmpty()) {
+                                        epgProgramItem.ageRatingIcon = iconSrc
+                                    }
                                 }
                             }
                             XmlPullParser.TEXT -> {
@@ -116,7 +123,7 @@ class EPGService(private val context: Context) {
                                             "title" -> epgProgramItem.title = text
                                             "desc" -> epgProgramItem.description = text
                                             "category" -> epgProgramItem.category = text
-                                            "icon" -> epgProgramItem.icon = text
+                                            "value" -> epgProgramItem.ageRating = text
                                         }
                                     }
                                 }

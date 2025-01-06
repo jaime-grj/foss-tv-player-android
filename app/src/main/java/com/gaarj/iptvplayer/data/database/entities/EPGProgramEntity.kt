@@ -33,7 +33,13 @@ data class EPGProgramEntity (
     val category: String,
 
     @ColumnInfo(name = "icon")
-    val icon: String
+    val icon: String,
+
+    @ColumnInfo(name = "ageRating")
+    val ageRating: String?,
+
+    @ColumnInfo(name = "ageRatingIcon")
+    val ageRatingIcon: String?
 )
 
 fun EPGProgramItem.toDatabase() : EPGProgramEntity =
@@ -44,5 +50,7 @@ fun EPGProgramItem.toDatabase() : EPGProgramEntity =
         stopTime = stopTime,
         channelShortname = channelShortname,
         category = category,
-        icon = icon
+        icon = icon,
+        ageRating = ageRating,
+        ageRatingIcon = ageRatingIcon
     )
