@@ -656,7 +656,9 @@ class ChannelRepository @Inject constructor(
         val epgSources : JSONArray = data.getJSONArray("epgSources")
         for (i in 0 until epgSources.length()) {
             val epgSourceUrl = epgSources.getString(i)
-            settingsRepository.updateEpgSource(epgSourceUrl)
+            if (epgSourceUrl.isNotEmpty()){
+                settingsRepository.updateEpgSource(epgSourceUrl)
+            }
         }
         return true
     }
@@ -735,10 +737,25 @@ class ChannelRepository @Inject constructor(
     }
 
     suspend fun getSmChannelsWithSchedule(): List<ChannelItem> {
-        return channelDao.getFavouriteChannels().map { channelEntity ->
+        /*val favChannels = channelDao.getFavouriteChannels()
+        val categoryChannels : MutableList<ChannelEntity> = mutableListOf()
+        val categories = categoryDao.getAllCategories()
+        for (category in categories) {
+            categoryChannels+= channelDao.getChannelsForCategory(category.id)
+        }
+        val channels = favChannels + categoryChannels
+        return channels.map { channelEntity ->
             val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
             channelEntity.toDomain(
                 epgPrograms = epgPrograms
+            )
+        }*/
+        return channelDao.getFavouriteChannels().map { channelEntity ->
+            /*val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
+            val epgProgramsNoDup = epgPrograms.distinctBy { it.title }
+            println(epgProgramsNoDup.size.toString() + " " + epgPrograms.size)*/
+            channelEntity.toDomain(
+                epgPrograms = listOf()
             )
         }
     }
