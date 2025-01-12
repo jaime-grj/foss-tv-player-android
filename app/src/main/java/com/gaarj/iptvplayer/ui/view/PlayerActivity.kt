@@ -200,7 +200,6 @@ class PlayerActivity : FragmentActivity() {
             Log.i(TAG, "Loading Timeout")
             val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
             val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
-            playerViewModel.hidePlayer()
             tryNextStreamSource(currentChannel, currentStreamSource)
         }
     }
@@ -225,6 +224,10 @@ class PlayerActivity : FragmentActivity() {
             Log.i(TAG, "Channel Loading Timeout")
             playerViewModel.showAnimatedLoadingIcon()
         }
+    }
+
+    private val hidePlayerRunnable = Runnable {
+        playerViewModel.hidePlayer()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -271,7 +274,11 @@ class PlayerActivity : FragmentActivity() {
                 channelViewModel.updateIsImportingData(false)
                 channelViewModel.updateCurrentCategoryId(-1L)
                 playerViewModel.updateCategoryName("")
-                loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                try{
+                    loadChannel(channelViewModel.getChannel(-1L, 1))
+                }catch (e: Exception){
+                    Log.e("PlayerActivity", "Error: ${e.message}")
+                }
             }
             else if (lastChannelId != 0L && lastCategoryId != 0L){
                 val channel = channelViewModel.getChannelById(lastChannelId)
@@ -590,6 +597,8 @@ class PlayerActivity : FragmentActivity() {
                 if (channelViewModel.nextProgram.value == null){
                     println("viewbottominfo gone")
                     binding.channelBottomInfo.visibility = View.GONE
+                    mediaInfo.hasEPG = false
+                    playerViewModel.updateMediaInfo(mediaInfo)
                 }
                 binding.progressBar.visibility = View.GONE
                 binding.tvStartTime.visibility = View.GONE
@@ -613,6 +622,8 @@ class PlayerActivity : FragmentActivity() {
             else{
                 if (channelViewModel.currentProgram.value == null){
                     binding.channelBottomInfo.visibility = View.GONE
+                    mediaInfo.hasEPG = false
+                    playerViewModel.updateMediaInfo(mediaInfo)
                 }
                 binding.tvChannelNextProgram.visibility = View.GONE
             }
@@ -822,8 +833,13 @@ class PlayerActivity : FragmentActivity() {
                     initCategoryList()
                     channelViewModel.updateCurrentCategoryId(-1L)
                     playerViewModel.updateCategoryName("Favoritos")
-                    val firstChannel = channelViewModel.getNextChannel(-1L, 1)
-                    loadChannel(firstChannel)
+                    try{
+                        val firstChannel = channelViewModel.getChannel(-1L, 1)
+                        loadChannel(firstChannel)
+                    }
+                    catch (e: Exception){
+                        Toast.makeText(this@PlayerActivity, "Error al cargar la lista de canales", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -885,12 +901,7 @@ class PlayerActivity : FragmentActivity() {
         for (i in sourcesList.indices) {
             if (i != 0) {
                 if (playerViewModel.isSourceForced.value == true) {
-                    if (playerViewModel.currentStreamSource.value!!.id == sourcesList[i].id){
-                        sourcesList[i].isSelected = true
-                    }
-                     else {
-                        sourcesList[i].isSelected = false
-                    }
+                    sourcesList[i].isSelected = playerViewModel.currentStreamSource.value!!.id == sourcesList[i].id
                 }
                 else{
                     sourcesList[i].isSelected = false
@@ -1061,13 +1072,22 @@ class PlayerActivity : FragmentActivity() {
         val renderersFactory = DefaultRenderersFactory( this)
         renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
-        val loadControl = DefaultLoadControl.Builder()
+        /*val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 1250,  // Min buffer before starting playback
                 25000,  // Max buffer size
                 1250,   // Min buffer for playback start
                 1250    // Min buffer for playback resume after a pause
-            ).build()
+            ).build()*/
+
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS, // Minimum buffer before playback
+                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS, // Maximum buffer during playback
+                2000, // Buffer before playback starts
+                1500 // Buffer after rebuffering
+            )
+            .build()
 
         val bandwidthMeter: DefaultBandwidthMeter = DefaultBandwidthMeter.Builder(this)
             .setInitialBitrateEstimate(50_000_000)
@@ -1090,7 +1110,7 @@ class PlayerActivity : FragmentActivity() {
         player.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
-                playerViewModel.hidePlayer()
+                startHidePlayerTimer()
                 Log.e("PlayerError", "Player error: ${error.message}")
                 if (error is ExoPlaybackException) {
                     when (error.type) {
@@ -1119,6 +1139,40 @@ class PlayerActivity : FragmentActivity() {
                 if (playerViewModel.isErrorMessageVisible.value == true) playerViewModel.hideErrorMessage()
                 if (playerViewModel.isAnimatedLoadingIconVisible.value == true) playerViewModel.hideAnimatedLoadingIcon()
                 cancelLoadingIndicatorTimer()
+                cancelHidePlayerTimer()
+                if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
+                println(currentAudioTrack)
+                if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
+                if (currentVideoTrack != null){
+                    loadVideoTrack(currentVideoTrack!!)
+                }
+                if (playerViewModel.currentStreamSource.value?.drmType != DrmTypeItem.NONE) {
+                    mediaInfo.hasDRM = true
+                    playerViewModel.updateMediaInfo(mediaInfo)
+                }
+                if (playerViewModel.currentStreamSource.value?.forceUseBestVideoResolution == true && playerViewModel.isQualityForced.value != true){ // Select best quality by default (some streams fail)
+                    Log.i(TAG, "forceUseBestVideoResolution")
+                    val tracks = player.currentTracks
+                    val highestResolution = getHighestResolution()
+                    for (trackGroup in tracks.groups) {
+                        if (trackGroup.type == C.TRACK_TYPE_VIDEO){
+                            for (i in 0 until trackGroup.length) {
+                                val trackFormat = trackGroup.getTrackFormat(i)
+                                if (highestResolution == trackFormat.height) {
+                                    player.trackSelectionParameters =
+                                        player.trackSelectionParameters
+                                            .buildUpon()
+                                            .setOverrideForType(
+                                                TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
+                                            )
+                                            .build()
+                                    currentVideoTrack = VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), true)
+                                    playerViewModel.updateIsQualityForced(true)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -1148,7 +1202,7 @@ class PlayerActivity : FragmentActivity() {
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
-                    playerViewModel.hidePlayer()
+                    startHidePlayerTimer()
                     if (playerViewModel.isSourceLoading.value == false && playerViewModel.isBuffering.value == false) {
                         if (!isActivityStopped) handler.postDelayed(tryNextStreamSourceRunnable, RETRY_DELAY_MS)
                     }
@@ -1167,62 +1221,39 @@ class PlayerActivity : FragmentActivity() {
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     if (playerViewModel.isChannelLoading.value == true) cancelLoadingIndicatorTimer()
                     cancelTryNextStreamSourceTimer()
+                    cancelHidePlayerTimer()
 
                     playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
 
-                    if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.AUDIO_TRACKS) {
-                        val audioTrackList = loadAudioTracks()
 
-                        rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
-                            loadAudioTrack(selectedAudioTrack)
-                        }
-                        rvAudioTracks.requestFocus()
-                    }
-                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.SUBTITLES_TRACKS) {
-                        val subtitlesTrackList = loadSubtitlesTracks()
-                        rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
-                            loadSubtitlesTrack(selectedSubtitlesTrack)
-                        }
-                        rvSubtitlesTracks.requestFocus()
-                    }
-                    else if (playerViewModel.currentLoadedMenuSetting.value == ChannelSettings.VIDEO_TRACKS) {
-                        val videoTrackList = loadVideoTracks()
-                        val isQualityForced = playerViewModel.isQualityForced.value!!
-                        rvVideoTracks.adapter = VideoTracksAdapter(isQualityForced, videoTrackList) { selectedVideoTrack ->
-                            loadVideoTrack(selectedVideoTrack)
-                        }
-                        rvVideoTracks.requestFocus()
-                    }
-                    else if (playerViewModel.currentStreamSource.value?.forceUseBestVideoResolution == true){ // Select best quality by default (some streams fail)
-                        Log.i(TAG, playerViewModel.currentStreamSource.value.toString())
-                        val tracks = player.currentTracks
-                        val highestResolution = getHighestResolution()
-                        for (trackGroup in tracks.groups) {
-                            if (trackGroup.type == C.TRACK_TYPE_VIDEO){
-                                for (i in 0 until trackGroup.length) {
-                                    val trackFormat = trackGroup.getTrackFormat(i)
-                                    if (highestResolution == trackFormat.height) {
-                                        player.trackSelectionParameters =
-                                            player.trackSelectionParameters
-                                                .buildUpon()
-                                                .setOverrideForType(
-                                                    TrackSelectionOverride(trackGroup.mediaTrackGroup, i)
-                                                )
-                                                .build()
-                                        currentVideoTrack = VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), true)
-                                        playerViewModel.updateIsQualityForced(true)
-                                    }
-                                }
+
+                    when (playerViewModel.currentLoadedMenuSetting.value) {
+                        ChannelSettings.AUDIO_TRACKS -> {
+                            val audioTrackList = loadAudioTracks()
+
+                            rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
+                                loadAudioTrack(selectedAudioTrack)
                             }
+                            rvAudioTracks.requestFocus()
+                        }
+                        ChannelSettings.SUBTITLES_TRACKS -> {
+                            val subtitlesTrackList = loadSubtitlesTracks()
+                            rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
+                                loadSubtitlesTrack(selectedSubtitlesTrack)
+                            }
+                            rvSubtitlesTracks.requestFocus()
+                        }
+                        ChannelSettings.VIDEO_TRACKS -> {
+                            val videoTrackList = loadVideoTracks()
+                            val isQualityForced = playerViewModel.isQualityForced.value!!
+                            rvVideoTracks.adapter = VideoTracksAdapter(isQualityForced, videoTrackList) { selectedVideoTrack ->
+                                loadVideoTrack(selectedVideoTrack)
+                            }
+                            rvVideoTracks.requestFocus()
                         }
                     }
-                    if (currentSubtitlesTrack != null) loadSubtitlesTrack(currentSubtitlesTrack!!)
-                    println(currentAudioTrack)
-                    if (currentAudioTrack != null) loadAudioTrack(currentAudioTrack!!)
-                    if (currentVideoTrack != null){
-                        loadVideoTrack(currentVideoTrack!!)
-                    }
+
                     // Dynamic FPS calculation (doesn't work very well)
                     /*val videoCounters = player.videoDecoderCounters
                     val framesRendered1 = videoCounters?.renderedOutputBufferCount
@@ -1442,8 +1473,6 @@ class PlayerActivity : FragmentActivity() {
 
             override fun onDrmKeysLoaded(eventTime: AnalyticsListener.EventTime) {
                 Log.d("DRM", "DRM keys successfully loaded.")
-                mediaInfo.hasDRM = true
-                playerViewModel.updateMediaInfo(mediaInfo)
             }
 
             override fun onDrmSessionReleased(eventTime: AnalyticsListener.EventTime) {
@@ -1575,6 +1604,16 @@ class PlayerActivity : FragmentActivity() {
         if (!isActivityStopped) handler.postDelayed(channelLoadingRunnable, CHANNEL_LOADING_TIMEOUT_MS)
     }
 
+    private fun startHidePlayerTimer(){
+        Log.i(TAG, "startHidePlayerTimer")
+        handler.postDelayed(hidePlayerRunnable, HIDE_PLAYER_TIMEOUT_MS)
+    }
+
+    private fun cancelHidePlayerTimer(){
+        Log.i(TAG, "cancelHidePlayerTimer")
+        handler.removeCallbacks(hidePlayerRunnable)
+    }
+
     private fun cancelCheckPlayingCorrectlyTimer() {
         Log.i(TAG, "cancelCheckPlayingCorrectlyTimer")
         handler.removeCallbacks(checkPlayingCorrectlyRunnable)
@@ -1692,6 +1731,7 @@ class PlayerActivity : FragmentActivity() {
             currentAudioTrack = null
             currentVideoTrack = null
             currentSubtitlesTrack = null
+            playerViewModel.updateIsQualityForced(false)
         }
 
         if (player.isLoading || player.isPlaying) {
@@ -2958,6 +2998,7 @@ class PlayerActivity : FragmentActivity() {
         private const val BUFFERING_TIMEOUT_MS = 3000L
         private const val SOURCE_LOADING_TIMEOUT_MS = 9000L
         private const val CHANNEL_LOADING_TIMEOUT_MS = 9000L
+        private const val HIDE_PLAYER_TIMEOUT_MS = 3000L
         private const val TRIES_EACH_SOURCE = 2
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 2L

@@ -13,17 +13,19 @@ class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
 
     fun render(source: StreamSourceItem, onItemSelected: (StreamSourceItem) -> Unit){
 
-        Log.i("ChannelSourcesViewHolder", "render: ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
         binding.rbChannelSettingsTrack.isChecked = source.isSelected
 
         if (source.index == -1) {
-            Log.i("ChannelSourcesViewHolder", "RENDER: -1 - ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
             binding.tvChannelSettingsTrackName.text = source.name
             binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
         }
         else{
-            Log.i("ChannelSourcesViewHolder", "RENDER: ${source.index} - ${source.name} - ${source.isSelected} - ${source.index} - ${source.url}")
-            binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
+            if (source.name == "") {
+                binding.tvChannelSettingsTrackName.text = source.index.toString() + " - Sin nombre"
+            }
+            else{
+                binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
+            }
             binding.tvChannelSettingsTrackSubtitle.text = source.url
             binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
         }

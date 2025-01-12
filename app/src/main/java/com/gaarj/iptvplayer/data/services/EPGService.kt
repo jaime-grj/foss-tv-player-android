@@ -87,31 +87,46 @@ class EPGService(private val context: Context) {
                     var currentTag: String? = null
                     var epgProgramItem: EPGProgramItem? = null
 
+                    var insideRating = false // Track whether we're inside a <rating> tag
+
                     while (eventType != XmlPullParser.END_DOCUMENT) {
                         when (eventType) {
                             XmlPullParser.START_TAG -> {
                                 currentTag = parser.name
-                                if (currentTag == "programme") {
-                                    val start = parser.getAttributeValue(null, "start")
-                                    val stop = parser.getAttributeValue(null, "stop")
-                                    val channel = parser.getAttributeValue(null, "channel")
+                                when (currentTag) {
+                                    "programme" -> {
+                                        val start = parser.getAttributeValue(null, "start")
+                                        val stop = parser.getAttributeValue(null, "stop")
+                                        val channel = parser.getAttributeValue(null, "channel")
 
-                                    epgProgramItem = EPGProgramItem(
-                                        id = 0,
-                                        channelShortname = channel,
-                                        title = "",
-                                        description = "",
-                                        startTime = epgDateFormat.parse(start)!!,
-                                        stopTime = epgDateFormat.parse(stop)!!,
-                                        category = "",
-                                        icon = "",
-                                        ageRating = "",
-                                        ageRatingIcon = ""
-                                    )
-                                }else if (currentTag == "icon" && epgProgramItem != null) {
-                                    val iconSrc = parser.getAttributeValue(null, "src")
-                                    if (!iconSrc.isNullOrEmpty()) {
-                                        epgProgramItem.ageRatingIcon = iconSrc
+                                        epgProgramItem = EPGProgramItem(
+                                            id = 0,
+                                            channelShortname = channel,
+                                            title = "",
+                                            description = "",
+                                            startTime = epgDateFormat.parse(start)!!,
+                                            stopTime = epgDateFormat.parse(stop)!!,
+                                            category = "",
+                                            icon = "",
+                                            ageRating = "",
+                                            ageRatingIcon = ""
+                                        )
+                                    }
+                                    "rating" -> insideRating = true // Entering a <rating> tag
+                                    "icon" -> {
+                                        if (insideRating && epgProgramItem != null) {
+                                            // Parse as rating icon
+                                            val iconSrc = parser.getAttributeValue(null, "src")
+                                            if (!iconSrc.isNullOrEmpty()) {
+                                                epgProgramItem.ageRatingIcon = iconSrc
+                                            }
+                                        } else if (!insideRating && epgProgramItem != null) {
+                                            // Parse as program icon
+                                            val iconSrc = parser.getAttributeValue(null, "src")
+                                            if (!iconSrc.isNullOrEmpty()) {
+                                                epgProgramItem.icon = iconSrc
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -129,10 +144,15 @@ class EPGService(private val context: Context) {
                                 }
                             }
                             XmlPullParser.END_TAG -> {
-                                if (parser.name == "programme" && epgProgramItem != null) {
-                                    // Send the parsed program item back via callback
-                                    onProgramParsed(epgProgramItem)
-                                    epgProgramItem = null
+                                when (parser.name) {
+                                    "rating" -> insideRating = false // Exiting a <rating> tag
+                                    "programme" -> {
+                                        if (epgProgramItem != null) {
+                                            // Send the parsed program item back via callback
+                                            onProgramParsed(epgProgramItem)
+                                            epgProgramItem = null
+                                        }
+                                    }
                                 }
                             }
                         }
