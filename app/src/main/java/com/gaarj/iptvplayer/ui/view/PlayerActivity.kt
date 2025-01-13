@@ -1184,7 +1184,7 @@ class PlayerActivity : FragmentActivity() {
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     cancelTryNextStreamSourceTimer()
                     playerViewModel.hideErrorMessage()
-
+                    playerViewModel.showPlayer()
                     /*val mediaItem = player.currentMediaItem
                     mediaItem?.let { item ->
                         val drmConfiguration = item.localConfiguration?.drmConfiguration
