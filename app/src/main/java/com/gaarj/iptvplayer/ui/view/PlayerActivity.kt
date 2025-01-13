@@ -222,6 +222,7 @@ class PlayerActivity : FragmentActivity() {
     private val channelLoadingRunnable = Runnable {
         if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
             Log.i(TAG, "Channel Loading Timeout")
+            if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
             playerViewModel.showAnimatedLoadingIcon()
         }
     }
@@ -1100,6 +1101,7 @@ class PlayerActivity : FragmentActivity() {
                     .setMediaCodecSelector(MediaCodecSelector.DEFAULT))
             .setLoadControl(loadControl)
             .setBandwidthMeter(bandwidthMeter)
+            .setDetachSurfaceTimeoutMs(4000)
             .build()
 
         setSubtitleTheme()
@@ -1173,6 +1175,7 @@ class PlayerActivity : FragmentActivity() {
                         }
                     }
                 }
+
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -1181,7 +1184,7 @@ class PlayerActivity : FragmentActivity() {
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     cancelTryNextStreamSourceTimer()
                     playerViewModel.hideErrorMessage()
-                    playerViewModel.showPlayer()
+
                     /*val mediaItem = player.currentMediaItem
                     mediaItem?.let { item ->
                         val drmConfiguration = item.localConfiguration?.drmConfiguration
@@ -1209,7 +1212,9 @@ class PlayerActivity : FragmentActivity() {
                 }
                 else if (playbackState == Player.STATE_BUFFERING){
                     Log.i(TAG, "buffering")
-
+                    if (playerViewModel.isPlayerVisible.value != true){
+                        playerViewModel.showPlayer()
+                    }
                     cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isSourceLoading.value == false) startBufferingTimer()
                 }
@@ -1225,7 +1230,7 @@ class PlayerActivity : FragmentActivity() {
 
                     playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
-
+                    //playerViewModel.showPlayer()
 
 
                     when (playerViewModel.currentLoadedMenuSetting.value) {
@@ -1540,8 +1545,10 @@ class PlayerActivity : FragmentActivity() {
             playerViewModel.updateTriesCountForEachSource(playerViewModel.triesCountForEachSource.value!! + 1)
             if (playerViewModel.triesCountForEachSource.value!! > TRIES_EACH_SOURCE){
                 playerViewModel.hideMediaInfo()
+                if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
                 playerViewModel.showErrorMessage()
                 playerViewModel.hideAnimatedLoadingIcon()
+                playerViewModel.updateTriesCountForEachSource(0)
             }
         }
         else{
@@ -1569,6 +1576,7 @@ class PlayerActivity : FragmentActivity() {
                 Log.i(TAG, "sourcesTriedCount: $playerViewModel.sourcesTriedCount.value")
                 Log.i(TAG, "newStreamSourceIndex: $newStreamSourceIndex")
                 if (playerViewModel.sourcesTriedCount.value!! > streamSourcesCount) {
+                    if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
                     playerViewModel.showErrorMessage()
                     playerViewModel.hideAnimatedLoadingIcon()
                 }
@@ -1732,6 +1740,7 @@ class PlayerActivity : FragmentActivity() {
             currentVideoTrack = null
             currentSubtitlesTrack = null
             playerViewModel.updateIsQualityForced(false)
+            playerViewModel.hidePlayer()
         }
 
         if (player.isLoading || player.isPlaying) {
@@ -1916,7 +1925,6 @@ class PlayerActivity : FragmentActivity() {
                     .build()
                 player.prepare()
                 player.play()
-                playerViewModel.showPlayer()
             }
         }
     }
