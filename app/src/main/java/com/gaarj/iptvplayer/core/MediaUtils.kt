@@ -42,8 +42,9 @@ class MediaUtils {
                 codec?.startsWith("hvc") == true -> "H.265/HEVC"
                 codec?.startsWith("hev") == true -> "H.265/HEVC"
                 codec?.startsWith("vp9") == true -> "VP9"
+                codec?.startsWith("video/x-vnd.on2.vp9") == true -> "VP9"
                 codec?.startsWith("vp08") == true -> "VP8"
-                codec?.startsWith("av1") == true -> "AV1"
+                codec?.startsWith("video/av01") == true -> "AV1"
                 codec?.startsWith("video/mpeg2") == true -> "MPEG-2 Video"
                 // Audio codecs
                 codec?.startsWith("mp4a") == true -> "AAC"

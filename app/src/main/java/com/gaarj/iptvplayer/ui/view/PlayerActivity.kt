@@ -34,6 +34,36 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.leanback.widget.VerticalGridView
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlaybackException
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.dash.DashMediaSource
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
+import androidx.media3.exoplayer.drm.DrmSessionManager
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.SubtitleView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -65,35 +95,6 @@ import com.gaarj.iptvplayer.ui.adapters.SubtitlesTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.VideoTracksAdapter
 import com.gaarj.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarj.iptvplayer.ui.viewmodel.PlayerViewModel
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.ExoPlaybackException
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.Format
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.Tracks
-import com.google.android.exoplayer2.analytics.AnalyticsListener
-import com.google.android.exoplayer2.decoder.DecoderReuseEvaluation
-import com.google.android.exoplayer2.drm.DefaultDrmSessionManager
-import com.google.android.exoplayer2.drm.DrmSessionManager
-import com.google.android.exoplayer2.drm.FrameworkMediaDrm
-import com.google.android.exoplayer2.drm.LocalMediaDrmCallback
-import com.google.android.exoplayer2.mediacodec.MediaCodecSelector
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.dash.DashMediaSource
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.ui.CaptionStyleCompat
-import com.google.android.exoplayer2.ui.SubtitleView
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.util.MimeTypes
-import com.google.android.exoplayer2.video.VideoSize
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -117,7 +118,7 @@ import kotlin.coroutines.cancellation.CancellationException
 
 val Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()
 
-
+@UnstableApi
 @AndroidEntryPoint
 class PlayerActivity : FragmentActivity() {
     private lateinit var binding: ActivityPlayerBinding
@@ -1071,7 +1072,9 @@ class PlayerActivity : FragmentActivity() {
         trackSelector.parameters = parameters
 
         val renderersFactory = DefaultRenderersFactory( this)
-        renderersFactory.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+        renderersFactory.setExtensionRendererMode(
+            DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+        )
 
         /*val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -1105,7 +1108,6 @@ class PlayerActivity : FragmentActivity() {
             .build()
 
         setSubtitleTheme()
-        player.experimentalSetOffloadSchedulingEnabled(true)
 
         binding.playerView.player = player
 
@@ -1484,6 +1486,14 @@ class PlayerActivity : FragmentActivity() {
                 Log.d("DRM", "DRM session released.")
                 mediaInfo.hasDRM = false
                 playerViewModel.updateMediaInfo(mediaInfo)
+            }
+
+            override fun onDroppedVideoFrames(
+                eventTime: AnalyticsListener.EventTime,
+                droppedFrames: Int,
+                elapsedMs: Long
+            ) {
+                Log.i("ExoPlayer", "Dropped $droppedFrames video frames")
             }
         })
     }

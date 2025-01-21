@@ -55,8 +55,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     // ExoPlayer & FFmpeg
-    implementation("com.amazon.android:exoplayer:2.18.7")
-    implementation(files("../libs/extension-ffmpeg-release.aar"))
+    implementation("com.amazon.android:media3-exoplayer:1.3.1")
+    implementation("com.amazon.android:media3-exoplayer-dash:1.3.1")
+    implementation("com.amazon.android:media3-exoplayer-hls:1.3.1")
+    implementation("com.amazon.android:media3-ui:1.3.1")
+    implementation(files("../libs/lib-decoder-ffmpeg-release.aar"))
+    implementation(files("../libs/lib-decoder-av1-release.aar"))
 
     // Retrofit
     implementation(libs.retrofit)

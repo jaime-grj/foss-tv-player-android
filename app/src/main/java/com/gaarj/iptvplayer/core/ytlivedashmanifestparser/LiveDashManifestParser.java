@@ -5,21 +5,22 @@ import android.util.Log;
 
 import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.querystringparser.UrlQueryString;
 import com.gaarj.iptvplayer.core.ytlivedashmanifestparser.querystringparser.UrlQueryStringFactory;
-import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.Format;
-import com.google.android.exoplayer2.source.dash.DashSegmentIndex;
-import com.google.android.exoplayer2.source.dash.manifest.AdaptationSet;
-import com.google.android.exoplayer2.source.dash.manifest.BaseUrl;
-import com.google.android.exoplayer2.source.dash.manifest.DashManifest;
-import com.google.android.exoplayer2.source.dash.manifest.DashManifestParser;
-import com.google.android.exoplayer2.source.dash.manifest.Descriptor;
-import com.google.android.exoplayer2.source.dash.manifest.Period;
-import com.google.android.exoplayer2.source.dash.manifest.RangedUri;
-import com.google.android.exoplayer2.source.dash.manifest.Representation;
-import com.google.android.exoplayer2.source.dash.manifest.Representation.MultiSegmentRepresentation;
-import com.google.android.exoplayer2.source.dash.manifest.SegmentBase.MultiSegmentBase;
-import com.google.android.exoplayer2.source.dash.manifest.SegmentBase.SegmentList;
-import com.google.android.exoplayer2.source.dash.manifest.SegmentBase.SegmentTimelineElement;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.dash.DashSegmentIndex;
+import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
+import androidx.media3.exoplayer.dash.manifest.BaseUrl;
+import androidx.media3.exoplayer.dash.manifest.DashManifest;
+import androidx.media3.exoplayer.dash.manifest.DashManifestParser;
+import androidx.media3.exoplayer.dash.manifest.Descriptor;
+import androidx.media3.exoplayer.dash.manifest.Period;
+import androidx.media3.exoplayer.dash.manifest.RangedUri;
+import androidx.media3.exoplayer.dash.manifest.Representation;
+import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepresentation;
+import androidx.media3.exoplayer.dash.manifest.SegmentBase.MultiSegmentBase;
+import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentList;
+import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentTimelineElement;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,7 @@ import java.util.List;
 /**
  * Supported ExoPlayer versions: 2.10.6
  */
+@UnstableApi
 @SuppressWarnings("unchecked")
 public class LiveDashManifestParser extends DashManifestParser {
 
