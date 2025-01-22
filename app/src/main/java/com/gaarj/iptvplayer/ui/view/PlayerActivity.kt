@@ -1391,8 +1391,14 @@ class PlayerActivity : FragmentActivity() {
                     null
                 }
                 mediaInfo.videoAspectRatio = aspectRatio
-                mediaInfo.videoResolution = "${videoSize.width}x${videoSize.height}"
-                mediaInfo.videoQuality = MediaUtils.calculateVideoQuality(videoSize.width, videoSize.height)
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    mediaInfo.videoResolution = "${videoSize.width}x${videoSize.height}"
+                    mediaInfo.videoQuality = MediaUtils.calculateVideoQuality(videoSize.width, videoSize.height)
+                }
+                else{
+                    mediaInfo.videoResolution = null
+                    mediaInfo.videoQuality = null
+                }
                 playerViewModel.updateMediaInfo(mediaInfo)
             }
         })
