@@ -46,6 +46,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.rtmp.RtmpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -775,10 +776,11 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun initSettingsMenu() {
-        val settingsList = listOf(ChannelSettings(getString(R.string.audio_track)),
+        val settingsList = listOf(
+            ChannelSettings(getString(R.string.change_source)),
+            ChannelSettings(getString(R.string.audio_track)),
             ChannelSettings(getString(R.string.subtitle_track)),
             ChannelSettings(getString(R.string.video_track)),
-            ChannelSettings(getString(R.string.change_source)),
             ChannelSettings("Actualizar EPG"),
             ChannelSettings(getString(R.string.epg)),
             ChannelSettings("Actualizar lista canales")
@@ -1824,10 +1826,18 @@ class PlayerActivity : FragmentActivity() {
 
             Log.i(TAG,"Stream URL: $url")
             Log.i(TAG,"Headers: $headers")
-            val httpDataSourceFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers).setAllowCrossProtocolRedirects(true)
-
+            val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
+                    DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+                        .setAllowCrossProtocolRedirects(true)
+            }
+            else if (url.startsWith("rtmp:")) {
+                RtmpDataSource.Factory()
+            } else {
+                DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+                    .setAllowCrossProtocolRedirects(true)
+            }
             val mediaSource = if (url.contains(".m3u8")) {
-                HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
             else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
                 if (streamSource.drmType == DrmTypeItem.LICENSE) {
@@ -1851,13 +1861,13 @@ class PlayerActivity : FragmentActivity() {
                             .build(drmCallback)
 
                         val customDrmSessionManager: DrmSessionManager = drmSessionManager
-                        val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                        val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
                             .setDrmSessionManagerProvider { customDrmSessionManager }
                             .createMediaSource(dashMediaItem)
                         mediaSourceFactory
                     }
                     else{
-                        val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                        val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
                             .createMediaSource(
                                 MediaItem.Builder().setUri(Uri.parse(url))
                                     .setDrmConfiguration(
@@ -1904,7 +1914,7 @@ class PlayerActivity : FragmentActivity() {
                         .build(drmCallback)
 
                     val customDrmSessionManager: DrmSessionManager = drmSessionManager
-                    val mediaSourceFactory = DashMediaSource.Factory(httpDataSourceFactory)
+                    val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
                         .setDrmSessionManagerProvider { customDrmSessionManager }
                         .createMediaSource(dashMediaItem)
                     mediaSourceFactory
@@ -1912,7 +1922,7 @@ class PlayerActivity : FragmentActivity() {
             }
             else if (url.contains(".mpd")) {
                 Log.i("DRM", "NONE")
-                DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                DashMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
             else if (url.contains("http://ytproxy")) {
                 val mediaItem = MediaItem.Builder()
@@ -1922,12 +1932,12 @@ class PlayerActivity : FragmentActivity() {
                             .build()
                     )
                     .build()
-                DashMediaSource.Factory(httpDataSourceFactory)
+                DashMediaSource.Factory(dataSourceFactory)
                     .setManifestParser(LiveDashManifestParser())
                     .createMediaSource(mediaItem)
             }
             else {
-                ProgressiveMediaSource.Factory(httpDataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }
 
             ensureActive()

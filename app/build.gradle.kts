@@ -59,6 +59,7 @@ dependencies {
     implementation("com.amazon.android:media3-exoplayer-dash:1.3.1")
     implementation("com.amazon.android:media3-exoplayer-hls:1.3.1")
     implementation("com.amazon.android:media3-ui:1.3.1")
+    implementation("com.amazon.android:media3-datasource-rtmp:1.3.1")
     implementation(files("../libs/lib-decoder-ffmpeg-release.aar"))
     implementation(files("../libs/lib-decoder-av1-release.aar"))
 
