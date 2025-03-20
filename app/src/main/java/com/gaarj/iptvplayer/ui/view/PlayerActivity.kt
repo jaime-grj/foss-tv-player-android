@@ -46,6 +46,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cronet.CronetDataSource
 import androidx.media3.datasource.rtmp.RtmpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -63,6 +64,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
+import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -96,6 +98,7 @@ import com.gaarj.iptvplayer.ui.adapters.SubtitlesTracksAdapter
 import com.gaarj.iptvplayer.ui.adapters.VideoTracksAdapter
 import com.gaarj.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarj.iptvplayer.ui.viewmodel.PlayerViewModel
+import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +108,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import org.chromium.net.CronetEngine
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.ProxySelector
@@ -1826,9 +1830,16 @@ class PlayerActivity : FragmentActivity() {
 
             Log.i(TAG,"Stream URL: $url")
             Log.i(TAG,"Headers: $headers")
-            val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
+
+            val cronetEngine = CronetEngine.Builder(this@PlayerActivity).build()
+            /*val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
                     DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
                         .setAllowCrossProtocolRedirects(true)
+            }*/
+            val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
+                CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
+                    setDefaultRequestProperties(headers)
+                }
             }
             else if (url.startsWith("rtmp:")) {
                 RtmpDataSource.Factory()
@@ -1836,6 +1847,7 @@ class PlayerActivity : FragmentActivity() {
                 DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
                     .setAllowCrossProtocolRedirects(true)
             }
+
             val mediaSource = if (url.contains(".m3u8")) {
                 HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
             }

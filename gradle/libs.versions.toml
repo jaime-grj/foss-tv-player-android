@@ -32,6 +32,7 @@ roomVersion = "2.6.1"
 androidxMedia3Exoplayer = "1.5.1"
 media3UiVersion = "1.5.1"
 media3CommonKtxVersion = "1.5.1"
+cronetApi = "119.6045.31"
 
 [libraries]
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }

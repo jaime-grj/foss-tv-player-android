@@ -60,6 +60,7 @@ dependencies {
     implementation("com.amazon.android:media3-exoplayer-hls:1.3.1")
     implementation("com.amazon.android:media3-ui:1.3.1")
     implementation("com.amazon.android:media3-datasource-rtmp:1.3.1")
+    implementation("com.amazon.android:media3-datasource-cronet:1.3.1")
     implementation(files("../libs/lib-decoder-ffmpeg-release.aar"))
     implementation(files("../libs/lib-decoder-av1-release.aar"))
 
@@ -87,6 +88,7 @@ dependencies {
 
     //Hilt
     implementation(libs.hilt.android)
+    implementation("org.chromium.net:cronet-embedded:108.5359.79")
     kapt(libs.hilt.compiler)
 
     //Room
