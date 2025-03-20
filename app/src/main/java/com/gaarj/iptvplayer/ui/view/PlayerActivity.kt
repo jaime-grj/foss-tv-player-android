@@ -1806,7 +1806,7 @@ class PlayerActivity : FragmentActivity() {
             ensureActive()
 
             val headersObj: List<StreamSourceHeaderItem> = streamSource.headers ?: emptyList()
-            val headers : Map<String, String> = when (streamSource.streamSourceType) {
+            val headers : MutableMap<String, String> = when (streamSource.streamSourceType) {
                 StreamSourceTypeItem.IPTV -> {
                     ApiService.getHeadersMapFromHeadersObject(headersObj)
                 }
@@ -1823,9 +1823,14 @@ class PlayerActivity : FragmentActivity() {
                         "Sec-Fetch-Site" to "cross-site",
                         "Priority" to "u=4")
                 }
+
                 else -> {
                     mapOf()
                 }
+            }.toMutableMap()
+
+            if (headers["User-Agent"] == null) {
+                headers["User-Agent"] = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
             }
 
             Log.i(TAG,"Stream URL: $url")
@@ -1844,8 +1849,9 @@ class PlayerActivity : FragmentActivity() {
             else if (url.startsWith("rtmp:")) {
                 RtmpDataSource.Factory()
             } else {
-                DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-                    .setAllowCrossProtocolRedirects(true)
+                CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
+                    setDefaultRequestProperties(headers)
+                }
             }
 
             val mediaSource = if (url.contains(".m3u8")) {
