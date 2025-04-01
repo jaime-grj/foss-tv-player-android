@@ -13,7 +13,6 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.Typeface
 import android.hardware.display.DisplayManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -46,7 +45,6 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cronet.CronetDataSource
 import androidx.media3.datasource.rtmp.RtmpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -65,7 +63,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
-import androidx.media3.exoplayer.util.EventLogger
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.SubtitleView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -120,6 +117,8 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
+import androidx.core.net.toUri
+import androidx.core.view.isVisible
 
 
 val Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()
@@ -281,6 +280,7 @@ class PlayerActivity : FragmentActivity() {
                 channelViewModel.updateIsImportingData(true)
                 channelViewModel.importJSONData()
                 channelViewModel.updateIsImportingData(false)
+                channelViewModel.updateEPG()
                 channelViewModel.updateCurrentCategoryId(-1L)
                 playerViewModel.updateCategoryName("")
                 try{
@@ -313,8 +313,8 @@ class PlayerActivity : FragmentActivity() {
                 loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
             }
             channelViewModel.updateIsLoadingChannel(false)
+            initCategoryList()
         }
-        initCategoryList()
     }
 
     private fun isAndroidTV(context: Context): Boolean {
@@ -1307,7 +1307,7 @@ class PlayerActivity : FragmentActivity() {
 
                     }*/
 
-                    if (binding.channelName.visibility == View.VISIBLE && playerViewModel.isSourceLoading.value == false) {
+                    if (binding.channelName.isVisible && playerViewModel.isSourceLoading.value == false) {
                         playerViewModel.showMediaInfo()
                     }
                     startCheckPlayingCorrectlyTimer()
@@ -1691,8 +1691,8 @@ class PlayerActivity : FragmentActivity() {
         playerViewModel.hidePlayer()
 
         if (channel.id < 0) {
-            if (binding.channelNumber.visibility == View.VISIBLE) playerViewModel.hideChannelNumber()
-            if (binding.channelName.visibility == View.VISIBLE) playerViewModel.hideChannelName()
+            if (binding.channelNumber.isVisible) playerViewModel.hideChannelNumber()
+            if (binding.channelName.isVisible) playerViewModel.hideChannelName()
             return
         }
         playerViewModel.hideBottomInfo()
@@ -1712,8 +1712,8 @@ class PlayerActivity : FragmentActivity() {
             player.stop()
         }
 
-        if (binding.loadingDots.visibility == View.VISIBLE) playerViewModel.hideAnimatedLoadingIcon()
-        if (binding.message.visibility == View.VISIBLE) playerViewModel.hideErrorMessage()
+        if (binding.loadingDots.isVisible) playerViewModel.hideAnimatedLoadingIcon()
+        if (binding.message.isVisible) playerViewModel.hideErrorMessage()
         Log.i(TAG,channel.name)
 
         playerViewModel.updateChannelName(channel.name)
@@ -1857,7 +1857,7 @@ class PlayerActivity : FragmentActivity() {
             }
 
             val mediaSource = if (url.contains(".m3u8")) {
-                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(url.toUri()))
             }
             else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
                 if (streamSource.drmType == DrmTypeItem.LICENSE) {
@@ -1867,7 +1867,7 @@ class PlayerActivity : FragmentActivity() {
                         Log.i("DRM", drmBody)
 
                         val dashMediaItem = MediaItem.Builder()
-                            .setUri(Uri.parse(url))
+                            .setUri(url.toUri())
                             .setMimeType(MimeTypes.APPLICATION_MPD)
                             .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
                             .build()
@@ -1889,7 +1889,7 @@ class PlayerActivity : FragmentActivity() {
                     else{
                         val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
                             .createMediaSource(
-                                MediaItem.Builder().setUri(Uri.parse(url))
+                                MediaItem.Builder().setUri(url.toUri())
                                     .setDrmConfiguration(
                                         MediaItem.DrmConfiguration
                                             .Builder(C.WIDEVINE_UUID)
@@ -1920,7 +1920,7 @@ class PlayerActivity : FragmentActivity() {
                     Log.i("DRM", drmBody)
 
                     val dashMediaItem = MediaItem.Builder()
-                        .setUri(Uri.parse(url))
+                        .setUri(url.toUri())
                         .setMimeType(MimeTypes.APPLICATION_MPD)
                         .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
                         .build()
@@ -1942,11 +1942,11 @@ class PlayerActivity : FragmentActivity() {
             }
             else if (url.contains(".mpd")) {
                 Log.i("DRM", "NONE")
-                DashMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                DashMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(url.toUri()))
             }
             else if (url.contains("http://ytproxy")) {
                 val mediaItem = MediaItem.Builder()
-                    .setUri(Uri.parse(url))
+                    .setUri(url.toUri())
                     .setLiveConfiguration(
                         MediaItem.LiveConfiguration.Builder()
                             .build()
@@ -1957,7 +1957,8 @@ class PlayerActivity : FragmentActivity() {
                     .createMediaSource(mediaItem)
             }
             else {
-                ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(Uri.parse(url)))
+                ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(
+                    url.toUri()))
             }
 
             ensureActive()
@@ -2614,19 +2615,18 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (binding.channelList.visibility == View.VISIBLE
-                        || binding.rvChannelSettings.visibility == View.VISIBLE
-                        || binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
+                    if (binding.channelList.isVisible
+                        || binding.rvChannelSettings.isVisible
+                        || binding.rvCategoryList.isVisible) { // Navigate through menu
                         return super.dispatchKeyEvent(event)
                     }
-                    else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
+                    else if (binding.rvChannelTrackSettings.isVisible) {
                         if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
                         return super.dispatchKeyEvent(event)
                     }
-                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                    else if (binding.rvNumberList.isVisible) {
                         return true
-                    }
-                    else{
+                    } else{
                         if (event.repeatCount > 0){
                             //if (isLongPressDown) return true // Uncomment to disallow 'channel fast switch direction' change
                             isLongPressUp = true
@@ -2673,20 +2673,19 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (binding.channelList.visibility == View.VISIBLE
-                        || binding.rvChannelSettings.visibility == View.VISIBLE
-                        || binding.rvCategoryList.visibility == View.VISIBLE) { // Navigate through menu
+                    if (binding.channelList.isVisible
+                        || binding.rvChannelSettings.isVisible
+                        || binding.rvCategoryList.isVisible) { // Navigate through menu
                         return super.dispatchKeyEvent(event)
-                    }
-                    else if (binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
+                    } else if (binding.rvChannelTrackSettings.isVisible) {
                         if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
                         return super.dispatchKeyEvent(event)
                     }
-                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                    else if (binding.rvNumberList.isVisible) {
                         return true
                     }
                     else{ // Change to previous channel
-                        if (event.repeatCount > 0){
+                        if (event.repeatCount > 0) {
                             //if (isLongPressUp) return true // Uncomment to disallow 'channel fast switch direction' change
                             isLongPressDown = true
                             if (channelViewModel.currentCategoryId.value == -1L) {
@@ -2731,17 +2730,17 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (binding.rvChannelSettings.visibility == View.VISIBLE) {
+                    if (binding.rvChannelSettings.isVisible) {
                         if (event.repeatCount > 0) return true
                         playerViewModel.hideSettingsMenu()
                         return true
                     }
-                    else if (binding.channelList.visibility == View.VISIBLE
-                        || binding.rvCategoryList.visibility == View.VISIBLE
-                        || binding.rvChannelTrackSettings.visibility == View.VISIBLE) {
+                    else if (binding.channelList.isVisible
+                        || binding.rvCategoryList.isVisible
+                        || binding.rvChannelTrackSettings.isVisible) {
                         return true
                     }
-                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                    else if (binding.rvNumberList.isVisible) {
                         return super.dispatchKeyEvent(event)
                     }
                     else{
@@ -2754,21 +2753,20 @@ class PlayerActivity : FragmentActivity() {
                 }
 
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
-                    if (binding.rvChannelTrackSettings.visibility == View.VISIBLE
-                        || binding.rvChannelSettings.visibility == View.VISIBLE
-                        || binding.channelList.visibility == View.VISIBLE) {
+                    if (binding.rvChannelTrackSettings.isVisible
+                        || binding.rvChannelSettings.isVisible
+                        || binding.channelList.isVisible
+                    ) {
                         return true
-                    }
-                    else if (binding.rvNumberList.visibility == View.VISIBLE) {
+                    } else if (binding.rvNumberList.isVisible) {
                         return super.dispatchKeyEvent(event)
-                    }
-                    else if (binding.rvCategoryList.visibility != View.VISIBLE) {
+                    } else if (binding.rvCategoryList.visibility != View.VISIBLE) {
                         if (event.repeatCount > 0) return true
                         playerViewModel.showCategoryList()
                         rvCategoryList.requestFocus()
                         return true
                     }
-                    else if (binding.rvCategoryList.visibility == View.VISIBLE) {
+                    else if (binding.rvCategoryList.isVisible) {
                         if (event.repeatCount > 0) return true
                         playerViewModel.hideCategoryList()
                     }
@@ -2776,7 +2774,7 @@ class PlayerActivity : FragmentActivity() {
 
                 (KeyEvent.KEYCODE_MENU) -> {
                     if (event.repeatCount > 0) return true
-                    if (binding.channelList.visibility == View.VISIBLE) {
+                    if (binding.channelList.isVisible) {
                         playerViewModel.hideChannelList()
                         return true
                     }
@@ -2830,7 +2828,7 @@ class PlayerActivity : FragmentActivity() {
                     if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
                         jobUIChangeChannel.cancel()
                     }
-                    if (binding.channelList.visibility == View.VISIBLE) return true
+                    if (binding.channelList.isVisible) return true
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                     if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
                     if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
@@ -3034,15 +3032,16 @@ class PlayerActivity : FragmentActivity() {
         enterPictureInPictureMode(params) // Enter PiP mode
     }
 
-    override fun onUserLeaveHint() {
+    /*override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         Log.i(TAG, "onUserLeaveHint")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!isAndroidTV(this)) {
+                super.onUserLeaveHint()
                 enterPiPMode()
             }
         }
-    }
+    }*/
 
     companion object {
         private const val MAX_DIGITS = 5
