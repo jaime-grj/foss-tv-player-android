@@ -101,7 +101,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -526,6 +525,14 @@ class PlayerActivity : FragmentActivity() {
             binding.message.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
+        playerViewModel.isBottomErrorMessageVisible.observe(this) { isVisible ->
+            binding.bottomErrorMessage.visibility = if (isVisible) View.VISIBLE else View.GONE
+        }
+
+        playerViewModel.bottomErrorMessage.observe(this) { bottomErrorMessage ->
+            binding.bottomErrorMessage.text = bottomErrorMessage
+        }
+
         playerViewModel.isAnimatedLoadingIconVisible.observe(this) { isVisible ->
             if (isVisible) showLoadingDots() else hideLoadingDots()
         }
@@ -789,7 +796,8 @@ class PlayerActivity : FragmentActivity() {
             ChannelSettings(getString(R.string.video_track)),
             ChannelSettings("Actualizar EPG"),
             ChannelSettings(getString(R.string.epg)),
-            ChannelSettings("Actualizar lista canales")
+            ChannelSettings("Actualizar lista canales"),
+            ChannelSettings("URL de configuración")
         )
         rvChannelSettings.layoutManager = LinearLayoutManager(this)
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
@@ -1128,12 +1136,18 @@ class PlayerActivity : FragmentActivity() {
                     when (error.type) {
                         ExoPlaybackException.TYPE_SOURCE -> {
                             Log.e("PlayerError", "Source error: ${error.sourceException.message}")
+                            playerViewModel.updateBottomErrorMessage("${error.sourceException.message}")
+                            playerViewModel.showBottomErrorMessage()
                         }
                         ExoPlaybackException.TYPE_RENDERER -> {
                             Log.e("PlayerError", "Renderer error: ${error.rendererException.message}")
+                            playerViewModel.updateBottomErrorMessage("${error.rendererException.message}")
+                            playerViewModel.showBottomErrorMessage()
                         }
                         ExoPlaybackException.TYPE_UNEXPECTED -> {
                             Log.e("PlayerError", "Unexpected error: ${error.unexpectedException.message}")
+                            playerViewModel.updateBottomErrorMessage("${error.unexpectedException.message}")
+                            playerViewModel.showBottomErrorMessage()
                         }
                         // Handle other types of errors as needed
                         ExoPlaybackException.TYPE_REMOTE -> {
@@ -1149,6 +1163,7 @@ class PlayerActivity : FragmentActivity() {
 
             override fun onRenderedFirstFrame() {
                 if (playerViewModel.isErrorMessageVisible.value == true) playerViewModel.hideErrorMessage()
+                playerViewModel.hideBottomErrorMessage()
                 if (playerViewModel.isAnimatedLoadingIconVisible.value == true) playerViewModel.hideAnimatedLoadingIcon()
                 cancelLoadingIndicatorTimer()
                 cancelHidePlayerTimer()
@@ -1194,6 +1209,7 @@ class PlayerActivity : FragmentActivity() {
                     if (playerViewModel.isBuffering.value == true) cancelBufferingTimer()
                     cancelTryNextStreamSourceTimer()
                     playerViewModel.hideErrorMessage()
+                    playerViewModel.hideBottomErrorMessage()
                     playerViewModel.showPlayer()
                     /*val mediaItem = player.currentMediaItem
                     mediaItem?.let { item ->
@@ -1240,6 +1256,7 @@ class PlayerActivity : FragmentActivity() {
 
                     playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
+                    playerViewModel.hideBottomErrorMessage()
                     //playerViewModel.showPlayer()
 
 
@@ -1714,6 +1731,7 @@ class PlayerActivity : FragmentActivity() {
 
         if (binding.loadingDots.isVisible) playerViewModel.hideAnimatedLoadingIcon()
         if (binding.message.isVisible) playerViewModel.hideErrorMessage()
+        playerViewModel.hideBottomErrorMessage()
         Log.i(TAG,channel.name)
 
         playerViewModel.updateChannelName(channel.name)
@@ -1839,10 +1857,6 @@ class PlayerActivity : FragmentActivity() {
             Log.i(TAG,"Headers: $headers")
 
             val cronetEngine = CronetEngine.Builder(this@PlayerActivity).build()
-            /*val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
-                    DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-                        .setAllowCrossProtocolRedirects(true)
-            }*/
             val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
                 CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
                     setDefaultRequestProperties(headers)
@@ -2437,6 +2451,7 @@ class PlayerActivity : FragmentActivity() {
                             if (playerViewModel.isErrorMessageVisible.value == true) {
                                 playerViewModel.hideErrorMessage()
                             }
+                            playerViewModel.hideBottomErrorMessage()
                             var streamSource = (rvChannelSources.adapter as? ChannelSourcesAdapter)?.getItemAtPosition(position) as StreamSourceItem
                             if (streamSource.id.toInt() == -1) {
                                 playerViewModel.updateIsSourceForced(false)

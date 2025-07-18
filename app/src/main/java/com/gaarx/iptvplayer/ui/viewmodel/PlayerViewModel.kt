@@ -83,6 +83,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _errorMessage = MutableLiveData<String>()
     val errorMessage: LiveData<String> get() = _errorMessage
 
+    private val _bottomErrorMessage = MutableLiveData<String>()
+    val bottomErrorMessage: LiveData<String> get() = _bottomErrorMessage
+
     private val _isAnimatedLoadingIconVisible = MutableLiveData<Boolean>()
     val isAnimatedLoadingIconVisible: LiveData<Boolean> get() = _isAnimatedLoadingIconVisible
 
@@ -112,6 +115,9 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     private val _isErrorMessageVisible = MutableLiveData<Boolean>()
     val isErrorMessageVisible: LiveData<Boolean> get() = _isErrorMessageVisible
+
+    private val _isBottomErrorMessageVisible = MutableLiveData<Boolean>()
+    val isBottomErrorMessageVisible: LiveData<Boolean> get() = _isBottomErrorMessageVisible
 
     private val _isPlayerVisible = MutableLiveData<Boolean>()
     val isPlayerVisible: LiveData<Boolean> get() = _isPlayerVisible
@@ -165,6 +171,10 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     fun updateErrorMessage(newErrorMessage: String) {
         _errorMessage.value = newErrorMessage
+    }
+
+    fun updateBottomErrorMessage(newErrorMessage: String) {
+        _bottomErrorMessage.value = newErrorMessage
     }
 
     fun showChannelList() {
@@ -229,6 +239,14 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
 
     fun hideErrorMessage() {
         _isErrorMessageVisible.value = false
+    }
+
+    fun showBottomErrorMessage() {
+        _isBottomErrorMessageVisible.value = true
+    }
+
+    fun hideBottomErrorMessage() {
+        _isBottomErrorMessageVisible.value = false
     }
 
     fun showPlayer() {
