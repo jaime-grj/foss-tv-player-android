@@ -14,7 +14,7 @@ class DataService @Inject constructor() {
     companion object {
 
         private const val CONNECT_TIMEOUT = 5000
-        private const val DATA_URL = "http://filehost.zhnx.lan/channels.json"
+        private const val DATA_URL = "http://filehost.zhnx.home.arpa/channels.json"
 
         suspend fun getJSONString(): String {
             var json = ""

@@ -366,300 +366,200 @@ class ChannelRepository @Inject constructor(
 
     suspend fun loadChannelsFromJSON(): Boolean {
         val jsonStr = DataService.getJSONString()
-        if (jsonStr.isEmpty()) {
-            return false
-        }
+        if (jsonStr.isEmpty()) return false
 
         val jsonObj = JSONObject(jsonStr)
-
         val data = jsonObj.getJSONObject("data")
-        val categories : JSONArray = data.getJSONArray("categories")
+        val categories = data.getJSONArray("categories")
 
         for (i in 0 until categories.length()) {
             val category = categories.getJSONObject(i)
-            val categoryName = category.getString("name")
-            val categoryDescription = try{
-                category.getString("description")
-            } catch (e: Exception) {
-                null
-            }
-            val categoryEntity = CategoryEntity(
-                name = categoryName,
-                description = categoryDescription
-            )
-            val categoryId = categoryDao.insertCategory(categoryEntity)
-            Log.d("Category", "$categoryId - $categoryName")
-            val channels = category.getJSONArray("channels")
+            val categoryId = processCategory(category)
 
+            val channels = category.getJSONArray("channels")
             for (j in 0 until channels.length()) {
                 val channel = channels.getJSONObject(j)
-                val channelName = channel.getString("name")
-                val channelDescription = try{
-                    channel.getString("description")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelLogo = try{
-                    channel.getString("logo")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelLanguage = try{
-                    channel.getString("language")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelCountry = try {
-                    channel.getString("country")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelRegion = try {
-                    channel.getString("region")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelSubregion = try {
-                    channel.getString("subregion")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelShortnames = try{
-                    channel.getJSONArray("channelTags")
-                } catch (e: Exception) {
-                    JSONArray()
-                }
-                val channelStreamSources = try{
-                    channel.getJSONArray("streamSources")
-                } catch (e: Exception) {
-                    JSONArray()
-                }
-                val channelIndexFavourite = try{
-                    channel.getInt("indexFavourite")
-                } catch (e: Exception) {
-                    null
-                }
-                val channelIndexGroup = try{
-                    channel.getInt("indexGroup")
-                } catch (e: Exception) {
-                    null
-                }
-
-
-                val channelEntity = ChannelEntity(
-                    name = channelName,
-                    description = channelDescription,
-                    language = channelLanguage,
-                    logo = channelLogo,
-                    country = channelCountry,
-                    region = channelRegion,
-                    subregion = channelSubregion,
-                    indexFavourite = channelIndexFavourite,
-                    indexGroup = channelIndexGroup,
-                    categoryId = categoryId,
-                    parentId = null
-                )
-
-                val channelId = channelDao.insertChannel(channelEntity)
-
-                for (k in 0 until channelShortnames.length()) {
-                    val channelShortname = channelShortnames.getString(k)
-                    val channelShortnameEntity = ChannelShortnameEntity(
-                        shortName = channelShortname,
-                        channelId = channelId
-                    )
-                    channelDao.insertChannelShortname(channelShortnameEntity)
-                }
-
-                for (k in 0 until channelStreamSources.length()) {
-                    val streamSource = channelStreamSources.getJSONObject(k)
-                    val streamSourceName = streamSource.getString("name")
-                    val streamSourceUrl = streamSource.getString("url")
-                    val streamSourceHeaders = try {
-                        streamSource.getJSONArray("headers")
-                    } catch (e: Exception) {
-                        JSONArray()
-                    }
-                    val streamSourceApiCalls = try {
-                        streamSource.getJSONArray("apiCalls")
-                    } catch (e: Exception) {
-                        JSONArray()
-                    }
-                    val streamSourceRefreshRate = try {
-                        streamSource.getString("refreshRate")
-                    } catch (e: Exception) {
-                        null
-                    }
-                    val proxies = try {
-                        streamSource.getJSONArray("proxies")
-                    } catch (e: Exception) {
-                        JSONArray()
-                    }
-                    val streamSourceDrmHeaders = try {
-                        streamSource.getJSONArray("drmHeaders")
-                    } catch (e: Exception) {
-                        JSONArray()
-                    }
-                    val drmTypeInt = try {
-                        streamSource.getInt("drmType")
-                    } catch (e: Exception) {
-                        0
-                    }
-                    val drmKeysJSONArray = try {
-                        streamSource.getJSONArray("drmKeys")
-                    } catch (e: Exception) {
-                        JSONArray()
-                    }
-                    val pssh = try {
-                        streamSource.getString("pssh")
-                    } catch (e: Exception) {
-                        null
-                    }
-                    val licenseUrl = try {
-                        streamSource.getString("licenseUrl")
-                    } catch (e: Exception) {
-                        null
-                    }
-                    val useUnofficialDrmLicenseMethod = try {
-                        streamSource.getBoolean("useUnofficialDrmLicenseMethod")
-                    } catch (e: Exception) {
-                        false
-                    }
-                    val forceUseBestVideoResolution = try {
-                        streamSource.getBoolean("forceUseBestVideoResolution")
-                    } catch (e: Exception) {
-                        false
-                    }
-
-                    val streamSourceTypeInt = try{
-                        streamSource.getInt("type")
-                    } catch (e: Exception) {
-                        0
-                    }
-
-                    val streamSourceType = StreamSourceTypeItem.fromInt(streamSourceTypeInt) ?: StreamSourceTypeItem.IPTV
-                    val drmType = DrmTypeItem.fromInt(drmTypeInt) ?: DrmTypeItem.NONE
-                    val drmKeys = drmKeysJSONArray.join("\n").replace("\"", "")
-
-                    val streamSourceEntity = StreamSourceEntity(
-                        name = streamSourceName,
-                        url = streamSourceUrl,
-                        channelId = channelId,
-                        index = streamSource.getInt("index"),
-                        refreshRate = streamSourceRefreshRate?.toFloat(),
-                        streamSourceType = streamSourceType,
-                        drmType = drmType,
-                        drmKeys = drmKeys,
-                        pssh = pssh,
-                        licenseUrl = licenseUrl,
-                        useUnofficialDrmLicenseMethod = useUnofficialDrmLicenseMethod,
-                        forceUseBestVideoResolution = forceUseBestVideoResolution
-                    )
-                    val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
-
-                    for (l in 0 until proxies.length()) {
-                        val proxy = proxies.getJSONObject(l)
-                        val proxyHostname = proxy.getString("hostname")
-                        val proxyPort = proxy.getInt("port")
-                        val proxyEntity = ProxyEntity(
-                            hostname = proxyHostname,
-                            port = proxyPort,
-                            streamSourceId = streamSourceId
-                        )
-                        proxyDao.insertProxy(proxyEntity)
-                    }
-
-                    for (l in 0 until streamSourceHeaders.length()) {
-                        val header = streamSourceHeaders.getJSONObject(l)
-                        val headerEntity = StreamSourceHeaderEntity(
-                            key = header.getString("key"),
-                            value = header.getString("value"),
-                            streamSourceId = streamSourceId
-                        )
-                        streamSourceHeaderDao.insertStreamSourceHeader(headerEntity)
-                    }
-
-                    for (l in 0 until streamSourceDrmHeaders.length()) {
-                        val header = streamSourceDrmHeaders.getJSONObject(l)
-                        val headerEntity = DrmHeaderEntity(
-                            key = header.getString("key"),
-                            value = header.getString("value"),
-                            streamSourceId = streamSourceId
-                        )
-                        drmHeaderDao.insertDrmHeader(headerEntity)
-                    }
-
-                    for (l in 0 until streamSourceApiCalls.length()) {
-                        val apiCall = streamSourceApiCalls.getJSONObject(l)
-                        val apiCallUrl = apiCall.getString("url")
-                        val apiCallType = apiCall.getString("type")
-                        val apiCallMethod = apiCall.getString("method")
-                        val apiCallIndex = apiCall.getInt("index")
-                        val apiCallBody = try{
-                             apiCall.getString("body")
-                        } catch (e: Exception) {
-                            null
-                        }
-                        val apiCallStringSearch = try {
-                            apiCall.getString("stringSearch")
-                        } catch (e: Exception) {
-                            null
-                        }
-                        val apiCallResponseKeys = try {
-                            apiCall.getJSONArray("responseKeys")
-                        } catch (e: Exception) {
-                            JSONArray()
-                        }
-                        val apiCallHeaders = try {
-                            apiCall.getJSONArray("headers")
-                        } catch (e: Exception) {
-                            JSONArray()
-                        }
-
-                        val apiCallEntity = ApiCallEntity(
-                            url = apiCallUrl,
-                            index = apiCallIndex,
-                            method = apiCallMethod,
-                            body = apiCallBody,
-                            stringSearch = apiCallStringSearch,
-                            type = apiCallType,
-                            streamSourceId = streamSourceId
-                        )
-                        val apiCallId = apiCallDao.insertApiCall(apiCallEntity)
-
-                        for (m in 0 until apiCallResponseKeys.length()) {
-                            val responseKey = apiCallResponseKeys.getJSONObject(m)
-                            val responseKeyIndex = responseKey.getInt("index")
-                            val responseKeyJSONPath = responseKey.getString("jsonPath")
-                            val responseKeyEntity = ApiResponseKeyEntity(
-                                jsonPath = responseKeyJSONPath,
-                                index = responseKeyIndex,
-                                apiCallId = apiCallId
-                            )
-                            apiResponseKeyDao.insertApiResponseKey(responseKeyEntity)
-                        }
-                        for (m in 0 until apiCallHeaders.length()) {
-                            val header = apiCallHeaders.getJSONObject(m)
-                            val headerEntity = ApiCallHeaderEntity(
-                                key = header.getString("key"),
-                                value = header.getString("value"),
-                                apiCallId = apiCallId
-                            )
-                            apiCallHeaderDao.insertApiCallHeader(headerEntity)
-                        }
-                    }
-                }
+                processChannel(channel, categoryId)
             }
         }
 
-        val epgSources : JSONArray = data.getJSONArray("epgSources")
-        for (i in 0 until epgSources.length()) {
-            val epgSourceUrl = epgSources.getString(i)
-            if (epgSourceUrl.isNotEmpty()){
-                settingsRepository.updateEpgSource(epgSourceUrl)
-            }
-        }
+        processEpgSources(data)
         return true
+    }
+
+    private suspend fun processCategory(category: JSONObject): Long {
+        val name = category.getString("name")
+        val description = category.optString("description", null)
+
+        val categoryEntity = CategoryEntity(name = name, description = description)
+        val categoryId = categoryDao.insertCategory(categoryEntity)
+
+        Log.d("Category", "$categoryId - $name")
+        return categoryId
+    }
+
+    private suspend fun processChannel(channel: JSONObject, categoryId: Long) {
+        val channelEntity = ChannelEntity(
+            name = channel.getString("name"),
+            description = channel.optString("description", null),
+            language = channel.optString("language", null),
+            logo = channel.optString("logo", null),
+            country = channel.optString("country", null),
+            region = channel.optString("region", null),
+            subregion = channel.optString("subregion", null),
+            indexFavourite = channel.optIntOrNull("indexFavourite"),
+            indexGroup = channel.optIntOrNull("indexGroup"),
+            categoryId = categoryId,
+            parentId = null
+        )
+
+        val channelId = channelDao.insertChannel(channelEntity)
+
+        processChannelShortnames(channel.optJSONArray("channelTags"), channelId)
+        processStreamSources(channel.optJSONArray("streamSources"), channelId)
+    }
+
+    private fun JSONObject.optIntOrNull(key: String): Int? =
+        runCatching { getInt(key) }.getOrNull()
+
+    private suspend fun processChannelShortnames(tags: JSONArray?, channelId: Long) {
+        tags ?: return
+        for (i in 0 until tags.length()) {
+            val tag = tags.getString(i)
+            val entity = ChannelShortnameEntity(shortName = tag, channelId = channelId)
+            channelDao.insertChannelShortname(entity)
+        }
+    }
+
+    private suspend fun processStreamSources(sources: JSONArray?, channelId: Long) {
+        sources ?: return
+        for (i in 0 until sources.length()) {
+            val source = sources.getJSONObject(i)
+            processStreamSource(source, channelId)
+        }
+    }
+
+    private suspend fun processStreamSource(source: JSONObject, channelId: Long) {
+        val streamSourceType = StreamSourceTypeItem.fromInt(source.optInt("type")) ?: StreamSourceTypeItem.IPTV
+        val drmType = DrmTypeItem.fromInt(source.optInt("drmType")) ?: DrmTypeItem.NONE
+        val drmKeys = source.optJSONArray("drmKeys")?.join("\n")?.replace("\"", "") ?: ""
+
+        val streamSourceEntity = StreamSourceEntity(
+            name = source.getString("name"),
+            url = source.getString("url"),
+            channelId = channelId,
+            index = source.getInt("index"),
+            refreshRate = source.optString("refreshRate")?.toFloatOrNull(),
+            streamSourceType = streamSourceType,
+            drmType = drmType,
+            drmKeys = drmKeys,
+            pssh = source.optString("pssh", null),
+            licenseUrl = source.optString("licenseUrl", null),
+            useUnofficialDrmLicenseMethod = source.optBoolean("useUnofficialDrmLicenseMethod", false),
+            forceUseBestVideoResolution = source.optBoolean("forceUseBestVideoResolution", false)
+        )
+
+        val streamSourceId = streamSourceDao.insertStreamSource(streamSourceEntity)
+
+        processProxies(source.optJSONArray("proxies"), streamSourceId)
+        processHeaders(source.optJSONArray("headers"), streamSourceId)
+        processDrmHeaders(source.optJSONArray("drmHeaders"), streamSourceId)
+        processApiCalls(source.optJSONArray("apiCalls"), streamSourceId)
+    }
+
+    private suspend fun processProxies(proxies: JSONArray?, streamSourceId: Long) {
+        proxies ?: return
+        for (i in 0 until proxies.length()) {
+            val proxy = proxies.getJSONObject(i)
+            val proxyEntity = ProxyEntity(
+                hostname = proxy.getString("hostname"),
+                port = proxy.getInt("port"),
+                streamSourceId = streamSourceId
+            )
+            proxyDao.insertProxy(proxyEntity)
+        }
+    }
+
+    private suspend fun processHeaders(headers: JSONArray?, streamSourceId: Long) {
+        headers ?: return
+        for (i in 0 until headers.length()) {
+            val header = headers.getJSONObject(i)
+            val headerEntity = StreamSourceHeaderEntity(
+                key = header.getString("key"),
+                value = header.getString("value"),
+                streamSourceId = streamSourceId
+            )
+            streamSourceHeaderDao.insertStreamSourceHeader(headerEntity)
+        }
+    }
+
+    private suspend fun processDrmHeaders(headers: JSONArray?, streamSourceId: Long) {
+        headers ?: return
+        for (i in 0 until headers.length()) {
+            val header = headers.getJSONObject(i)
+            val headerEntity = DrmHeaderEntity(
+                key = header.getString("key"),
+                value = header.getString("value"),
+                streamSourceId = streamSourceId
+            )
+            drmHeaderDao.insertDrmHeader(headerEntity)
+        }
+    }
+
+    private suspend fun processApiCalls(apiCalls: JSONArray?, streamSourceId: Long) {
+        apiCalls ?: return
+        for (i in 0 until apiCalls.length()) {
+            val apiCall = apiCalls.getJSONObject(i)
+
+            val apiCallEntity = ApiCallEntity(
+                url = apiCall.getString("url"),
+                index = apiCall.getInt("index"),
+                method = apiCall.getString("method"),
+                body = apiCall.optString("body", null),
+                stringSearch = apiCall.optString("stringSearch", null),
+                type = apiCall.getString("type"),
+                streamSourceId = streamSourceId
+            )
+            val apiCallId = apiCallDao.insertApiCall(apiCallEntity)
+
+            processApiCallResponseKeys(apiCall.optJSONArray("responseKeys"), apiCallId)
+            processApiCallHeaders(apiCall.optJSONArray("headers"), apiCallId)
+        }
+    }
+
+    private suspend fun processApiCallResponseKeys(responseKeys: JSONArray?, apiCallId: Long) {
+        responseKeys ?: return
+        for (i in 0 until responseKeys.length()) {
+            val key = responseKeys.getJSONObject(i)
+            val responseKeyEntity = ApiResponseKeyEntity(
+                jsonPath = key.getString("jsonPath"),
+                index = key.getInt("index"),
+                storeKey = key.getString("storeKey"),
+                apiCallId = apiCallId
+            )
+            apiResponseKeyDao.insertApiResponseKey(responseKeyEntity)
+        }
+    }
+
+    private suspend fun processApiCallHeaders(headers: JSONArray?, apiCallId: Long) {
+        headers ?: return
+        for (i in 0 until headers.length()) {
+            val header = headers.getJSONObject(i)
+            val headerEntity = ApiCallHeaderEntity(
+                key = header.getString("key"),
+                value = header.getString("value"),
+                apiCallId = apiCallId
+            )
+            apiCallHeaderDao.insertApiCallHeader(headerEntity)
+        }
+    }
+
+    private suspend fun processEpgSources(data: JSONObject) {
+        val epgSources = data.optJSONArray("epgSources") ?: return
+        for (i in 0 until epgSources.length()) {
+            val url = epgSources.getString(i)
+            if (url.isNotEmpty()) settingsRepository.updateEpgSource(url)
+        }
     }
 
     suspend fun deleteAll() {

@@ -106,53 +106,53 @@ class ApiService {
         }
 
         fun getURLFromChannelSource(streamSource: StreamSourceItem): String? {
-            var url: String? = null
+            var finalUrl: String? = null
             if (streamSource.streamSourceType == StreamSourceTypeItem.IPTV) {
                 if (streamSource.apiCalls.isNullOrEmpty()) {
-                    url = streamSource.url
-                    return url
+                    return streamSource.url
                 }
+
                 val apiCalls = streamSource.apiCalls.sortedBy { it.index }
-                var data: String? = null
+                val variableStore = mutableMapOf<String, String>()
 
                 for (apiCall in apiCalls) {
-                    url = apiCall.url
-                    Log.d("ApiService", "URL: $url")
-                    val index = apiCall.index
-                    if (data != null){
-                        url = url.replace("{${index - 1}}", data)
-                    }
-                    val headers = apiCall.headers
-                    val headersMap = headers?.let { getHeadersMapFromApiCallHeadersObject(it) }
-
+                    var url = apiCall.url
+                    val rawHeaders = apiCall.headers?.let { getHeadersMapFromApiCallHeadersObject(it) } ?: emptyMap()
+                    val headers = rawHeaders.mapValues { (_, v) -> replacePlaceholders(v, variableStore) }
                     val method = apiCall.method
-                    val body = apiCall.body
-
+                    var body = apiCall.body
                     val apiResponseKeys = apiCall.apiResponseKeys
 
-                    if (apiCall.type == "json"){
-                        val json = getJSONFromURL(url, method, headersMap, body)
+                    // Replace placeholders {{key}} in URL and body
+                    url = replacePlaceholders(url, variableStore)
+                    body = body?.let { replacePlaceholders(it, variableStore) }
 
-                        for (apiResponseKey in apiResponseKeys) {
-                            val jsonPath = apiResponseKey.jsonPath
-                            data = JsonPath.parse(json)?.read<String>(jsonPath)
+                    Log.d("ApiService", "Processed URL: $url")
+                    Log.d("ApiService", "Processed Body: $body")
+
+                    when (apiCall.type) {
+                        "json" -> {
+                            val json = getJSONFromURL(url, method, headers, body)
+                            apiResponseKeys.forEach { apiResponseKey ->
+                                val jsonPath = apiResponseKey.jsonPath
+                                val storeKey = apiResponseKey.storeKey
+                                val extractedValue = JsonPath.parse(json)?.read<String>(jsonPath)
+                                if (!storeKey.isNullOrEmpty() && !extractedValue.isNullOrEmpty()) {
+                                    variableStore[storeKey] = extractedValue
+                                    Log.d("ApiService", "Stored: $storeKey = $extractedValue")
+                                }
+                            }
                         }
-                    } else if (apiCall.type == "html") {
-                        url = getURLFromHTML(url, apiCall.stringSearch!!)
-                        return url
+                        "html" -> {
+                            finalUrl = getURLFromHTML(url, apiCall.stringSearch!!)
+                            return finalUrl
+                        }
                     }
-                }
-                if (url != null) {
-                    Log.d("ApiService", "data:$data")
-                    Log.d("ApiService", "url: $url")
-                    url = if (data != null){
-                        streamSource.url.replace("{token}", data)
-                    } else{
-                        ""
-                    }
-                    Log.d("ApiService", "url despues de reemplazar: $url")
                 }
 
+                // Replace placeholders in final URL if needed
+                finalUrl = replacePlaceholders(streamSource.url, variableStore)
+                Log.d("ApiService", "Final URL: $finalUrl")
             }
             else if (streamSource.streamSourceType == StreamSourceTypeItem.TWITCH) {
                 val clientId = "ue6666qo983tsx6so1t0vnawi233wa"
@@ -226,7 +226,7 @@ class ApiService {
                 val accessTokenValue = JsonPath.parse(data)?.read<String>("[3].data.streamPlaybackAccessToken.value")
                 val accessTokenSignature = JsonPath.parse(data)?.read<String>("[3].data.streamPlaybackAccessToken.signature")
 
-                url = "https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?acmb=e30=&allow_source=true&fast_bread=true&p=&play_session_id=&player_backend=mediaplayer&playlist_include_framerate=true&reassignments_supported=true&sig=${accessTokenSignature}&supported_codecs=avc1&token=${accessTokenValue}&transcode_mode=vbr_v1&cdm=wv&player_version=1.20.0"
+                finalUrl = "https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?acmb=e30=&allow_source=true&fast_bread=true&p=&play_session_id=&player_backend=mediaplayer&playlist_include_framerate=true&reassignments_supported=true&sig=${accessTokenSignature}&supported_codecs=avc1&token=${accessTokenValue}&transcode_mode=vbr_v1&cdm=wv&player_version=1.20.0"
                 //url ="https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?client_id=${clientId}&token=${accessTokenValue}&sig=${accessTokenSignature}&allow_source=true&allow_audio_only=true"
             }
             else if (streamSource.streamSourceType == StreamSourceTypeItem.YOUTUBE) {
@@ -236,21 +236,32 @@ class ApiService {
                     val regexHls = """"hlsManifestUrl":"(https://[^"]+\.m3u8)"""".toRegex()
                     val regexDash = """"dashManifestUrl":"(https://[^"]+)"""".toRegex()
                     val matchResult = regexHls.find(html)
-                    url = if (matchResult == null) {
+                    finalUrl = if (matchResult == null) {
                         ""
                     } else{
                         matchResult.groups[1]?.value
                     }
                 }
                 catch (e: Exception) {
-                    url = ""
+                    finalUrl = ""
                 }
             }
             else {
-                url = streamSource.url
+                finalUrl = streamSource.url
             }
 
-            return url
+            return finalUrl
+        }
+
+        fun replacePlaceholders(text: String, variables: Map<String, String>): String {
+            var result = text
+            val regex = Regex("\\{\\{(.+?)\\}\\}") // Matches {{key}}
+            regex.findAll(text).forEach { match ->
+                val key = match.groupValues[1]
+                val value = variables[key] ?: ""
+                result = result.replace(match.value, value)
+            }
+            return result
         }
 
         fun getHeadersMapFromHeadersObject(headers: List<StreamSourceHeaderItem>) : Map<String, String> {

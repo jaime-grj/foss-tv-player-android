@@ -95,7 +95,11 @@ class ChannelViewModel @Inject constructor(
 
     suspend fun importJSONData() {
         updateIsImportingData(true)
-        importJSONDataUseCase.invoke()
+        try {
+            importJSONDataUseCase.invoke()
+        } catch (e: Exception) {
+            Log.e("ChannelViewModel", "Error importing JSON data", e)
+        }
         updateIsImportingData(false)
     }
 

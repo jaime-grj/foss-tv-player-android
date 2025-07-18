@@ -19,6 +19,9 @@ class ApiResponseKeyEntity (
     @ColumnInfo(name = "index")
     val index: Int,
 
+    @ColumnInfo(name = "storeKey")
+    val storeKey: String,
+
     @ColumnInfo(name = "api_call_id")
     val apiCallId: Long
 )
@@ -26,5 +29,6 @@ class ApiResponseKeyEntity (
 fun ApiResponseKeyItem.toDatabase(apiCallId: Long) = ApiResponseKeyEntity(
     jsonPath = jsonPath,
     index = index,
-    apiCallId = apiCallId
+    apiCallId = apiCallId,
+    storeKey = storeKey
 )
