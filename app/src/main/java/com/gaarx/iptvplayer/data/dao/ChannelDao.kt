@@ -43,7 +43,7 @@ interface ChannelDao {
     @Query("""
         SELECT * FROM channel 
         WHERE index_favourite <= :favouriteId
-        ORDER BY index_group DESC 
+        ORDER BY index_favourite DESC 
         LIMIT 1
     """)
     suspend fun getPreviousChannelByFavouriteId(favouriteId: Int) : ChannelEntity
@@ -65,7 +65,7 @@ interface ChannelDao {
     @Query("""
         SELECT * FROM channel 
         WHERE index_favourite >= :favouriteId
-        ORDER BY index_group ASC 
+        ORDER BY index_favourite ASC 
         LIMIT 1
     """)
     suspend fun getNextChannelByFavouriteId(favouriteId: Int) : ChannelEntity
