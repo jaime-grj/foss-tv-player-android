@@ -69,12 +69,19 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        addHandleOnBackPressed()
+    }
 
+    fun addHandleOnBackPressed() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
-            val mainActivity = requireActivity() as MainActivity
-            mainActivity.hidePipOverlay() // Hide PiP-style overlay
-            parentFragmentManager.popBackStack() // Go back to PlayerFragment
+            returnToPlayer()
         }
+    }
+
+    fun returnToPlayer() {
+        val mainActivity = requireActivity() as MainActivity
+        mainActivity.hidePipOverlay() // Hide PiP-style overlay
+        parentFragmentManager.popBackStack() // Go back to PlayerFragment
     }
 
     override fun onScheduleClicked(programGuideSchedule: ProgramGuideSchedule<SimpleProgram>) {
@@ -86,12 +93,15 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
         }
         if (programGuideSchedule.isCurrentProgram) {
             //Toast.makeText(context, "Open live player", Toast.LENGTH_LONG).show()
-            val resultIntent = Intent()
             val channelId = programGuideSchedule.channelId
             Log.d(TAG, "Channel ID: $channelId")
-            resultIntent.putExtra("channelId", channelId)
-            activity?.setResult(Activity.RESULT_OK, resultIntent)
-            activity?.onBackPressed()
+            if (channelId != null){
+                val result = Bundle().apply {
+                    putLong("channelId", channelId)
+                }
+                parentFragmentManager.setFragmentResult("channelRequestKey", result)
+                returnToPlayer()
+            }
         } else {
             Toast.makeText(context, "Open detail page", Toast.LENGTH_LONG).show()
         }

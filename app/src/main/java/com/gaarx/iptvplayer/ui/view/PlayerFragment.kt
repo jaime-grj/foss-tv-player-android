@@ -232,6 +232,28 @@ class PlayerFragment : Fragment() {
         playerViewModel.hidePlayer()
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        parentFragmentManager.setFragmentResultListener("channelRequestKey", this) { _, bundle ->
+            val channelId = bundle.getLong("channelId", 0L)
+            Log.d("PlayerFragment", "Received channelId: $channelId")
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                channelViewModel.updateIsLoadingChannel(true)
+                val newChannel = channelViewModel.getChannelById(channelId)
+                if (newChannel != null) {
+                    channelViewModel.updateCurrentCategoryId(-1L)
+                    channelViewModel.updateLastCategoryLoaded(-1L)
+                    playerViewModel.updateCategoryName("Favoritos")
+                    channelViewModel.updateIsLoadingChannel(false)
+                    loadChannel(newChannel)
+                }
+            }
+        }
+    }
+
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
