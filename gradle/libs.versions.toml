@@ -1,17 +1,18 @@
 [versions]
-agp = "8.11.0"
+agp = "8.11.1"
 converterGson = "2.9.0"
+cronetEmbedded = "119.6045.31"
 datastorePreferences = "1.1.1"
 exoplayer = "2.18.7"
 exoplayerCommon = "2.18.7"
 fragmentKtx = "1.8.4"
 gson = "2.10.1"
-hiltAndroidCompiler = "2.52"
+hiltAndroidCompiler = "2.57"
 json = "20210307"
 jsonpathkt = "2.0.1"
 jsonVersion = "20230227"
 jsoup = "1.16.1"
-kotlin = "1.9.21"
+kotlin = "2.1.0"
 coreKtx = "1.15.0"
 kotlinxCoroutinesCore = "1.7.3"
 leanback = "1.0.0"
@@ -46,6 +47,7 @@ androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomVersion" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomVersion" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
+cronet-embedded = { module = "org.chromium.net:cronet-embedded", version.ref = "cronetEmbedded" }
 exoplayer = { module = "com.google.android.exoplayer:exoplayer", version.ref = "exoplayer" }
 exoplayer-common = { module = "com.amazon.android:exoplayer-common", version.ref = "exoplayerCommon" }
 extension-okhttp = { module = "com.google.android.exoplayer:extension-okhttp", version.ref = "exoplayer" }

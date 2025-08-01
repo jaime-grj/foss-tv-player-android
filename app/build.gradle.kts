@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -9,12 +11,12 @@ plugins {
 
 android {
     namespace = "com.gaarx.iptvplayer"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.gaarx.iptvplayer"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -33,8 +35,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_11)
+        }
     }
 
     buildFeatures {
@@ -88,8 +92,10 @@ dependencies {
 
     //Hilt
     implementation(libs.hilt.android)
-    implementation("org.chromium.net:cronet-embedded:108.5359.79")
     kapt(libs.hilt.compiler)
+
+    //Cronet
+    implementation(libs.cronet.embedded)
 
     //Room
     implementation(libs.androidx.room.ktx)
