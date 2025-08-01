@@ -48,7 +48,7 @@ class MainActivity : FragmentActivity() {
 
     fun hidePipOverlay() {
         val pipView = findViewById<PlayerView>(R.id.pip_player_view)
-        pipView.player = null
+        pipView.player?.release()
         pipView.visibility = View.GONE
     }
 }

@@ -2696,8 +2696,7 @@ class PlayerFragment : Fragment() {
                         || binding.rvCategoryList.isVisible) { // Navigate through menu
                         return false
                     } else if (binding.rvChannelTrackSettings.isVisible) {
-                        if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
-                        return false
+                        return rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0
                     }
                     else if (binding.rvNumberList.isVisible) {
                         return true
@@ -2993,7 +2992,7 @@ class PlayerFragment : Fragment() {
         super.onPause()
         Log.i(TAG, "onPause")
         isActivityPaused = true
-            if (activity?.isInPictureInPictureMode == true) {
+        if (activity?.isInPictureInPictureMode == true) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
             playerViewModel.hideButtonSettings()
@@ -3017,7 +3016,7 @@ class PlayerFragment : Fragment() {
         super.onResume()
         Log.i(TAG, "onResume")
         isActivityPaused = false
-        if (playerViewModel.currentStreamSource.value != null && !activity?.isInPictureInPictureMode!! == true) {
+        if (playerViewModel.currentStreamSource.value != null && !activity?.isInPictureInPictureMode!!) {
             loadStreamSource(playerViewModel.currentStreamSource.value!!)
         }
         player.playWhenReady = true
