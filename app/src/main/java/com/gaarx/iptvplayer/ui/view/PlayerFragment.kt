@@ -7,9 +7,7 @@ import android.app.Activity
 import android.app.PictureInPictureParams
 import android.app.UiModeManager
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
-import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.Typeface
 import android.hardware.display.DisplayManager
@@ -21,17 +19,17 @@ import android.util.Log
 import android.util.Rational
 import android.view.Display
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.core.content.res.ResourcesCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.leanback.widget.VerticalGridView
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
@@ -73,7 +71,7 @@ import com.gaarx.iptvplayer.R
 import com.gaarx.iptvplayer.core.MediaUtils
 import com.gaarx.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
 import com.gaarx.iptvplayer.data.services.ApiService
-import com.gaarx.iptvplayer.databinding.ActivityPlayerBinding
+import com.gaarx.iptvplayer.databinding.FragmentPlayerBinding
 import com.gaarx.iptvplayer.domain.model.AudioTrack
 import com.gaarx.iptvplayer.domain.model.CategoryItem
 import com.gaarx.iptvplayer.domain.model.ChannelItem
@@ -106,10 +104,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.chromium.net.CronetEngine
-import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.ProxySelector
-import java.net.URI
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -118,14 +113,15 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 
-
-val Int.dp: Int get() = (this * Resources.getSystem().displayMetrics.density).toInt()
 
 @UnstableApi
 @AndroidEntryPoint
-class PlayerActivity : FragmentActivity() {
-    private lateinit var binding: ActivityPlayerBinding
+class PlayerFragment : Fragment() {
+    private var _binding: FragmentPlayerBinding? = null
+    private val binding get() = _binding!!
     private lateinit var animatorSet: AnimatorSet
 
     private lateinit var player: ExoPlayer
@@ -153,8 +149,8 @@ class PlayerActivity : FragmentActivity() {
     private lateinit var rvCategoryList: VerticalGridView
     private lateinit var rvNumberList: RecyclerView
 
-    private val playerViewModel: PlayerViewModel by viewModels()
-    private val channelViewModel: ChannelViewModel by viewModels()
+    private val playerViewModel: PlayerViewModel by activityViewModels()
+    private val channelViewModel: ChannelViewModel by activityViewModels()
 
     data class CachedUrl(val url: String, val timestamp: Long)
     private val urlCache: MutableMap<StreamSourceItem, CachedUrl> = ConcurrentHashMap()
@@ -236,9 +232,18 @@ class PlayerActivity : FragmentActivity() {
         playerViewModel.hidePlayer()
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        _binding = FragmentPlayerBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         channelViewModel.updateIsLoadingChannel(true)
         switchRefreshRate(DEFAULT_REFRESH_RATE)
         initUI()
@@ -247,7 +252,7 @@ class PlayerActivity : FragmentActivity() {
         initPlayer()
 
 
-        channelViewModel.isImportingData.observe(this) { isImportingData ->
+        channelViewModel.isImportingData.observe(viewLifecycleOwner) { isImportingData ->
             if (isImportingData == true) {
                 playerViewModel.showAnimatedLoadingIcon()
             }
@@ -263,9 +268,9 @@ class PlayerActivity : FragmentActivity() {
 
         binding.buttonPiP.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                enterPiPMode()
+                enterPiPModeIfSupported()
             } else {
-                Toast.makeText(this, "Picture-in-Picture mode is not supported on this device", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "Picture-in-Picture mode is not supported on this device", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -323,10 +328,6 @@ class PlayerActivity : FragmentActivity() {
 
     @SuppressLint("SetTextI18n")
     private fun initUI() {
-        binding = ActivityPlayerBinding.inflate(layoutInflater)
-        val view = binding.root
-        setContentView(view)
-
         playerViewModel.onCreate()
         lifecycleScope.launch {
             channelViewModel.downloadEPG()
@@ -335,14 +336,14 @@ class PlayerActivity : FragmentActivity() {
 
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-            window.insetsController?.let { controller ->
+            activity?.window?.setDecorFitsSystemWindows(false)
+            activity?.window?.insetsController?.let { controller ->
                 controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
                 controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         } else {
             @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
+            activity?.window?.decorView?.systemUiVisibility = (
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                             or View.SYSTEM_UI_FLAG_FULLSCREEN
                             or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -358,27 +359,27 @@ class PlayerActivity : FragmentActivity() {
         rvCategoryList = binding.rvCategoryList
         rvNumberList = binding.rvNumberList
 
-        playerViewModel.channelName.observe(this) { channelName ->
+        playerViewModel.channelName.observe(viewLifecycleOwner) { channelName ->
             binding.channelName.text = channelName
         }
 
-        playerViewModel.channelNumber.observe(this) { channelNumber ->
+        playerViewModel.channelNumber.observe(viewLifecycleOwner) { channelNumber ->
             binding.channelNumber.text = channelNumber.toString()
         }
 
-        playerViewModel.categoryName.observe(this) { categoryName ->
+        playerViewModel.categoryName.observe(viewLifecycleOwner) { categoryName ->
             binding.categoryName.text = categoryName
         }
 
-        playerViewModel.timeDate.observe(this) { timeDate ->
+        playerViewModel.timeDate.observe(viewLifecycleOwner) { timeDate ->
             binding.timeDate.text = timeDate
         }
 
-        playerViewModel.isChannelListVisible.observe(this) { isVisible ->
+        playerViewModel.isChannelListVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.channelList.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isSettingsMenuVisible.observe(this) { isVisible ->
+        playerViewModel.isSettingsMenuVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.rvChannelSettings.visibility = if (isVisible){
                 View.VISIBLE
 
@@ -387,11 +388,11 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isTrackMenuVisible.observe(this) { isVisible ->
+        playerViewModel.isTrackMenuVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.rvChannelTrackSettings.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.mediaInfo.observe(this) { mediaInfo ->
+        playerViewModel.mediaInfo.observe(viewLifecycleOwner) { mediaInfo ->
             if (mediaInfo.videoResolution != null) {
                 binding.channelVideoResolution.visibility = View.VISIBLE
                 binding.channelVideoResolution.text = mediaInfo.videoResolution
@@ -505,71 +506,71 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isMediaInfoVisible.observe(this) { isVisible ->
+        playerViewModel.isMediaInfoVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.channelMediaInfo.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isChannelNameVisible.observe(this) { isVisible ->
+        playerViewModel.isChannelNameVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.channelName.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isChannelNumberVisible.observe(this) { isVisible ->
+        playerViewModel.isChannelNumberVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.channelNumber.visibility = if (isVisible) View.VISIBLE else View.INVISIBLE
         }
 
-        playerViewModel.isTimeDateVisible.observe(this) { isVisible ->
+        playerViewModel.isTimeDateVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.timeDate.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isErrorMessageVisible.observe(this) { isVisible ->
+        playerViewModel.isErrorMessageVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.message.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isBottomErrorMessageVisible.observe(this) { isVisible ->
+        playerViewModel.isBottomErrorMessageVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.bottomErrorMessage.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.bottomErrorMessage.observe(this) { bottomErrorMessage ->
+        playerViewModel.bottomErrorMessage.observe(viewLifecycleOwner) { bottomErrorMessage ->
             binding.bottomErrorMessage.text = bottomErrorMessage
         }
 
-        playerViewModel.isAnimatedLoadingIconVisible.observe(this) { isVisible ->
+        playerViewModel.isAnimatedLoadingIconVisible.observe(viewLifecycleOwner) { isVisible ->
             if (isVisible) showLoadingDots() else hideLoadingDots()
         }
 
-        playerViewModel.isPlayerVisible.observe(this) { isVisible ->
+        playerViewModel.isPlayerVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.playerView.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonUpVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonUpVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonUp.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonDownVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonDownVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonDown.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonSettingsVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonSettingsVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonSettings.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonChannelListVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonChannelListVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonChannelList.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonPiPVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonPiPVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonPiP.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isButtonCategoryListVisible.observe(this) { isVisible ->
+        playerViewModel.isButtonCategoryListVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.buttonCategory.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.isChannelNumberKeyboardVisible.observe(this) { isVisible ->
+        playerViewModel.isChannelNumberKeyboardVisible.observe(viewLifecycleOwner) { isVisible ->
             binding.channelNumberKeyboard.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        channelViewModel.currentProgram.observe(this) { currentProgram ->
+        channelViewModel.currentProgram.observe(viewLifecycleOwner) { currentProgram ->
             if (currentProgram != null){
                 val currentProgramStartTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.startTime)
                 val currentProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentProgram.stopTime)
@@ -625,7 +626,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        channelViewModel.nextProgram.observe(this) { nextProgram ->
+        channelViewModel.nextProgram.observe(viewLifecycleOwner) { nextProgram ->
             if (nextProgram != null){
                 val nextProgramStartTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextProgram.startTime)
                 val nextProgramStopTimeFormatted = SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextProgram.stopTime)
@@ -645,7 +646,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isBottomInfoVisible.observe(this) { isVisible ->
+        playerViewModel.isBottomInfoVisible.observe(viewLifecycleOwner) { isVisible ->
             if (isVisible) {
                 binding.channelBottomInfo.visibility = View.VISIBLE
             }
@@ -654,7 +655,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        channelViewModel.currentProgram.observe(this) { currentProgram ->
+        channelViewModel.currentProgram.observe(viewLifecycleOwner) { currentProgram ->
             if (currentProgram != null){
                 mediaInfo.hasEPG = true
                 playerViewModel.updateMediaInfo(mediaInfo)
@@ -669,7 +670,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isCategoryListVisible.observe(this) { isVisible ->
+        playerViewModel.isCategoryListVisible.observe(viewLifecycleOwner) { isVisible ->
             if (isVisible) {
                 binding.rvCategoryList.visibility = View.VISIBLE
             }
@@ -678,7 +679,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isCategoryNameVisible.observe(this) { isVisible ->
+        playerViewModel.isCategoryNameVisible.observe(viewLifecycleOwner) { isVisible ->
             if (isVisible) {
                 binding.categoryName.visibility = View.VISIBLE
             }
@@ -687,7 +688,7 @@ class PlayerActivity : FragmentActivity() {
             }
         }
 
-        playerViewModel.isNumberListMenuVisible.observe(this) { isVisible ->
+        playerViewModel.isNumberListMenuVisible.observe(viewLifecycleOwner) { isVisible ->
             if (isVisible) {
                 binding.rvNumberList.visibility = View.VISIBLE
             }
@@ -707,7 +708,7 @@ class PlayerActivity : FragmentActivity() {
                 playerViewModel.hideTrackMenu()
             }
             else if (playerViewModel.isChannelNumberVisible.value == true) {
-                if (!isAndroidTV(this)) {
+                if (!isAndroidTV(requireContext())) {
                     playerViewModel.hideButtonUp()
                     playerViewModel.hideButtonDown()
                     playerViewModel.hideButtonChannelList()
@@ -772,16 +773,16 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun switchRefreshRate(frameRate: Float) {
-        val displayManager = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        val displayManager = activity?.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
 
         val supportedModes = display.supportedModes
         val mode = supportedModes.find { MediaUtils.areRatesEqual(frameRate, it.refreshRate) }
 
         if (mode != null) {
-            val attributes = window.attributes
-            attributes.preferredDisplayModeId = mode.modeId
-            window.attributes = attributes
+            val attributes = activity?.window?.attributes
+            attributes?.preferredDisplayModeId = mode.modeId
+            activity?.window?.attributes = attributes
             Log.i("DisplayMode", "Switched to refresh rate: ${mode.refreshRate}")
         } else {
             Log.i("DisplayMode", "No matching refresh rate found for $frameRate fps")
@@ -799,7 +800,7 @@ class PlayerActivity : FragmentActivity() {
             ChannelSettings("Actualizar lista canales"),
             ChannelSettings("URL de configuración")
         )
-        rvChannelSettings.layoutManager = LinearLayoutManager(this)
+        rvChannelSettings.layoutManager = LinearLayoutManager(requireContext())
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
@@ -841,9 +842,12 @@ class PlayerActivity : FragmentActivity() {
                 channelViewModel.updateEPG()
             }
             ChannelSettings.SHOW_EPG -> {
-                val intent  = Intent(this, EPGActivity::class.java)
-                resultLauncher.launch(intent)
-
+                val mainActivity = requireActivity() as MainActivity
+                mainActivity.showPipOverlay(player) // Reuses the ExoPlayer instance
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, EpgFragment())
+                    .addToBackStack(null)
+                    .commit()
             }
             ChannelSettings.UPDATE_CHANNEL_LIST -> {
                 lifecycleScope.launch {
@@ -856,7 +860,7 @@ class PlayerActivity : FragmentActivity() {
                         loadChannel(firstChannel)
                     }
                     catch (e: Exception){
-                        Toast.makeText(this@PlayerActivity, "Error al cargar la lista de canales", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Error al cargar la lista de canales", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -1047,7 +1051,7 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun initNumberList(){
-        rvNumberList.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        rvNumberList.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
         val numbers = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
         rvNumberList.adapter = NumberListAdapter(numbers) { selectedNumber ->
             if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
@@ -1075,7 +1079,7 @@ class PlayerActivity : FragmentActivity() {
     private fun initPlayer(){
         binding.playerView.useController = false
 
-        trackSelector = DefaultTrackSelector(this)
+        trackSelector = DefaultTrackSelector(requireContext())
         val parameters = trackSelector
             .buildUponParameters()
             //.setForceHighestSupportedBitrate(true) // Choose the highest quality
@@ -1087,7 +1091,7 @@ class PlayerActivity : FragmentActivity() {
             .build()
         trackSelector.parameters = parameters
 
-        val renderersFactory = DefaultRenderersFactory( this)
+        val renderersFactory = DefaultRenderersFactory( requireContext())
         renderersFactory.setExtensionRendererMode(
             DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
         )
@@ -1109,11 +1113,11 @@ class PlayerActivity : FragmentActivity() {
             )
             .build()
 
-        val bandwidthMeter: DefaultBandwidthMeter = DefaultBandwidthMeter.Builder(this)
+        val bandwidthMeter: DefaultBandwidthMeter = DefaultBandwidthMeter.Builder(requireContext())
             .setInitialBitrateEstimate(50_000_000)
             .build()
 
-        player = ExoPlayer.Builder(this)
+        player = ExoPlayer.Builder(requireContext())
             .setTrackSelector(trackSelector).setRenderersFactory(
                 renderersFactory
                     .setEnableDecoderFallback(true)
@@ -1554,7 +1558,7 @@ class PlayerActivity : FragmentActivity() {
         val backgroundColor = Color.argb(192, 0, 0, 0)  // Background color
         val windowColor = Color.TRANSPARENT  // Window background
 
-        val customTypeface: Typeface? = ResourcesCompat.getFont(this, R.font.lato_bold)
+        val customTypeface: Typeface? = ResourcesCompat.getFont(requireContext(), R.font.lato_bold)
 
         val edgeColor = Color.BLACK
         val captionStyle = CaptionStyleCompat(
@@ -1856,7 +1860,7 @@ class PlayerActivity : FragmentActivity() {
             Log.i(TAG,"Stream URL: $url")
             Log.i(TAG,"Headers: $headers")
 
-            val cronetEngine = CronetEngine.Builder(this@PlayerActivity).build()
+            val cronetEngine = CronetEngine.Builder(requireContext()).build()
             val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
                 CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
                     setDefaultRequestProperties(headers)
@@ -1977,7 +1981,7 @@ class PlayerActivity : FragmentActivity() {
 
             ensureActive()
 
-            runOnUiThread{
+            activity?.runOnUiThread{
                 player.setMediaSource(mediaSource)
 
                 player.trackSelectionParameters = player.trackSelectionParameters
@@ -2105,8 +2109,8 @@ class PlayerActivity : FragmentActivity() {
         }
         jobUITimeout = lifecycleScope.launch {
             try{
-                runOnUiThread {
-                    if (!isAndroidTV(this@PlayerActivity)) {
+                activity?.runOnUiThread {
+                    if (!isAndroidTV(requireContext())) {
                         playerViewModel.showButtonUp()
                         playerViewModel.showButtonDown()
                         playerViewModel.showButtonChannelList()
@@ -2128,8 +2132,8 @@ class PlayerActivity : FragmentActivity() {
                 }
                 delay(timeout)
                 ensureActive()
-                runOnUiThread {
-                    if (!isAndroidTV(this@PlayerActivity)) {
+                activity?.runOnUiThread {
+                    if (!isAndroidTV(requireContext())) {
                         playerViewModel.hideButtonUp()
                         playerViewModel.hideButtonDown()
                         playerViewModel.hideButtonChannelList()
@@ -2168,8 +2172,8 @@ class PlayerActivity : FragmentActivity() {
         }
         jobUITimeout = lifecycleScope.launch {
             try{
-                runOnUiThread {
-                    if (!isAndroidTV(this@PlayerActivity)) {
+                activity?.runOnUiThread {
+                    if (!isAndroidTV(requireContext())) {
                         playerViewModel.showButtonUp()
                         playerViewModel.showButtonDown()
                         playerViewModel.showButtonChannelList()
@@ -2193,8 +2197,8 @@ class PlayerActivity : FragmentActivity() {
                 }
                 delay(timeout)
                 ensureActive()
-                runOnUiThread {
-                    if (!isAndroidTV(this@PlayerActivity)) {
+                activity?.runOnUiThread {
+                    if (!isAndroidTV(requireContext())) {
                         playerViewModel.hideButtonUp()
                         playerViewModel.hideButtonDown()
                         playerViewModel.hideButtonChannelList()
@@ -2224,7 +2228,7 @@ class PlayerActivity : FragmentActivity() {
         jobUIChangeChannel =
         lifecycleScope.launch {
             try{
-                runOnUiThread {
+                activity?.runOnUiThread {
                     playerViewModel.showChannelNumberKeyboard()
                     playerViewModel.hideBottomInfo()
                 }
@@ -2263,7 +2267,7 @@ class PlayerActivity : FragmentActivity() {
     }
 
     @SuppressLint("RestrictedApi")
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    fun handleKeyEvent(event: KeyEvent): Boolean {
         if (channelViewModel.isLoadingChannelList.value == true
             || channelViewModel.isImportingData.value == true
             || channelViewModel.isLoadingChannel.value == true) return true
@@ -2299,7 +2303,7 @@ class PlayerActivity : FragmentActivity() {
                 }
             }
             else{
-                return super.dispatchKeyEvent(event)
+                return false
             }
         }
         else{
@@ -2581,7 +2585,7 @@ class PlayerActivity : FragmentActivity() {
                             return true
                         }
                         else{
-                            if (!isAndroidTV(this)) {
+                            if (!isAndroidTV(requireContext())) {
                                 playerViewModel.hideButtonUp()
                                 playerViewModel.hideButtonDown()
                                 playerViewModel.hideButtonChannelList()
@@ -2633,11 +2637,10 @@ class PlayerActivity : FragmentActivity() {
                     if (binding.channelList.isVisible
                         || binding.rvChannelSettings.isVisible
                         || binding.rvCategoryList.isVisible) { // Navigate through menu
-                        return super.dispatchKeyEvent(event)
+                        return false
                     }
                     else if (binding.rvChannelTrackSettings.isVisible) {
-                        if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
-                        return super.dispatchKeyEvent(event)
+                        return rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0
                     }
                     else if (binding.rvNumberList.isVisible) {
                         return true
@@ -2691,10 +2694,10 @@ class PlayerActivity : FragmentActivity() {
                     if (binding.channelList.isVisible
                         || binding.rvChannelSettings.isVisible
                         || binding.rvCategoryList.isVisible) { // Navigate through menu
-                        return super.dispatchKeyEvent(event)
+                        return false
                     } else if (binding.rvChannelTrackSettings.isVisible) {
                         if (rvAudioTracks.adapter!!.itemCount == 0 || rvSubtitlesTracks.adapter!!.itemCount == 0) return true
-                        return super.dispatchKeyEvent(event)
+                        return false
                     }
                     else if (binding.rvNumberList.isVisible) {
                         return true
@@ -2756,7 +2759,7 @@ class PlayerActivity : FragmentActivity() {
                         return true
                     }
                     else if (binding.rvNumberList.isVisible) {
-                        return super.dispatchKeyEvent(event)
+                        return false
                     }
                     else{
                         if (event.repeatCount > 0) return true
@@ -2774,7 +2777,7 @@ class PlayerActivity : FragmentActivity() {
                     ) {
                         return true
                     } else if (binding.rvNumberList.isVisible) {
-                        return super.dispatchKeyEvent(event)
+                        return false
                     } else if (binding.rvCategoryList.visibility != View.VISIBLE) {
                         if (event.repeatCount > 0) return true
                         playerViewModel.showCategoryList()
@@ -2834,7 +2837,7 @@ class PlayerActivity : FragmentActivity() {
                     }
                     else{
                         ProxySelector.setDefault(originalProxySelector)
-                        return super.dispatchKeyEvent(event)
+                        return false
                     }
                 }
 
@@ -2864,7 +2867,7 @@ class PlayerActivity : FragmentActivity() {
                 }
             }
         }
-        return super.dispatchKeyEvent(event)
+        return false
     }
 
     private fun loadPreviousChannel(){
@@ -2971,11 +2974,11 @@ class PlayerActivity : FragmentActivity() {
 
     private fun resetDotProperties() {
         // Reset each dot to its original properties
-        val dots = listOf(findViewById<View>(R.id.dot1), findViewById(R.id.dot2), findViewById(R.id.dot3))
+        val dots = listOf(activity?.findViewById<View>(R.id.dot1), activity?.findViewById(R.id.dot2), activity?.findViewById(R.id.dot3))
         for (dot in dots) {
-            dot.scaleX = 1f
-            dot.scaleY = 1f
-            dot.alpha = 1f
+            dot?.scaleX = 1f
+            dot?.scaleY = 1f
+            dot?.alpha = 1f
         }
     }
 
@@ -2990,7 +2993,7 @@ class PlayerActivity : FragmentActivity() {
         super.onPause()
         Log.i(TAG, "onPause")
         isActivityPaused = true
-        if (isInPictureInPictureMode) {
+            if (activity?.isInPictureInPictureMode == true) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
             playerViewModel.hideButtonSettings()
@@ -3008,16 +3011,13 @@ class PlayerActivity : FragmentActivity() {
             playerViewModel.hideTimeDate()
             playerViewModel.hideBottomInfo()
         }
-        else{
-            player.playWhenReady = false
-        }
     }
 
     override fun onResume() {
         super.onResume()
         Log.i(TAG, "onResume")
         isActivityPaused = false
-        if (playerViewModel.currentStreamSource.value != null && !isInPictureInPictureMode) {
+        if (playerViewModel.currentStreamSource.value != null && !activity?.isInPictureInPictureMode!! == true) {
             loadStreamSource(playerViewModel.currentStreamSource.value!!)
         }
         player.playWhenReady = true
@@ -3028,7 +3028,6 @@ class PlayerActivity : FragmentActivity() {
         Log.i(TAG, "onStop")
         isActivityStopped = true
         ProxySelector.setDefault(originalProxySelector)
-        player.playWhenReady = false
     }
 
     override fun onDestroy() {
@@ -3039,12 +3038,14 @@ class PlayerActivity : FragmentActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun enterPiPMode() {
-        val aspectRatio = Rational(16, 9) // PiP window aspect ratio
-        val params = PictureInPictureParams.Builder()
-            .setAspectRatio(aspectRatio)
-            .build()
-        enterPictureInPictureMode(params) // Enter PiP mode
+    fun enterPiPModeIfSupported() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val aspectRatio = Rational(16, 9)
+            val pipParams = PictureInPictureParams.Builder()
+                .setAspectRatio(aspectRatio)
+                .build()
+            requireActivity().enterPictureInPictureMode(pipParams)
+        }
     }
 
     /*override fun onUserLeaveHint() {
@@ -3071,16 +3072,7 @@ class PlayerActivity : FragmentActivity() {
         private const val PLAYING_TIMEOUT_MS = 3000L
         private const val TIME_CACHED_URL_MINUTES = 2L
         private const val DEFAULT_REFRESH_RATE = 50.0f
-        private val TAG = PlayerActivity::class.java.name
+        private val TAG = PlayerFragment::class.java.name
     }
 }
 
-class CustomProxySelector(private val proxyHost: String, private val proxyPort: Int) : ProxySelector() {
-    override fun select(uri: URI?): List<Proxy> {
-        return listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort)))
-    }
-
-    override fun connectFailed(uri: URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
-        Log.e("ProxySelector", "Connection failed: $uri", ioe)
-    }
-}

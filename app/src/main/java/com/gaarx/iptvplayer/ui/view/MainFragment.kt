@@ -67,7 +67,7 @@ class MainFragment : BrowseSupportFragment(), OnItemViewClickedListener {
             // Here we handle item clicks and navigate to another screen
             when (item) {
                 "TV en directo" -> {
-                    val intent = Intent(activity, PlayerActivity::class.java)
+                    val intent = Intent(activity, MainActivity::class.java)
                     startActivity(intent)
                 }
                 "Sincronizar con el servidor" -> {

@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@android:color/black"
     android:id="@+id/playerContainer"
-    tools:context=".ui.view.PlayerActivity">
+    tools:context=".ui.view.PlayerFragment">
 
     <androidx.media3.ui.PlayerView
         android:layout_width="match_parent"

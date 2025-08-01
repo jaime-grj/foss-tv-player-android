@@ -35,7 +35,7 @@
         </receiver>
 
         <activity
-            android:name=".ui.view.PlayerActivity"
+            android:name=".ui.view.MainActivity"
             android:exported="true"
             android:supportsPictureInPicture="true"
             android:theme="@style/PlayerTheme">

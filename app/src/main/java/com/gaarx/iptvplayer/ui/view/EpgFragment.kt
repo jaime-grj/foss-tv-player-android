@@ -3,12 +3,15 @@ package com.gaarx.iptvplayer.ui.view
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.os.Bundle
 import android.text.Spanned
 import android.text.SpannedString
 import android.util.Log
+import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
@@ -63,6 +66,16 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
     private val channelViewModel: ChannelViewModel by viewModels()
 
     private lateinit var jobLoadEPG : Job
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
+            val mainActivity = requireActivity() as MainActivity
+            mainActivity.hidePipOverlay() // Hide PiP-style overlay
+            parentFragmentManager.popBackStack() // Go back to PlayerFragment
+        }
+    }
 
     override fun onScheduleClicked(programGuideSchedule: ProgramGuideSchedule<SimpleProgram>) {
         val innerSchedule = programGuideSchedule.program
