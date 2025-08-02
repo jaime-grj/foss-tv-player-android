@@ -161,6 +161,7 @@ class PlayerFragment : Fragment() {
 
     private var isActivityPaused: Boolean = false
     private var isActivityStopped: Boolean = false
+    private var isInEPGPictureInPictureMode: Boolean = false
 
     private var currentAudioTrack: AudioTrack? = null
     private var currentVideoTrack: VideoTrack? = null
@@ -237,11 +238,11 @@ class PlayerFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         parentFragmentManager.setFragmentResultListener("channelRequestKey", this) { _, bundle ->
             val channelId = bundle.getLong("channelId", 0L)
             Log.d("PlayerFragment", "Received channelId: $channelId")
             playerViewModel.setIncomingChannelId(channelId)
+            isInEPGPictureInPictureMode = false
         }
     }
 
@@ -876,6 +877,7 @@ class PlayerFragment : Fragment() {
                     .replace(R.id.fragment_container, EpgFragment())
                     .addToBackStack(null)
                     .commit()
+                isInEPGPictureInPictureMode = true
             }
             ChannelSettings.UPDATE_CHANNEL_LIST -> {
                 lifecycleScope.launch {
@@ -3020,7 +3022,7 @@ class PlayerFragment : Fragment() {
         super.onPause()
         Log.i(TAG, "onPause")
         isActivityPaused = true
-        if (activity?.isInPictureInPictureMode == true) {
+        if (isInEPGPictureInPictureMode) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
             playerViewModel.hideButtonSettings()
@@ -3037,6 +3039,9 @@ class PlayerFragment : Fragment() {
             playerViewModel.hideChannelNumberKeyboard()
             playerViewModel.hideTimeDate()
             playerViewModel.hideBottomInfo()
+        }
+        else{
+            player.playWhenReady = false
         }
     }
 
@@ -3055,6 +3060,9 @@ class PlayerFragment : Fragment() {
         Log.i(TAG, "onStop")
         isActivityStopped = true
         ProxySelector.setDefault(originalProxySelector)
+        if (!isInEPGPictureInPictureMode){
+            player.playWhenReady = false
+        }
     }
 
     override fun onDestroy() {
@@ -3066,13 +3074,11 @@ class PlayerFragment : Fragment() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun enterPiPModeIfSupported() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val aspectRatio = Rational(16, 9)
-            val pipParams = PictureInPictureParams.Builder()
-                .setAspectRatio(aspectRatio)
-                .build()
-            requireActivity().enterPictureInPictureMode(pipParams)
-        }
+        val aspectRatio = Rational(16, 9)
+        val pipParams = PictureInPictureParams.Builder()
+            .setAspectRatio(aspectRatio)
+            .build()
+        requireActivity().enterPictureInPictureMode(pipParams)
     }
 
     /*override fun onUserLeaveHint() {

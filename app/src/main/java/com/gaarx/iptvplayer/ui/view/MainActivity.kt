@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.gaarx.iptvplayer.R
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.core.view.isVisible
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -48,7 +49,43 @@ class MainActivity : FragmentActivity() {
 
     fun hidePipOverlay() {
         val pipView = findViewById<PlayerView>(R.id.pip_player_view)
+        pipView.player?.playWhenReady = false
         pipView.player?.release()
         pipView.visibility = View.GONE
+    }
+
+    override fun onPause() {
+        val pipView = findViewById<PlayerView>(R.id.pip_player_view)
+        if (pipView.isVisible) {
+            pipView.player?.playWhenReady = false
+        }
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val pipView = findViewById<PlayerView>(R.id.pip_player_view)
+        if (pipView.isVisible) {
+            pipView.player?.playWhenReady = true
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val pipView = findViewById<PlayerView>(R.id.pip_player_view)
+        pipView.player?.release()
+        pipView.player = null
+    }
+
+    override fun onStop() {
+        val pipView = findViewById<PlayerView>(R.id.pip_player_view)
+        pipView.player?.release()
+        pipView.player = null
+        pipView.visibility = View.GONE
+        super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
     }
 }
