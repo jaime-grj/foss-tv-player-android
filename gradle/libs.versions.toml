@@ -7,6 +7,7 @@ fragmentKtx = "1.8.8"
 glide = "4.16.0"
 gson = "2.13.1"
 hiltAndroidCompiler = "2.57"
+jodaTime = "2.14.0"
 json = "20250517"
 jsonpathkt = "2.0.1"
 jsoup = "1.21.1"
@@ -24,6 +25,7 @@ recyclerview = "1.4.0"
 roomVersion = "2.7.2"
 rxandroid = "3.0.2"
 rxjava = "3.1.11"
+threetenabp = "1.4.9"
 
 [libraries]
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
@@ -44,6 +46,7 @@ glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroidCompiler" }
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hiltAndroidCompiler" }
+joda-time = { module = "joda-time:joda-time", version.ref = "jodaTime" }
 json = { module = "org.json:json", version.ref = "json" }
 jsonpathkt = { module = "com.nfeld.jsonpathkt:jsonpathkt", version.ref = "jsonpathkt" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
@@ -61,6 +64,7 @@ media3-ui = { module = "com.amazon.android:media3-ui", version.ref = "media3Exop
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "converterGson" }
 rxandroid = { module = "io.reactivex.rxjava3:rxandroid", version.ref = "rxandroid" }
 rxjava = { module = "io.reactivex.rxjava3:rxjava", version.ref = "rxjava" }
+threetenabp = { module = "com.jakewharton.threetenabp:threetenabp", version.ref = "threetenabp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

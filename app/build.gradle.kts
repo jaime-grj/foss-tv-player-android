@@ -111,9 +111,8 @@ dependencies {
     implementation(libs.glide)
     ksp (libs.glide.compiler)
 
-    implementation("joda-time:joda-time:2.14.0")
-    implementation("com.github.kirich1409:viewbindingpropertydelegate-noreflection:1.5.9")
-    api("com.jakewharton.threetenabp:threetenabp:1.4.9")
+    implementation(libs.joda.time)
+    api(libs.threetenabp)
 
     // RxJava
     implementation(libs.rxandroid)
