@@ -59,12 +59,12 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     // ExoPlayer & FFmpeg
-    implementation("com.amazon.android:media3-exoplayer:1.3.1")
-    implementation("com.amazon.android:media3-exoplayer-dash:1.3.1")
-    implementation("com.amazon.android:media3-exoplayer-hls:1.3.1")
-    implementation("com.amazon.android:media3-ui:1.3.1")
-    implementation("com.amazon.android:media3-datasource-rtmp:1.3.1")
-    implementation("com.amazon.android:media3-datasource-cronet:1.3.1")
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.dash)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.datasource.rtmp)
+    implementation(libs.media3.datasource.cronet)
     implementation(files("../libs/lib-decoder-ffmpeg-release.aar"))
     implementation(files("../libs/lib-decoder-av1-release.aar"))
 
@@ -107,16 +107,17 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.fragment.ktx)
 
-    //implementation(libs.extension.okhttp) // OkHttp extension for ExoPlayer
-    //implementation(libs.okhttp) // OkHttp library
-    implementation("com.github.bumptech.glide:glide:4.11.0")
-    kapt ("com.github.bumptech.glide:compiler:4.11.0")
+    // Glide
+    implementation(libs.glide)
+    ksp (libs.glide.compiler)
+
     implementation("joda-time:joda-time:2.10.14")
     implementation("com.github.kirich1409:viewbindingpropertydelegate-noreflection:1.5.6")
     api("com.jakewharton.threetenabp:threetenabp:1.4.7")
 
-    implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
-    implementation("io.reactivex.rxjava3:rxjava:3.0.6")
+    // RxJava
+    implementation(libs.rxandroid)
+    implementation(libs.rxjava)
 
     implementation(project(":library"))
 }
