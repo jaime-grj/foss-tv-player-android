@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 import com.gaarx.iptvplayer.domain.model.MediaInfo
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
@@ -405,4 +408,10 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _isNumberListMenuVisible.value = false
     }
 
+    private val _incomingChannelId = MutableStateFlow<Long?>(null)
+    val incomingChannelId: StateFlow<Long?> = _incomingChannelId.asStateFlow()
+
+    fun setIncomingChannelId(id: Long) {
+        _incomingChannelId.value = id
+    }
 }

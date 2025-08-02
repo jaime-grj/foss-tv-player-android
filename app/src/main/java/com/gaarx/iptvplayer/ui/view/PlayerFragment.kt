@@ -115,6 +115,7 @@ import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import kotlinx.coroutines.flow.collectLatest
 
 
 @UnstableApi
@@ -168,6 +169,8 @@ class PlayerFragment : Fragment() {
     private var isLongPressDown: Boolean = false
     private var isLongPressUp: Boolean = false
     private var channelIdFastSwitch: Int = 0
+
+    private var hasReceivedChannelId = false
 
     private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -238,18 +241,7 @@ class PlayerFragment : Fragment() {
         parentFragmentManager.setFragmentResultListener("channelRequestKey", this) { _, bundle ->
             val channelId = bundle.getLong("channelId", 0L)
             Log.d("PlayerFragment", "Received channelId: $channelId")
-
-            viewLifecycleOwner.lifecycleScope.launch {
-                channelViewModel.updateIsLoadingChannel(true)
-                val newChannel = channelViewModel.getChannelById(channelId)
-                if (newChannel != null) {
-                    channelViewModel.updateCurrentCategoryId(-1L)
-                    channelViewModel.updateLastCategoryLoaded(-1L)
-                    playerViewModel.updateCategoryName("Favoritos")
-                    channelViewModel.updateIsLoadingChannel(false)
-                    loadChannel(newChannel)
-                }
-            }
+            playerViewModel.setIncomingChannelId(channelId)
         }
     }
 
@@ -297,49 +289,63 @@ class PlayerFragment : Fragment() {
         }
 
         lifecycleScope.launch {
-            val lastChannelId = channelViewModel.getLastChannelLoaded()
-            val lastCategoryId = channelViewModel.getLastCategoryLoaded()
-            Log.i("PlayerActivity", "lastChannelId: $lastChannelId. lastCategoryId: $lastCategoryId")
-
-            val channelCount = channelViewModel.getChannelCount()
-            if (channelCount == 0) {
-                channelViewModel.updateIsImportingData(true)
-                channelViewModel.importJSONData()
-                channelViewModel.updateIsImportingData(false)
-                channelViewModel.updateEPG()
-                channelViewModel.updateCurrentCategoryId(-1L)
-                playerViewModel.updateCategoryName("")
-                try{
-                    loadChannel(channelViewModel.getChannel(-1L, 1))
-                }catch (e: Exception){
-                    Log.e("PlayerActivity", "Error: ${e.message}")
-                }
-            }
-            else if (lastChannelId != 0L && lastCategoryId != 0L){
-                val channel = channelViewModel.getChannelById(lastChannelId)
-                println("lastcategoryid: $lastCategoryId")
-                if (channel != null) {
-                    channelViewModel.updateCurrentCategoryId(lastCategoryId)
-                    val category = channelViewModel.getCategoryById(lastCategoryId)
-                    Log.i("PlayerActivity", "category: $category")
-                    if (category != null) {
-                        playerViewModel.updateCategoryName(category.name)
+            playerViewModel.incomingChannelId.collectLatest { channelId ->
+                if (channelId != null) {
+                    channelViewModel.updateIsLoadingChannel(true)
+                    val newChannel = channelViewModel.getChannelById(channelId)
+                    if (newChannel != null) {
+                        channelViewModel.updateCurrentCategoryId(-1L)
+                        channelViewModel.updateLastCategoryLoaded(-1L)
+                        playerViewModel.updateCategoryName("Favoritos")
+                        channelViewModel.updateIsLoadingChannel(false)
+                        loadChannel(newChannel)
                     }
-                    loadChannel(channel)
-                }
-                else{
-                    channelViewModel.updateCurrentCategoryId(-1L)
-                    playerViewModel.updateCategoryName("")
-                    loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                } else {
+                    val lastChannelId = channelViewModel.getLastChannelLoaded()
+                    val lastCategoryId = channelViewModel.getLastCategoryLoaded()
+                    Log.i(
+                        "PlayerActivity",
+                        "lastChannelId: $lastChannelId. lastCategoryId: $lastCategoryId"
+                    )
+
+                    val channelCount = channelViewModel.getChannelCount()
+                    if (channelCount == 0) {
+                        channelViewModel.updateIsImportingData(true)
+                        channelViewModel.importJSONData()
+                        channelViewModel.updateIsImportingData(false)
+                        channelViewModel.updateEPG()
+                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCategoryName("")
+                        try {
+                            loadChannel(channelViewModel.getChannel(-1L, 1))
+                        } catch (e: Exception) {
+                            Log.e("PlayerActivity", "Error: ${e.message}")
+                        }
+                    } else if (lastChannelId != 0L && lastCategoryId != 0L) {
+                        val channel = channelViewModel.getChannelById(lastChannelId)
+                        println("lastcategoryid: $lastCategoryId")
+                        if (channel != null) {
+                            channelViewModel.updateCurrentCategoryId(lastCategoryId)
+                            val category = channelViewModel.getCategoryById(lastCategoryId)
+                            Log.i("PlayerActivity", "category: $category")
+                            if (category != null) {
+                                playerViewModel.updateCategoryName(category.name)
+                            }
+                            loadChannel(channel)
+                        } else {
+                            channelViewModel.updateCurrentCategoryId(-1L)
+                            playerViewModel.updateCategoryName("")
+                            loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                        }
+                    } else {
+                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCategoryName("")
+                        loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
+                    }
+                    channelViewModel.updateIsLoadingChannel(false)
+                    initCategoryList()
                 }
             }
-            else{
-                channelViewModel.updateCurrentCategoryId(-1L)
-                playerViewModel.updateCategoryName("")
-                loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
-            }
-            channelViewModel.updateIsLoadingChannel(false)
-            initCategoryList()
         }
     }
 
