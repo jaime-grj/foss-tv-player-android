@@ -290,7 +290,9 @@ class PlayerFragment : Fragment() {
                 val channel = channelViewModel.currentChannel.value
                 val source = playerViewModel.currentStreamSource.value
                 if (channel != null && source != null) {
-                    streamSourceManager.tryNextStreamSource(channel, source)
+                    lifecycleScope.launch {
+                        streamSourceManager.tryNextStreamSource(channel, source)
+                    }
                 }
             }
         )
@@ -1136,8 +1138,8 @@ class PlayerFragment : Fragment() {
         Log.i(TAG, streamSources.toString())
         if (streamSources.isNotEmpty()) {
             loadStreamSource(streamSources.minBy { it.index })
-            playerViewModel.updateTriesCountForEachSource(1)
-            playerViewModel.updateSourcesTriedCount(1)
+            playerViewModel.updateTriesCountForEachSource(0)
+            playerViewModel.updateSourcesTriedCount(0)
         }
         else{
             println("No stream sources found for channel: $channel")
@@ -1184,7 +1186,7 @@ class PlayerFragment : Fragment() {
                 val currentChannel = channelViewModel.currentChannel.value
                 val currentStreamSource = playerViewModel.currentStreamSource.value
                 if (currentChannel != null && currentStreamSource != null) {
-                    streamSourceManager.tryNextStreamSource(currentChannel, currentStreamSource)
+                    lifecycleScope.launch { streamSourceManager.tryNextStreamSource(currentChannel, currentStreamSource) }
                 }
             }
         }
@@ -1591,8 +1593,8 @@ class PlayerFragment : Fragment() {
                             else{
                                 playerViewModel.updateIsSourceForced(true)
                             }
-                            playerViewModel.updateTriesCountForEachSource(1)
-                            playerViewModel.updateSourcesTriedCount(1)
+                            playerViewModel.updateTriesCountForEachSource(0)
+                            playerViewModel.updateSourcesTriedCount(0)
                             playerViewModel.hideAnimatedLoadingIcon()
                             loadStreamSource(streamSource)
                             playerViewModel.hideTrackMenu()

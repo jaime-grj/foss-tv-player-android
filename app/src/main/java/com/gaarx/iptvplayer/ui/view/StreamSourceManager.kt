@@ -18,7 +18,9 @@ import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarx.iptvplayer.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.chromium.base.ThreadUtils.runOnUiThread
 import java.net.ProxySelector
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -103,38 +105,39 @@ class StreamSourceManager(
 
             // Now hand off to playerManager to load into player
             playerManager.prepareMediaSource(streamSource, headers, url)
+            runOnUiThread{
+                playerViewModel.updateCurrentStreamSource(streamSource)
+            }
 
             // Start timeout
             timerManager.startSourceLoadingTimer {
                 val channel = channelViewModel.currentChannel.value
                 val source = playerViewModel.currentStreamSource.value
                 if (channel != null && source != null) {
-                    tryNextStreamSource(
-                        channel,
-                        source
-                    ) // You can move this here or keep in fragment
+                    lifecycleScope.launch { tryNextStreamSource(channel,source) }
                 }
             }
         }
     }
 
-    fun tryNextStreamSource(
+    suspend fun tryNextStreamSource(
         currentChannel: ChannelItem,
         currentStreamSource: StreamSourceItem
     ) {
         Log.i(TAG, "Trying next stream source")
-
         cancelTimers()
 
         if (player.isPlaying || player.isLoading) {
             player.stop()
         }
+        delay(500L)
 
         if (playerViewModel.isSourceForced.value == true) {
             retryForcedSource(currentStreamSource)
         } else {
             retryAutoSelectSource(currentChannel, currentStreamSource)
         }
+
     }
 
     private fun cancelTimers() {
@@ -145,7 +148,7 @@ class StreamSourceManager(
 
     private fun retryForcedSource(streamSource: StreamSourceItem) {
         playerViewModel.updateTriesCountForEachSource(
-            playerViewModel.triesCountForEachSource.value?.plus(1) ?: 1
+            playerViewModel.triesCountForEachSource.value?.plus(1) ?: 0
         )
 
         if ((playerViewModel.triesCountForEachSource.value ?: 0) > TRIES_EACH_SOURCE) {
@@ -154,39 +157,43 @@ class StreamSourceManager(
             playerViewModel.showErrorMessage()
             playerViewModel.hideAnimatedLoadingIcon()
             playerViewModel.updateTriesCountForEachSource(0)
-        } else {
-            lifecycleScope.launch {
-                loadStreamSource(streamSource)
-            }
+        }
+        lifecycleScope.launch {
+            loadStreamSource(streamSource)
         }
     }
 
     private fun retryAutoSelectSource(channel: ChannelItem, currentStreamSource: StreamSourceItem) {
         val streamSources = channel.streamSources.sortedBy { it.index }
         val currentIndex = currentStreamSource.index
+        val currentSourcePosition = streamSources.indexOfFirst { it.index == currentIndex }
 
-        val nextSource = streamSources.firstOrNull { it.index > currentIndex }
-            ?: streamSources.firstOrNull()
+        val triesCount = (playerViewModel.triesCountForEachSource.value ?: 0) + 1
+        playerViewModel.updateTriesCountForEachSource(triesCount)
+        Log.d(TAG, "Tries for source index $currentIndex: $triesCount")
 
-        if (nextSource == null) {
-            showFinalError()
-        }
+        if (triesCount >= TRIES_EACH_SOURCE) {
+            playerViewModel.updateTriesCountForEachSource(0)
 
-        val updatedTries = (playerViewModel.triesCountForEachSource.value ?: 0) + 1
-        playerViewModel.updateTriesCountForEachSource(updatedTries)
-
-        if (updatedTries > TRIES_EACH_SOURCE) {
             val sourcesTried = (playerViewModel.sourcesTriedCount.value ?: 0) + 1
             playerViewModel.updateSourcesTriedCount(sourcesTried)
-            playerViewModel.updateTriesCountForEachSource(1)
+            Log.d(TAG, "Sources tried so far: $sourcesTried of ${streamSources.size}")
 
             if (sourcesTried >= streamSources.size) {
                 showFinalError()
+                playerViewModel.updateSourcesTriedCount(0)
             }
-        }
 
-        lifecycleScope.launch {
-            loadStreamSource(nextSource!!)
+            val nextIndex = (currentSourcePosition + 1) % streamSources.size
+            val nextSource = streamSources[nextIndex]
+
+            lifecycleScope.launch {
+                loadStreamSource(nextSource)
+            }
+        } else {
+            lifecycleScope.launch {
+                loadStreamSource(currentStreamSource)
+            }
         }
     }
 

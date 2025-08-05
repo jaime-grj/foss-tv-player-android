@@ -337,8 +337,8 @@ class PlayerManager(
                         playerViewModel.showMediaInfo()
                     }
                     timerManager.startCheckPlayingCorrectlyTimer{
-                        playerViewModel.updateSourcesTriedCount(1)
-                        playerViewModel.updateTriesCountForEachSource(1)
+                        playerViewModel.updateSourcesTriedCount(0)
+                        playerViewModel.updateTriesCountForEachSource(0)
                     }
                 }
                 binding.playerView.keepScreenOn = isPlaying
@@ -624,7 +624,6 @@ class PlayerManager(
         currentAudioTrack = null
         currentVideoTrack = null
         currentSubtitlesTrack = null
-
 
         val cronetEngine = CronetEngine.Builder(context).build()
         val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {

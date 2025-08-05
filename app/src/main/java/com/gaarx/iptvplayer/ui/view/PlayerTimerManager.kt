@@ -118,16 +118,4 @@ class PlayerTimerManager {
         }
     }
 
-/*    @OptIn(UnstableApi::class)
-    private fun cancelTryNextStreamSourceTimer() {
-        Log.i(PlayerFragment.Companion.TAG, "cancelTryNextStreamSourceTimer")
-        handler.removeCallbacks(tryNextStreamSourceRunnable)
-    }
-
-    private val tryNextStreamSourceRunnable = Runnable {
-        Log.i(PlayerFragment.Companion.TAG, "Try Next Stream Source")
-        val currentChannel = channelViewModel.currentChannel.value ?: return@Runnable
-        val currentStreamSource = playerViewModel.currentStreamSource.value ?: return@Runnable
-        tryNextStreamSource(currentChannel, currentStreamSource)
-    }*/
 }
