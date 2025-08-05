@@ -36,14 +36,10 @@ import com.gaarx.iptvplayer.core.Constants.DEFAULT_REFRESH_RATE
 import com.gaarx.iptvplayer.core.ytlivedashmanifestparser.LiveDashManifestParser
 import com.gaarx.iptvplayer.data.services.ApiService
 import com.gaarx.iptvplayer.domain.model.AudioTrack
-import com.gaarx.iptvplayer.domain.model.ChannelSettings
 import com.gaarx.iptvplayer.domain.model.DrmTypeItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import com.gaarx.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarx.iptvplayer.domain.model.VideoTrack
-import com.gaarx.iptvplayer.ui.adapters.AudioTracksAdapter
-import com.gaarx.iptvplayer.ui.adapters.SubtitlesTracksAdapter
-import com.gaarx.iptvplayer.ui.adapters.VideoTracksAdapter
 import com.gaarx.iptvplayer.ui.util.PlayerTimerManager
 import com.gaarx.iptvplayer.ui.view.PlayerFragment.Companion.TAG
 import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
@@ -54,7 +50,7 @@ import java.text.DecimalFormat
 import java.util.Locale
 
 @UnstableApi
-class PlayerInitializer(
+class PlayerManager(
     private val context: Context,
     private val binding: FragmentPlayerBinding,
     private val playerViewModel: PlayerViewModel,
@@ -63,6 +59,7 @@ class PlayerInitializer(
     private val timerManager: PlayerTimerManager,
     private val onIsPlayingChanged: (() -> Unit)? = null,
     private val onVideoFormatChanged: ((Float) -> Unit)? = null,
+    private val onTryNextStreamSource: (() -> Unit)? = null
 ) {
 
     lateinit var player: ExoPlayer
@@ -185,6 +182,7 @@ class PlayerInitializer(
                         }
                     }
                 }
+                onTryNextStreamSource?.invoke()
             }
 
             override fun onRenderedFirstFrame() {
@@ -276,7 +274,7 @@ class PlayerInitializer(
                             val channel = channelViewModel.currentChannel.value
                             val source = playerViewModel.currentStreamSource.value
                             if (channel != null && source != null) {
-                                //tryNextStreamSource(channel, source)
+                                onTryNextStreamSource?.invoke()
                             }
                         }
                     }

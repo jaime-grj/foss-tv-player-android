@@ -227,7 +227,6 @@ class ApiService {
                 val accessTokenSignature = JsonPath.parse(data)?.read<String>("[3].data.streamPlaybackAccessToken.signature")
 
                 finalUrl = "https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?acmb=e30=&allow_source=true&fast_bread=true&p=&play_session_id=&player_backend=mediaplayer&playlist_include_framerate=true&reassignments_supported=true&sig=${accessTokenSignature}&supported_codecs=avc1&token=${accessTokenValue}&transcode_mode=vbr_v1&cdm=wv&player_version=1.20.0"
-                //url ="https://usher.ttvnw.net/api/channel/hls/${id}.m3u8?client_id=${clientId}&token=${accessTokenValue}&sig=${accessTokenSignature}&allow_source=true&allow_audio_only=true"
             }
             else if (streamSource.streamSourceType == StreamSourceTypeItem.YOUTUBE) {
                 try{

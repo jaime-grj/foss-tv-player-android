@@ -1,6 +1,5 @@
 package com.gaarx.iptvplayer.ui.view
 
-import android.content.Context
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.lifecycle.LifecycleCoroutineScope
@@ -26,7 +25,7 @@ import java.util.concurrent.TimeUnit
 
 @OptIn(UnstableApi::class)
 class StreamSourceManager(
-    private val playerInitializer: PlayerInitializer,
+    private val playerManager: PlayerManager,
     private val playerViewModel: PlayerViewModel,
     private val channelViewModel: ChannelViewModel,
     private val timerManager: PlayerTimerManager,
@@ -38,7 +37,7 @@ class StreamSourceManager(
     private val cacheExpirationTime = TimeUnit.MINUTES.toMillis(TIME_CACHED_URL_MINUTES)
 
     private val player: ExoPlayer
-        get() = playerInitializer.exoPlayer
+        get() = playerManager.exoPlayer
 
     fun loadStreamSource(streamSource: StreamSourceItem) {
         timerManager.cancelSourceLoadingTimer()
@@ -102,8 +101,8 @@ class StreamSourceManager(
             Log.i(TAG, "Stream URL: $url")
             Log.i(TAG, "Headers: $headers")
 
-            // Now hand off to PlayerInitializer to load into player
-            playerInitializer.prepareMediaSource(streamSource, headers, url)
+            // Now hand off to playerManager to load into player
+            playerManager.prepareMediaSource(streamSource, headers, url)
 
             // Start timeout
             timerManager.startSourceLoadingTimer {
@@ -171,7 +170,6 @@ class StreamSourceManager(
 
         if (nextSource == null) {
             showFinalError()
-            return
         }
 
         val updatedTries = (playerViewModel.triesCountForEachSource.value ?: 0) + 1
@@ -184,12 +182,11 @@ class StreamSourceManager(
 
             if (sourcesTried >= streamSources.size) {
                 showFinalError()
-                return
             }
         }
 
         lifecycleScope.launch {
-            loadStreamSource(nextSource)
+            loadStreamSource(nextSource!!)
         }
     }
 

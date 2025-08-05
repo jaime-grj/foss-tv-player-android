@@ -22,6 +22,7 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.view.WindowCompat
 import androidx.leanback.widget.VerticalGridView
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
@@ -62,7 +63,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import java.net.ProxySelector
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
@@ -74,7 +74,6 @@ import com.gaarx.iptvplayer.core.Constants.DEFAULT_REFRESH_RATE
 import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_INFO
-import com.gaarx.iptvplayer.core.Constants.TRIES_EACH_SOURCE
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
 import com.gaarx.iptvplayer.ui.util.PlayerTimerManager
 
@@ -111,14 +110,9 @@ class PlayerFragment : Fragment() {
     private val playerViewModel: PlayerViewModel by activityViewModels()
     private val channelViewModel: ChannelViewModel by activityViewModels()
 
-
-
     //private var originalProxySelector: ProxySelector? = null
 
-    private var isActivityPaused: Boolean = false
-    private var isActivityStopped: Boolean = false
     private var isInEPGPictureInPictureMode: Boolean = false
-
 
     private var isLongPressDown: Boolean = false
     private var isLongPressUp: Boolean = false
@@ -126,7 +120,7 @@ class PlayerFragment : Fragment() {
 
     private var timerManager = PlayerTimerManager()
     private lateinit var lifecycleManager: PlayerLifecycleManager
-    private lateinit var playerInitializer: PlayerInitializer
+    private lateinit var playerManager: PlayerManager
     private lateinit var streamSourceManager: StreamSourceManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -163,7 +157,7 @@ class PlayerFragment : Fragment() {
         lifecycle.addObserver(lifecycleManager)
         initPlayer()
         streamSourceManager = StreamSourceManager(
-            playerInitializer,
+            playerManager,
             playerViewModel,
             channelViewModel,
             timerManager,
@@ -254,7 +248,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun initPlayer() {
-        playerInitializer = PlayerInitializer(
+        playerManager = PlayerManager(
             context = requireContext(),
             binding,
             playerViewModel,
@@ -265,7 +259,7 @@ class PlayerFragment : Fragment() {
                 when (playerViewModel.currentLoadedMenuSetting.value) {
                     ChannelSettings.AUDIO_TRACKS -> {
                         val audioTrackList = loadAudioTracks()
-                        val audioTrackLoader = playerInitializer.getAudioTrackLoader()
+                        val audioTrackLoader = playerManager.getAudioTrackLoader()
 
                         rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList, audioTrackLoader)
                         rvAudioTracks.requestFocus()
@@ -273,7 +267,7 @@ class PlayerFragment : Fragment() {
 
                     ChannelSettings.SUBTITLES_TRACKS -> {
                         val subtitlesTrackList = loadSubtitlesTracks()
-                        val subtitlesTrackLoader = playerInitializer.getSubtitlesTrackLoader()
+                        val subtitlesTrackLoader = playerManager.getSubtitlesTrackLoader()
 
                         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList, subtitlesTrackLoader)
                         rvSubtitlesTracks.requestFocus()
@@ -281,7 +275,7 @@ class PlayerFragment : Fragment() {
 
                     ChannelSettings.VIDEO_TRACKS -> {
                         val videoTrackList = loadVideoTracks()
-                        val videoTrackLoader = playerInitializer.getVideoTrackLoader()
+                        val videoTrackLoader = playerManager.getVideoTrackLoader()
                         val isQualityForced = playerViewModel.isQualityForced.value == true
 
                         rvVideoTracks.adapter = VideoTracksAdapter(isQualityForced, videoTrackList, videoTrackLoader)
@@ -291,11 +285,18 @@ class PlayerFragment : Fragment() {
             },
             onVideoFormatChanged = { refreshRate ->
                 switchRefreshRate(refreshRate)
+            },
+            onTryNextStreamSource = {
+                val channel = channelViewModel.currentChannel.value
+                val source = playerViewModel.currentStreamSource.value
+                if (channel != null && source != null) {
+                    streamSourceManager.tryNextStreamSource(channel, source)
+                }
             }
         )
 
-        player = playerInitializer.init()
-        trackSelector = playerInitializer.trackSelector
+        player = playerManager.init()
+        trackSelector = playerManager.trackSelector
     }
 
     private fun isAndroidTV(context: Context): Boolean {
@@ -312,7 +313,7 @@ class PlayerFragment : Fragment() {
         playerViewModel.updateCurrentItemSelectedFromChannelList(0)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity?.window?.setDecorFitsSystemWindows(false)
+            WindowCompat.setDecorFitsSystemWindows(activity?.window!!, false)
             activity?.window?.insetsController?.let { controller ->
                 controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
                 controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -342,6 +343,7 @@ class PlayerFragment : Fragment() {
         rvNumberList = binding.rvNumberList
     }
 
+    @SuppressLint("SetTextI18n")
     private fun setupObservers(){
         playerViewModel.channelName.observe(viewLifecycleOwner) { channelName ->
             binding.channelName.text = channelName
@@ -799,13 +801,13 @@ class PlayerFragment : Fragment() {
             if (playerViewModel.isSettingsMenuVisible.value == true) {
                 playerViewModel.hideSettingsMenu()
             }
-            playerInitializer.loadAudioTrack(selectedAudioTrack)
+            playerManager.loadAudioTrack(selectedAudioTrack)
         }
     }
 
     private fun initSubtitlesTracksMenu() {
         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(listOf()) { selectedSubtitlesTrack ->
-            playerInitializer.loadSubtitlesTrack(selectedSubtitlesTrack)
+            playerManager.loadSubtitlesTrack(selectedSubtitlesTrack)
         }
     }
 
@@ -856,7 +858,7 @@ class PlayerFragment : Fragment() {
     private fun loadAudioTracksMenu(){
         val audioTrackList = loadAudioTracks()
         rvAudioTracks.adapter = AudioTracksAdapter(audioTrackList) { selectedAudioTrack ->
-            playerInitializer.loadAudioTrack(selectedAudioTrack)
+            playerManager.loadAudioTrack(selectedAudioTrack)
         }
         playerViewModel.showTrackMenu()
         rvAudioTracks.requestFocus()
@@ -866,7 +868,7 @@ class PlayerFragment : Fragment() {
     private fun loadSubtitlesTracksMenu() {
         val subtitlesTrackList = loadSubtitlesTracks()
         rvSubtitlesTracks.adapter = SubtitlesTracksAdapter(subtitlesTrackList) { selectedSubtitlesTrack ->
-            playerInitializer.loadSubtitlesTrack(selectedSubtitlesTrack)
+            playerManager.loadSubtitlesTrack(selectedSubtitlesTrack)
         }
         playerViewModel.showTrackMenu()
         rvSubtitlesTracks.requestFocus()
@@ -883,7 +885,7 @@ class PlayerFragment : Fragment() {
             else{
                 playerViewModel.updateIsQualityForced(true)
             }
-            playerInitializer.loadVideoTrack(selectedVideoTrack)
+            playerManager.loadVideoTrack(selectedVideoTrack)
         }
         playerViewModel.showTrackMenu()
         rvVideoTracks.requestFocus()
@@ -1549,7 +1551,7 @@ class PlayerFragment : Fragment() {
                             val position = rvAudioTracks.getChildAdapterPosition(focusedView)
                             println("Focused Item Position: $position")
                             val audioTrack = (rvAudioTracks.adapter as? AudioTracksAdapter)?.getItemAtPosition(position) as AudioTrack
-                            playerInitializer.loadAudioTrack(audioTrack)
+                            playerManager.loadAudioTrack(audioTrack)
                             playerViewModel.hideTrackMenu()
                         }
                         else{
@@ -1562,7 +1564,7 @@ class PlayerFragment : Fragment() {
                             val position = rvSubtitlesTracks.getChildAdapterPosition(focusedView)
                             println("Focused Item Position: $position")
                             val subtitlesTrack = (rvSubtitlesTracks.adapter as? SubtitlesTracksAdapter)?.getItemAtPosition(position) as SubtitlesTrack
-                            playerInitializer.loadSubtitlesTrack(subtitlesTrack)
+                            playerManager.loadSubtitlesTrack(subtitlesTrack)
                             playerViewModel.hideTrackMenu()
                         }
                         else{
@@ -1615,7 +1617,7 @@ class PlayerFragment : Fragment() {
                                 }
                             }
                             catch (_: Exception) {}
-                            playerInitializer.loadVideoTrack(videoTrack)
+                            playerManager.loadVideoTrack(videoTrack)
                             playerViewModel.hideTrackMenu()
                         }
                         else{
@@ -1953,6 +1955,10 @@ class PlayerFragment : Fragment() {
                         playerViewModel.hideCategoryList()
                         return true
                     }
+                    else if (playerViewModel.isNumberListMenuVisible.value == true) {
+                        playerViewModel.hideNumberListMenu()
+                        return true
+                    }
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
                         playerViewModel.hideChannelNumberKeyboard()
                         currentNumberInput.clear()
@@ -2116,14 +2122,12 @@ class PlayerFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         Log.i(TAG, "onStart")
-        isActivityStopped = false
         player.playWhenReady = true
     }
 
     override fun onPause() {
         super.onPause()
         Log.i(TAG, "onPause")
-        isActivityPaused = true
         if (isInEPGPictureInPictureMode) {
             player.playWhenReady = true
             playerViewModel.hideButtonPiP()
@@ -2150,7 +2154,6 @@ class PlayerFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         Log.i(TAG, "onResume")
-        isActivityPaused = false
         if (playerViewModel.currentStreamSource.value != null && !activity?.isInPictureInPictureMode!!) {
             loadStreamSource(playerViewModel.currentStreamSource.value!!)
         }
@@ -2160,7 +2163,6 @@ class PlayerFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         Log.i(TAG, "onStop")
-        isActivityStopped = true
         //ProxySelector.setDefault(originalProxySelector)
         if (!isInEPGPictureInPictureMode){
             player.playWhenReady = false
@@ -2198,4 +2200,3 @@ class PlayerFragment : Fragment() {
         val TAG: String = PlayerFragment::class.java.name
     }
 }
-
