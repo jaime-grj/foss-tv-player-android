@@ -1,6 +1,8 @@
 package com.gaarx.iptvplayer.core
 
 import android.util.Base64
+import androidx.media3.common.C
+import androidx.media3.common.Tracks
 import org.json.JSONObject
 import java.util.Locale
 import kotlin.math.abs
@@ -126,6 +128,24 @@ class MediaUtils {
                 e.printStackTrace()
                 return ""
             }
+        }
+
+
+        fun getHighestResolution(tracks: Tracks) : Int {
+            var lastPixelCount = 0
+            var lastHeight = 0
+            for (trackGroup in tracks.groups) {
+                if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
+                    for (i in 0 until trackGroup.length) {
+                        val trackFormat = trackGroup.getTrackFormat(i)
+                        if ((trackFormat.height * trackFormat.width) > lastPixelCount) {
+                            lastHeight = trackFormat.height
+                            lastPixelCount = trackFormat.height * trackFormat.width
+                        }
+                    }
+                }
+            }
+            return lastHeight
         }
     }
 }
