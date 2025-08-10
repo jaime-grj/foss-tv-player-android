@@ -55,6 +55,17 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
     private val _isNumberListMenuVisible = MutableLiveData<Boolean>()
     val isNumberListMenuVisible: LiveData<Boolean> get() = _isNumberListMenuVisible
 
+    private val _currentNumberInput = MutableLiveData<StringBuilder>()
+    val currentNumberInput: LiveData<StringBuilder> get() = _currentNumberInput
+
+    fun updateCurrentNumberInput(newInput: StringBuilder) {
+        _currentNumberInput.value = newInput
+    }
+
+    fun getCurrentNumberInput(): StringBuilder {
+        return _currentNumberInput.value ?: StringBuilder()
+    }
+
     fun onCreate() {
         _isSourceForced.value = false
         _isQualityForced.value = false

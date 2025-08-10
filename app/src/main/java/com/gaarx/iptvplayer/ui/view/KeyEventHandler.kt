@@ -19,6 +19,7 @@ import com.gaarx.iptvplayer.ui.adapters.*
 import com.gaarx.iptvplayer.ui.view.PlayerFragment.Companion.TAG
 import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarx.iptvplayer.ui.viewmodel.PlayerViewModel
+import com.gaarx.iptvplayer.util.DeviceUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -54,8 +55,13 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
 ) {
     var isLongPressDown = false
     var isLongPressUp = false
-    var channelIdFastSwitch = 0
-    var currentNumberInput = StringBuilder()
+    var channelIdFastSwitch = 0 /*if (channelViewModel.currentCategoryId.value == -1L) {
+        uiScope.launch { channelViewModel.getLastChannelLoaded()
+            channelViewModel.currentChannel.value?.indexFavourite ?: 0 }
+    }
+    else {
+        channelViewModel.currentChannel.value?.indexGroup!!
+    }*/
 
     // Jobs moved from PlayerFragment
     private lateinit var jobFastChangeChannel: kotlinx.coroutines.Job
@@ -63,16 +69,6 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
 
     @OptIn(UnstableApi::class)
     fun handle(event: KeyEvent): Boolean {
-        // entire handleKeyEvent logic from PlayerFragment pasted here
-        // — nothing changed except `binding`, `playerViewModel`, etc.
-        // now come from constructor
-        // and `loadChannel()` calls replaced with `onLoadChannel(channel)`
-        // loadNextChannel -> onLoadNextChannel()
-        // onLoadPreviousChannel -> ononLoadPreviousChannel()
-        // loadStreamSource -> ononLoadStreamSource(source)
-        // showChannelInfoWithTimeout -> onShowChannelInfoWithTimeout()
-        // showFullChannelUIWithTimeout -> onShowFullChannelUIWithTimeout(TIMEOUT_UI_INFO)
-        // showChannelNumberWithTimeoutAndChangeChannel -> onShowChannelNumberWithTimeoutAndChangeChannel()
         if (channelViewModel.isLoadingChannelList.value == true
             || channelViewModel.isImportingData.value == true
             || channelViewModel.isLoadingChannel.value == true) return true
@@ -316,8 +312,8 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                         if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
                         if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
                         if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
-                        if (currentNumberInput.length >= MAX_DIGITS) {
-                            currentNumberInput.clear()
+                        if (playerViewModel.getCurrentNumberInput().length >= MAX_DIGITS) {
+                            playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                         }
 
                         val focusedView = rvNumberList.focusedChild
@@ -327,9 +323,9 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                             val selectedNumber = (rvNumberList.adapter as? NumberListAdapter)?.getItemAtPosition(position) as Int
                             val number = selectedNumber.toString()
 
-                            currentNumberInput.append(number)
+                            playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().append(number))
 
-                            binding.channelNumberKeyboard.text = currentNumberInput.toString()
+                            binding.channelNumberKeyboard.text = playerViewModel.getCurrentNumberInput().toString()
 
                             onShowChannelNumberWithTimeoutAndChangeChannel()
 
@@ -341,9 +337,9 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
                         channelViewModel.updateIsLoadingChannel(true)
                         if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) jobUIChangeChannel.cancel()
-                        val channelIndex = currentNumberInput.toString().toInt()
+                        val channelIndex = playerViewModel.getCurrentNumberInput().toString().toInt()
                         playerViewModel.hideChannelNumberKeyboard()
-                        currentNumberInput.clear()
+                        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                         uiScope.launch {
                             try{
                                 channelViewModel.updateIsLoadingChannel(true)
@@ -360,15 +356,15 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                 else{
                                     onShowChannelInfoWithTimeout()
                                 }
-                                currentNumberInput.clear()
+                                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                                 channelViewModel.updateIsLoadingChannel(false)
                             } catch (_: ChannelNotFoundException) {
                                 playerViewModel.hideChannelNumberKeyboard()
-                                currentNumberInput.clear()
+                                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                                 channelViewModel.updateIsLoadingChannel(false)
                             } catch (_: kotlin.NumberFormatException) {
                                 playerViewModel.hideChannelNumberKeyboard()
-                                currentNumberInput.clear()
+                                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                                 channelViewModel.updateIsLoadingChannel(false)
                             }
                         }
@@ -430,7 +426,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                             }
                             if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
                                 playerViewModel.hideChannelNumberKeyboard()
-                                currentNumberInput.clear()
+                                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                             }
                             onShowFullChannelUIWithTimeout(TIMEOUT_UI_INFO)
                         }
@@ -642,7 +638,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                     }
                     else if (playerViewModel.isChannelNumberKeyboardVisible.value == true) {
                         playerViewModel.hideChannelNumberKeyboard()
-                        currentNumberInput.clear()
+                        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                         return true
                     }
                     else if (playerViewModel.isChannelNumberVisible.value == true) {
@@ -669,15 +665,15 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                     if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
                     if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
                     if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
-                    if (currentNumberInput.length >= MAX_DIGITS) {
-                        currentNumberInput.clear()
+                    if (playerViewModel.getCurrentNumberInput().length >= MAX_DIGITS) {
+                        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                     }
 
                     val number = (code - KeyEvent.KEYCODE_0).toString()
 
-                    currentNumberInput.append(number)
+                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().append(number))
 
-                    binding.channelNumberKeyboard.text = currentNumberInput.toString()
+                    binding.channelNumberKeyboard.text = playerViewModel.getCurrentNumberInput().toString()
 
                     onShowChannelNumberWithTimeoutAndChangeChannel()
 

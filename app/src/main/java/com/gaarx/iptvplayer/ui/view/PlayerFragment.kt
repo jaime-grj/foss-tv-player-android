@@ -73,6 +73,7 @@ import com.gaarx.iptvplayer.core.Constants.DEFAULT_REFRESH_RATE
 import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
+import com.gaarx.iptvplayer.util.DeviceUtil
 
 @UnstableApi
 @AndroidEntryPoint
@@ -85,8 +86,6 @@ class PlayerFragment : Fragment() {
     private lateinit var trackSelector: DefaultTrackSelector
 
     private var mediaInfo: MediaInfo = MediaInfo()
-
-    private var currentNumberInput = StringBuilder()
 
     private lateinit var jobUITimeout: Job
     private lateinit var jobLoadStreamSource: Job
@@ -324,8 +323,6 @@ class PlayerFragment : Fragment() {
         trackSelector = playerManager.trackSelector
     }
 
-
-
     @SuppressLint("SetTextI18n")
     private fun initUI() {
         playerViewModel.onCreate()
@@ -381,22 +378,6 @@ class PlayerFragment : Fragment() {
 
         playerViewModel.timeDate.observe(viewLifecycleOwner) { timeDate ->
             binding.timeDate.text = timeDate
-        }
-
-        playerViewModel.isChannelListVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.channelList.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isSettingsMenuVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.rvChannelSettings.visibility = if (isVisible){
-                View.VISIBLE
-            } else{
-                View.GONE
-            }
-        }
-
-        playerViewModel.isTrackMenuVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.rvChannelTrackSettings.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
         playerViewModel.mediaInfo.observe(viewLifecycleOwner) { mediaInfo ->
@@ -513,30 +494,6 @@ class PlayerFragment : Fragment() {
             }
         }
 
-        playerViewModel.isMediaInfoVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.channelMediaInfo.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isChannelNameVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.channelName.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isChannelNumberVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.channelNumber.visibility = if (isVisible) View.VISIBLE else View.INVISIBLE
-        }
-
-        playerViewModel.isTimeDateVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.timeDate.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isErrorMessageVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.message.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isBottomErrorMessageVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.bottomErrorMessage.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
         playerViewModel.bottomErrorMessage.observe(viewLifecycleOwner) { bottomErrorMessage ->
             binding.bottomErrorMessage.text = bottomErrorMessage
         }
@@ -545,37 +502,27 @@ class PlayerFragment : Fragment() {
             if (isVisible) showLoadingDots() else hideLoadingDots()
         }
 
-        playerViewModel.isPlayerVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.playerView.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonUpVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonUp.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonDownVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonDown.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonSettingsVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonSettings.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonChannelListVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonChannelList.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonPiPVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonPiP.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isButtonCategoryListVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.buttonCategory.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.isChannelNumberKeyboardVisible.observe(viewLifecycleOwner) { isVisible ->
-            binding.channelNumberKeyboard.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
+        binding.playerView.bindVisibility(viewLifecycleOwner, playerViewModel.isPlayerVisible)
+        binding.buttonUp.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonUpVisible)
+        binding.buttonDown.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonDownVisible)
+        binding.buttonSettings.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonSettingsVisible)
+        binding.buttonChannelList.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonChannelListVisible)
+        binding.buttonPiP.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonPiPVisible)
+        binding.buttonCategory.bindVisibility(viewLifecycleOwner, playerViewModel.isButtonCategoryListVisible)
+        binding.channelName.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNameVisible)
+        binding.channelNumber.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNumberVisible)
+        binding.channelNumberKeyboard.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNumberKeyboardVisible)
+        binding.channelBottomInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isBottomInfoVisible)
+        binding.channelMediaInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isMediaInfoVisible)
+        binding.categoryName.bindVisibility(viewLifecycleOwner, playerViewModel.isCategoryNameVisible)
+        binding.timeDate.bindVisibility(viewLifecycleOwner, playerViewModel.isTimeDateVisible)
+        binding.message.bindVisibility(viewLifecycleOwner, playerViewModel.isErrorMessageVisible)
+        binding.bottomErrorMessage.bindVisibility(viewLifecycleOwner, playerViewModel.isBottomErrorMessageVisible)
+        binding.message.bindVisibility(viewLifecycleOwner, playerViewModel.isErrorMessageVisible)
+        binding.rvNumberList.bindVisibility(viewLifecycleOwner, playerViewModel.isNumberListMenuVisible)
+        binding.channelList.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelListVisible)
+        binding.rvChannelSettings.bindVisibility(viewLifecycleOwner, playerViewModel.isSettingsMenuVisible)
+        binding.rvChannelTrackSettings.bindVisibility(viewLifecycleOwner, playerViewModel.isTrackMenuVisible)
 
         channelViewModel.currentProgram.observe(viewLifecycleOwner) { currentProgram ->
             if (currentProgram != null){
@@ -653,15 +600,6 @@ class PlayerFragment : Fragment() {
             }
         }
 
-        playerViewModel.isBottomInfoVisible.observe(viewLifecycleOwner) { isVisible ->
-            if (isVisible) {
-                binding.channelBottomInfo.visibility = View.VISIBLE
-            }
-            else{
-                binding.channelBottomInfo.visibility = View.GONE
-            }
-        }
-
         channelViewModel.currentProgram.observe(viewLifecycleOwner) { currentProgram ->
             if (currentProgram != null){
                 mediaInfo.hasEPG = true
@@ -686,23 +624,6 @@ class PlayerFragment : Fragment() {
             }
         }
 
-        playerViewModel.isCategoryNameVisible.observe(viewLifecycleOwner) { isVisible ->
-            if (isVisible) {
-                binding.categoryName.visibility = View.VISIBLE
-            }
-            else{
-                binding.categoryName.visibility = View.GONE
-            }
-        }
-
-        playerViewModel.isNumberListMenuVisible.observe(viewLifecycleOwner) { isVisible ->
-            if (isVisible) {
-                binding.rvNumberList.visibility = View.VISIBLE
-            }
-            else{
-                binding.rvNumberList.visibility = View.GONE
-            }
-        }
     }
 
     private fun setupClickListeners(){
@@ -1071,15 +992,15 @@ class PlayerFragment : Fragment() {
             if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
             if (playerViewModel.isChannelNumberVisible.value == true) playerViewModel.hideChannelNumber()
             if (playerViewModel.isCategoryNameVisible.value == true) playerViewModel.hideCategoryName()
-            if (currentNumberInput.length >= MAX_DIGITS) {
-                currentNumberInput.clear()
+            if (playerViewModel.getCurrentNumberInput().length >= MAX_DIGITS) {
+                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
             }
 
             val number = (selectedNumber).toString()
 
-            currentNumberInput.append(number)
+            playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().append(number))
 
-            binding.channelNumberKeyboard.text = currentNumberInput.toString()
+            binding.channelNumberKeyboard.text = playerViewModel.getCurrentNumberInput().toString()
 
             showChannelNumberWithTimeoutAndChangeChannel()
         }
@@ -1097,7 +1018,7 @@ class PlayerFragment : Fragment() {
         if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
             jobEPGRender.cancel()
         }
-        currentNumberInput.clear()
+        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
         playerViewModel.hidePlayer()
 
         if (channel.id < 0) {
@@ -1381,18 +1302,18 @@ class PlayerFragment : Fragment() {
                 delay(3000L)
                 ensureActive()
                 channelViewModel.updateIsLoadingChannel(true)
-                val newChannel = channelViewModel.getChannel(categoryId = -1L, currentNumberInput.toString().toInt())
+                val newChannel = channelViewModel.getChannel(categoryId = -1L, playerViewModel.getCurrentNumberInput().toString().toInt())
                 playerViewModel.hideChannelNumberKeyboard()
                 if (newChannel.id != channelViewModel.currentChannel.value?.id) {
                     channelViewModel.updateCurrentCategoryId(-1L)
                     playerViewModel.updateCategoryName("Favoritos")
-                    currentNumberInput.clear()
+                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                     channelViewModel.updateLastCategoryLoaded(-1L)
                     channelViewModel.updateIsLoadingChannel(false)
                     loadChannel(newChannel)
                 }
                 else{
-                    currentNumberInput.clear()
+                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                     channelViewModel.updateIsLoadingChannel(false)
                     showChannelInfoWithTimeout()
                 }
@@ -1402,11 +1323,11 @@ class PlayerFragment : Fragment() {
                 channelViewModel.updateIsLoadingChannel(false)
             } catch (_: ChannelNotFoundException){
                 playerViewModel.hideChannelNumberKeyboard()
-                currentNumberInput.clear()
+                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                 channelViewModel.updateIsLoadingChannel(false)
             } catch (_: NumberFormatException){
                 playerViewModel.hideChannelNumberKeyboard()
-                currentNumberInput.clear()
+                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                 channelViewModel.updateIsLoadingChannel(false)
             }
         }
