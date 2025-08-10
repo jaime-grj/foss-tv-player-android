@@ -114,7 +114,6 @@ class PlayerFragment : Fragment() {
 
     private var isLongPressDown: Boolean = false
     private var isLongPressUp: Boolean = false
-    private var channelIdFastSwitch: Int = 0
 
     private var timerManager = PlayerTimerManager()
     private lateinit var lifecycleManager: PlayerLifecycleManager
@@ -190,7 +189,7 @@ class PlayerFragment : Fragment() {
                     channelViewModel.updateIsLoadingChannel(true)
                     val newChannel = channelViewModel.getChannelById(channelId)
                     if (newChannel != null) {
-                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCurrentCategoryId(-1L)
                         channelViewModel.updateLastCategoryLoaded(-1L)
                         playerViewModel.updateCategoryName("Favoritos")
                         channelViewModel.updateIsLoadingChannel(false)
@@ -210,7 +209,7 @@ class PlayerFragment : Fragment() {
                         channelViewModel.importJSONData()
                         channelViewModel.updateIsImportingData(false)
                         channelViewModel.updateEPG()
-                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCurrentCategoryId(-1L)
                         playerViewModel.updateCategoryName("")
                         try {
                             loadChannel(channelViewModel.getChannel(-1L, 1))
@@ -221,7 +220,7 @@ class PlayerFragment : Fragment() {
                         val channel = channelViewModel.getChannelById(lastChannelId)
                         println("lastcategoryid: $lastCategoryId")
                         if (channel != null) {
-                            channelViewModel.updateCurrentCategoryId(lastCategoryId)
+                            playerViewModel.updateCurrentCategoryId(lastCategoryId)
                             val category = channelViewModel.getCategoryById(lastCategoryId)
                             Log.i("PlayerActivity", "category: $category")
                             if (category != null) {
@@ -229,12 +228,12 @@ class PlayerFragment : Fragment() {
                             }
                             loadChannel(channel)
                         } else {
-                            channelViewModel.updateCurrentCategoryId(-1L)
+                            playerViewModel.updateCurrentCategoryId(-1L)
                             playerViewModel.updateCategoryName("")
                             loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
                         }
                     } else {
-                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCurrentCategoryId(-1L)
                         playerViewModel.updateCategoryName("")
                         loadChannel(channelViewModel.getPreviousChannel(-1L, 1))
                     }
@@ -312,7 +311,7 @@ class PlayerFragment : Fragment() {
                 switchRefreshRate(refreshRate)
             },
             onTryNextStreamSource = {
-                val channel = channelViewModel.currentChannel.value
+                val channel = playerViewModel.currentChannel.value
                 val source = playerViewModel.currentStreamSource.value
                 if (channel != null && source != null) {
                     lifecycleScope.launch {
@@ -787,7 +786,7 @@ class PlayerFragment : Fragment() {
                 lifecycleScope.launch {
                     channelViewModel.importJSONData()
                     initCategoryList()
-                    channelViewModel.updateCurrentCategoryId(-1L)
+                    playerViewModel.updateCurrentCategoryId(-1L)
                     playerViewModel.updateCategoryName("Favoritos")
                     try{
                         val firstChannel = channelViewModel.getChannel(-1L, 1)
@@ -853,7 +852,7 @@ class PlayerFragment : Fragment() {
             )
         )
 
-        sourcesList += channelViewModel.currentChannel.value?.streamSources!!.sortedBy { it.index }
+        sourcesList += playerViewModel.currentChannel.value?.streamSources!!.sortedBy { it.index }
         for (i in sourcesList.indices) {
             if (i != 0) {
                 if (playerViewModel.isSourceForced.value == true) {
@@ -957,7 +956,7 @@ class PlayerFragment : Fragment() {
             Log.i("PlayerActivity", "initCategoryList: ${categories.size}")
             rvCategoryList.adapter = CategoryListAdapter(categories) { selectedCategory ->
                 channelViewModel.updateIsLoadingChannel(true)
-                channelViewModel.updateCurrentCategoryId(selectedCategory.id)
+                playerViewModel.updateCurrentCategoryId(selectedCategory.id)
                 playerViewModel.updateCategoryName(selectedCategory.name)
                 lifecycleScope.launch {
                     loadChannel(channelViewModel.getNextChannel(categoryId = selectedCategory.id, groupId = 1))
@@ -979,14 +978,14 @@ class PlayerFragment : Fragment() {
     }
 
     private suspend fun initChannelList() {
-        val sortedChannels = channelViewModel.getSmChannelsByCategory(channelViewModel.currentCategoryId.value!!)
+        val sortedChannels = channelViewModel.getSmChannelsByCategory(playerViewModel.currentCategoryId.value!!)
         for (i in sortedChannels.indices) {
-            if (sortedChannels[i].id == channelViewModel.currentChannel.value?.id) {
+            if (sortedChannels[i].id == playerViewModel.currentChannel.value?.id) {
                 playerViewModel.updateCurrentItemSelectedFromChannelList(i)
                 break
             }
         }
-        rvChannelList.adapter = ChannelListAdapter(channelViewModel.currentCategoryId.value!!, sortedChannels) { selectedChannel ->
+        rvChannelList.adapter = ChannelListAdapter(playerViewModel.currentCategoryId.value!!, sortedChannels) { selectedChannel ->
             loadChannel(selectedChannel)
         }
     }
@@ -1064,13 +1063,13 @@ class PlayerFragment : Fragment() {
         Log.i(TAG,channel.name)
 
         playerViewModel.updateChannelName(channel.name)
-        if (channelViewModel.currentCategoryId.value == -1L) {
+        if (playerViewModel.currentCategoryId.value == -1L) {
             playerViewModel.updateChannelNumber(channel.indexFavourite!!)
-            channelIdFastSwitch = channel.indexFavourite
+            playerViewModel.updateChannelIdFastSwitch(channel.indexFavourite)
         }
         else {
             playerViewModel.updateChannelNumber(channel.indexGroup!!)
-            channelIdFastSwitch = channel.indexGroup
+            playerViewModel.updateChannelIdFastSwitch(channel.indexGroup)
         }
 
         channelViewModel.updateCurrentProgram(null)
@@ -1078,11 +1077,11 @@ class PlayerFragment : Fragment() {
 
 
         playerViewModel.updateIsSourceForced(false)
-        channelViewModel.updateCurrentChannel(channel)
+        playerViewModel.updateCurrentChannel(channel)
         showChannelInfoWithTimeout()
         lifecycleScope.launch {
             channelViewModel.updateLastChannelLoaded(channel.id)
-            channelViewModel.updateLastCategoryLoaded(channelViewModel.currentCategoryId.value ?: -1L)
+            channelViewModel.updateLastCategoryLoaded(playerViewModel.currentCategoryId.value ?: -1L)
         }
 
         val streamSources = channel.streamSources
@@ -1134,7 +1133,7 @@ class PlayerFragment : Fragment() {
                 playerViewModel.setIsSourceLoading(false)
 
                 // Retry logic
-                val currentChannel = channelViewModel.currentChannel.value
+                val currentChannel = playerViewModel.currentChannel.value
                 val currentStreamSource = playerViewModel.currentStreamSource.value
                 if (currentChannel != null && currentStreamSource != null) {
                     lifecycleScope.launch { streamSourceManager.tryNextStreamSource(currentChannel, currentStreamSource) }
@@ -1184,7 +1183,7 @@ class PlayerFragment : Fragment() {
         if (updateEpg) {
             if (::jobEPGRender.isInitialized && jobEPGRender.isActive) jobEPGRender.cancel()
             jobEPGRender = lifecycleScope.launch {
-                val currentChannel = channelViewModel.currentChannel.value
+                val currentChannel = playerViewModel.currentChannel.value
                 if (currentChannel != null) {
                     if (epgDelay > 0) delay(epgDelay)
                     channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
@@ -1259,8 +1258,8 @@ class PlayerFragment : Fragment() {
                         playerViewModel.getCurrentNumberInput().toString().toInt()
                     )
                     playerViewModel.hideChannelNumberKeyboard()
-                    if (newChannel.id != channelViewModel.currentChannel.value?.id) {
-                        channelViewModel.updateCurrentCategoryId(-1L)
+                    if (newChannel.id != playerViewModel.currentChannel.value?.id) {
+                        playerViewModel.updateCurrentCategoryId(-1L)
                         playerViewModel.updateCategoryName("Favoritos")
                         playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                         channelViewModel.updateLastCategoryLoaded(-1L)
@@ -1312,7 +1311,7 @@ class PlayerFragment : Fragment() {
 
     private fun showChannelInfo(includeTimeDate: Boolean = false) {
         playerViewModel.showChannelNumber()
-        if (channelViewModel.currentCategoryId.value != -1L) playerViewModel.showCategoryName()
+        if (playerViewModel.currentCategoryId.value != -1L) playerViewModel.showCategoryName()
         playerViewModel.showChannelName()
         if (includeTimeDate) {
             playerViewModel.updateTimeDate()
@@ -1350,15 +1349,15 @@ class PlayerFragment : Fragment() {
 
     private fun loadPreviousChannel(){
         var channel: ChannelItem?
-        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
-            channelViewModel.currentChannel.value?.indexFavourite!!
+        val currentChannelIndex = if (playerViewModel.currentCategoryId.value == -1L) {
+            playerViewModel.currentChannel.value?.indexFavourite!!
         } else {
-            channelViewModel.currentChannel.value?.indexGroup!!
+            playerViewModel.currentChannel.value?.indexGroup!!
         }
         if (::jobSwitchChannel.isInitialized && jobSwitchChannel.isActive) jobSwitchChannel.cancel()
         jobSwitchChannel = lifecycleScope.launch {
             channelViewModel.updateIsLoadingChannel(true)
-            channel = channelViewModel.getPreviousChannel(channelViewModel.currentCategoryId.value!!, currentChannelIndex - 1)
+            channel = channelViewModel.getPreviousChannel(playerViewModel.currentCategoryId.value!!, currentChannelIndex - 1)
             channelViewModel.updateIsLoadingChannel(false)
             loadChannel(channel)
         }
@@ -1368,17 +1367,17 @@ class PlayerFragment : Fragment() {
     private fun loadNextChannel(){
         println("loadNextChannel")
         var channel: ChannelItem?
-        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
-            channelViewModel.currentChannel.value?.indexFavourite!!
-        } else if (channelViewModel.currentChannel.value != null) {
-            channelViewModel.currentChannel.value?.indexGroup!!
+        val currentChannelIndex = if (playerViewModel.currentCategoryId.value == -1L) {
+            playerViewModel.currentChannel.value?.indexFavourite!!
+        } else if (playerViewModel.currentChannel.value != null) {
+            playerViewModel.currentChannel.value?.indexGroup!!
         } else {
             0
         }
         if (::jobSwitchChannel.isInitialized && jobSwitchChannel.isActive) jobSwitchChannel.cancel()
         jobSwitchChannel = lifecycleScope.launch {
             channelViewModel.updateIsLoadingChannel(true)
-            channel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, currentChannelIndex + 1)
+            channel = channelViewModel.getNextChannel(playerViewModel.currentCategoryId.value!!, currentChannelIndex + 1)
             channelViewModel.updateIsLoadingChannel(false)
             loadChannel(channel)
         }

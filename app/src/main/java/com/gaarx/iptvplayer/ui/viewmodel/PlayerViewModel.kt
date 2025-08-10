@@ -3,6 +3,7 @@ package com.gaarx.iptvplayer.ui.viewmodel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.gaarx.iptvplayer.domain.model.ChannelItem
 import com.gaarx.iptvplayer.domain.model.MediaInfo
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -66,6 +67,27 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         return _currentNumberInput.value ?: StringBuilder()
     }
 
+    private var _channelIdFastSwitch = MutableLiveData<Int>()
+    val channelIdFastSwitch: LiveData<Int> get() = _channelIdFastSwitch
+
+    fun updateChannelIdFastSwitch(newChannelId: Int) {
+        _channelIdFastSwitch.value = newChannelId
+    }
+
+    private val _currentChannel = MutableLiveData<ChannelItem>()
+    val currentChannel: LiveData<ChannelItem> get() = _currentChannel
+
+    fun updateCurrentChannel(newChannel: ChannelItem) {
+        _currentChannel.value = newChannel
+    }
+
+    private var _currentCategoryId: MutableLiveData<Long> = MutableLiveData()
+    val currentCategoryId: LiveData<Long> get() = _currentCategoryId
+
+    fun updateCurrentCategoryId(newCategoryId: Long) {
+        _currentCategoryId.value = newCategoryId
+    }
+
     fun onCreate() {
         _isSourceForced.value = false
         _isQualityForced.value = false
@@ -77,6 +99,12 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _currentItemSelectedFromChannelSettingsMenu.value = 0
         _currentItemSelectedFromCategoryList.value = 0
         _currentLoadedMenuSetting.value = -1
+        _channelIdFastSwitch.value = 0 /*if (currentCategoryId.value == -1L) {
+            currentChannel.value?.indexFavourite
+        }
+        else {
+            currentChannel.value?.indexGroup
+        }*/
     }
 
     private val _mediaInfo = MutableLiveData<MediaInfo>()

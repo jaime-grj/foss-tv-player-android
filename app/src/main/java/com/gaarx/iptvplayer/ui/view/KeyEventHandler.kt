@@ -55,15 +55,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
 ) {
     var isLongPressDown = false
     var isLongPressUp = false
-    var channelIdFastSwitch = 0 /*if (channelViewModel.currentCategoryId.value == -1L) {
-        uiScope.launch { channelViewModel.getLastChannelLoaded()
-            channelViewModel.currentChannel.value?.indexFavourite ?: 0 }
-    }
-    else {
-        channelViewModel.currentChannel.value?.indexGroup!!
-    }*/
 
-    // Jobs moved from PlayerFragment
     private lateinit var jobFastChangeChannel: kotlinx.coroutines.Job
     private lateinit var jobUIChangeChannel: kotlinx.coroutines.Job
 
@@ -86,18 +78,18 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                 }
                 isLongPressUp = false
                 isLongPressDown = false
-                if (channelViewModel.currentCategoryId.value == -1L){
+                if (playerViewModel.currentCategoryId.value == -1L){
                     jobFastChangeChannel = uiScope.launch {
-                        Log.i(TAG, "After pressing long button: get newChannelId: $channelIdFastSwitch")
-                        val newChannel = channelViewModel.getNextChannel(-1L, channelIdFastSwitch)
-                        Log.i(TAG, "After pressing long button: load newChannelId: $channelIdFastSwitch")
+                        Log.i(TAG, "After pressing long button: get newChannelId: ${playerViewModel.channelIdFastSwitch.value!!}")
+                        val newChannel = channelViewModel.getNextChannel(-1L, playerViewModel.channelIdFastSwitch.value!!)
+                        Log.i(TAG, "After pressing long button: load newChannelId: ${playerViewModel.channelIdFastSwitch.value!!}")
                         channelViewModel.updateIsLoadingChannel(false)
                         onLoadChannel(newChannel)
                     }
                 }
                 else{
                     jobFastChangeChannel = uiScope.launch {
-                        val newChannel = channelViewModel.getNextChannel(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
+                        val newChannel = channelViewModel.getNextChannel(playerViewModel.currentCategoryId.value!!, playerViewModel.channelIdFastSwitch.value!!)
                         onLoadChannel(newChannel)
                         channelViewModel.updateIsLoadingChannel(false)
                     }
@@ -113,10 +105,10 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                     if (isLongPressDown || isLongPressUp) return true
                     // Load channel from channel list
                     if (playerViewModel.isChannelListVisible.value == true) {
-                        val currentChannelIndex = if (channelViewModel.currentCategoryId.value == -1L) {
-                            channelViewModel.currentChannel.value?.indexFavourite!!
+                        val currentChannelIndex = if (playerViewModel.currentCategoryId.value == -1L) {
+                            playerViewModel.currentChannel.value?.indexFavourite!!
                         } else {
-                            channelViewModel.currentChannel.value?.indexGroup!!
+                            playerViewModel.currentChannel.value?.indexGroup!!
                         }
                         Log.i(TAG, "dispatchKeyEvent: currentChannelIndex: $currentChannelIndex")
                         val focusedView = rvChannelList.focusedChild
@@ -132,7 +124,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                     position
                                 ) as ChannelItem
                             var newChannel: ChannelItem?
-                            if (channelViewModel.currentCategoryId.value == -1L) {
+                            if (playerViewModel.currentCategoryId.value == -1L) {
                                 uiScope.launch {
                                     newChannel = channelViewModel.getNextChannel(
                                         -1L,
@@ -141,10 +133,10 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                     onLoadChannel(newChannel)
                                 }
                             } else {
-                                println("newChannelSm.indexFavourite: ${newChannelSm.indexFavourite}, channelViewModel.currentCategoryId.value: ${channelViewModel.currentCategoryId.value}")
+                                println("newChannelSm.indexFavourite: ${newChannelSm.indexFavourite}, playerViewModel.currentCategoryId.value: ${playerViewModel.currentCategoryId.value}")
                                 uiScope.launch {
                                     newChannel = channelViewModel.getNextChannel(
-                                        channelViewModel.currentCategoryId.value!!,
+                                        playerViewModel.currentCategoryId.value!!,
                                         newChannelSm.indexGroup!!
                                     )
                                     onLoadChannel(newChannel)
@@ -163,7 +155,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                             val position = rvCategoryList.getChildAdapterPosition(focusedView)
                             println("Focused Item Position: $position")
                             val newCategory = (rvCategoryList.adapter as? CategoryListAdapter)?.getItemAtPosition(position) as CategoryItem
-                            channelViewModel.updateCurrentCategoryId(newCategory.id)
+                            playerViewModel.updateCurrentCategoryId(newCategory.id)
                             playerViewModel.updateCategoryName(newCategory.name)
                             uiScope.launch {
                                 onLoadChannel(channelViewModel.getNextChannel(categoryId = newCategory.id, groupId = 1))
@@ -260,7 +252,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                             var streamSource = (rvChannelSources.adapter as? ChannelSourcesAdapter)?.getItemAtPosition(position) as StreamSourceItem
                             if (streamSource.id.toInt() == -1) {
                                 playerViewModel.updateIsSourceForced(false)
-                                val currentChannel = channelViewModel.currentChannel.value
+                                val currentChannel = playerViewModel.currentChannel.value
                                 if (currentChannel != null) {
                                     streamSource = currentChannel.streamSources.minBy { it.index }
                                 }
@@ -347,10 +339,10 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                     -1L,
                                     channelIndex
                                 )
-                                channelViewModel.updateCurrentCategoryId(-1L)
+                                playerViewModel.updateCurrentCategoryId(-1L)
                                 playerViewModel.updateCategoryName("Favoritos")
                                 channelViewModel.updateLastCategoryLoaded(-1L)
-                                if (channelViewModel.currentChannel.value?.id != newChannel.id) {
+                                if (playerViewModel.currentChannel.value?.id != newChannel.id) {
                                     onLoadChannel(newChannel)
                                 }
                                 else{
@@ -449,17 +441,17 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                         if (event.repeatCount > 0){
                             //if (isLongPressDown) return true // Uncomment to disallow 'channel fast switch direction' change
                             isLongPressUp = true
-                            if (channelViewModel.currentCategoryId.value == -1L) {
+                            if (playerViewModel.currentCategoryId.value == -1L) {
                                 binding.channelNumber.visibility = View.VISIBLE
                                 binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
 
                                 jobFastChangeChannel = uiScope.launch {
                                     if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
-                                    println("newChannelIndex before: $channelIdFastSwitch")
-                                    channelIdFastSwitch = channelViewModel.getNextChannelIndex(-1L, channelIdFastSwitch)
-                                    println("newChannelIndex after: $channelIdFastSwitch")
-                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
+                                    println("newChannelIndex before: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    playerViewModel.updateChannelIdFastSwitch(channelViewModel.getNextChannelIndex(-1L, playerViewModel.channelIdFastSwitch.value!!))
+                                    println("newChannelIndex after: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    binding.channelNumber.text = (playerViewModel.channelIdFastSwitch.value!!).toString()
                                 }
                             }
                             else{
@@ -469,10 +461,10 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
 
                                 jobFastChangeChannel = uiScope.launch {
                                     if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
-                                    println("newChannelIndex before: $channelIdFastSwitch")
-                                    channelIdFastSwitch = channelViewModel.getNextChannelIndex(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
-                                    println("newChannelIndex after: $channelIdFastSwitch")
-                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
+                                    println("newChannelIndex before: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    playerViewModel.updateChannelIdFastSwitch(channelViewModel.getNextChannelIndex(playerViewModel.currentCategoryId.value!!, playerViewModel.channelIdFastSwitch.value!!))
+                                    println("newChannelIndex after: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    binding.channelNumber.text = (playerViewModel.channelIdFastSwitch.value!!).toString()
                                 }
                             }
                         }
@@ -506,16 +498,16 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                         if (event.repeatCount > 0) {
                             //if (isLongPressUp) return true // Uncomment to disallow 'channel fast switch direction' change
                             isLongPressDown = true
-                            if (channelViewModel.currentCategoryId.value == -1L) {
+                            if (playerViewModel.currentCategoryId.value == -1L) {
                                 binding.channelNumber.visibility = View.VISIBLE
                                 binding.channelName.visibility = View.INVISIBLE
                                 binding.channelMediaInfo.visibility = View.GONE
 
                                 jobFastChangeChannel = uiScope.launch {
-                                    println("newChannelIndex before: $channelIdFastSwitch")
-                                    channelIdFastSwitch = channelViewModel.getPreviousChannelIndex(-1L, channelIdFastSwitch)
-                                    println("newChannelIndex after: $channelIdFastSwitch")
-                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
+                                    println("newChannelIndex before: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    playerViewModel.updateChannelIdFastSwitch(channelViewModel.getPreviousChannelIndex(-1L, playerViewModel.channelIdFastSwitch.value!!))
+                                    println("newChannelIndex after: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    binding.channelNumber.text = (playerViewModel.channelIdFastSwitch.value!!).toString()
                                 }
                             }
                             else{
@@ -524,10 +516,10 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                 binding.channelMediaInfo.visibility = View.GONE
                                 jobFastChangeChannel = uiScope.launch {
                                     if (::jobFastChangeChannel.isInitialized && jobFastChangeChannel.isActive) jobFastChangeChannel.cancelAndJoin()
-                                    println("newChannelIndex before: $channelIdFastSwitch")
-                                    channelIdFastSwitch = channelViewModel.getPreviousChannelIndex(channelViewModel.currentCategoryId.value!!, channelIdFastSwitch)
-                                    println("newChannelIndex after: $channelIdFastSwitch")
-                                    binding.channelNumber.text = (channelIdFastSwitch).toString()
+                                    println("newChannelIndex before: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    playerViewModel.updateChannelIdFastSwitch(channelViewModel.getPreviousChannelIndex(playerViewModel.currentCategoryId.value!!, playerViewModel.channelIdFastSwitch.value!!))
+                                    println("newChannelIndex after: ${playerViewModel.channelIdFastSwitch.value!!}")
+                                    binding.channelNumber.text = (playerViewModel.channelIdFastSwitch.value!!).toString()
                                 }
                             }
 
@@ -650,7 +642,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                         return true
                     }
                     else{
-                        activity?.finish()
+                        activity.finish()
                         return true
                     }
                 }

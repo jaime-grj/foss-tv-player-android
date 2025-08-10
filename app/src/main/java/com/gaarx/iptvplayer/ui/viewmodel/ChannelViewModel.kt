@@ -45,20 +45,6 @@ class ChannelViewModel @Inject constructor(
         return channelRepository.getChannelCountByCategory(categoryId)
     }
 
-    private var _currentCategoryId: MutableLiveData<Long> = MutableLiveData()
-    val currentCategoryId: LiveData<Long> get() = _currentCategoryId
-
-    fun updateCurrentCategoryId(newCategoryId: Long) {
-        _currentCategoryId.value = newCategoryId
-    }
-
-    private val _currentChannel = MutableLiveData<ChannelItem>()
-    val currentChannel: LiveData<ChannelItem> get() = _currentChannel
-
-    fun updateCurrentChannel(newChannel: ChannelItem) {
-        _currentChannel.value = newChannel
-    }
-
     private val _isLoadingChannelList = MutableLiveData<Boolean>()
     val isLoadingChannelList: LiveData<Boolean> get() = _isLoadingChannelList
 

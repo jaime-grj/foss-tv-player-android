@@ -292,7 +292,7 @@ class PlayerManager(
                         }
                         timerManager.startBufferingTimer {
                             playerViewModel.setIsBuffering(false)
-                            val channel = channelViewModel.currentChannel.value
+                            val channel = playerViewModel.currentChannel.value
                             val source = playerViewModel.currentStreamSource.value
                             if (channel != null && source != null) {
                                 onTryNextStreamSource?.invoke()

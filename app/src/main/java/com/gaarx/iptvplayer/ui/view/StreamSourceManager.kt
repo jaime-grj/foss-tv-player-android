@@ -109,7 +109,7 @@ class StreamSourceManager(
 
             // Start timeout
             timerManager.startSourceLoadingTimer {
-                val channel = channelViewModel.currentChannel.value
+                val channel = playerViewModel.currentChannel.value
                 val source = playerViewModel.currentStreamSource.value
                 if (channel != null && source != null) {
                     lifecycleScope.launch { tryNextStreamSource(channel,source) }
