@@ -68,6 +68,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
+import androidx.media3.common.Format
+import androidx.media3.common.Tracks
 import kotlinx.coroutines.flow.collectLatest
 import com.gaarx.iptvplayer.core.Constants.DEFAULT_REFRESH_RATE
 import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
@@ -876,69 +878,76 @@ class PlayerFragment : Fragment() {
         playerViewModel.updateCurrentLoadedMenuSetting(ChannelSettings.SOURCES)
     }
 
-    private fun loadAudioTracks() : List<AudioTrack>{
-        val audioTrackList: MutableList<AudioTrack> = mutableListOf()
-        val currentTracks = player.currentTracks
-        var globalAudioTrackIndex = 0
-
-        for (i in 0 until currentTracks.groups.size) {
-            val trackGroup = currentTracks.groups[i]
-            if (trackGroup.type == C.TRACK_TYPE_AUDIO) {
-                for (j in 0 until trackGroup.length) {
-                    val trackFormat = trackGroup.getTrackFormat(j)
-                    println(trackFormat)
-                    audioTrackList += listOf(AudioTrack(trackFormat.id.orEmpty(), trackFormat.language.orEmpty(), trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), trackFormat.bitrate, trackFormat.channelCount, trackGroup.isTrackSelected(j)))
-                    globalAudioTrackIndex++
-                }
-            }
+    private fun loadAudioTracks(): List<AudioTrack> =
+        loadTracks(C.TRACK_TYPE_AUDIO) { format, group, index ->
+            AudioTrack(
+                id = format.id.orEmpty(),
+                language = format.language.orEmpty(),
+                codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+                bitrate = format.bitrate,
+                channelCount = format.channelCount,
+                isSelected = group.isTrackSelected(index)
+            )
         }
-        return audioTrackList
+
+    private fun loadSubtitlesTracks(): List<SubtitlesTrack> {
+        val offTrack = SubtitlesTrack("-1", getString(R.string.off), "", true)
+        val list = loadTracks(C.TRACK_TYPE_TEXT, offTrack) { format, group, index ->
+            if (group.isTrackSelected(index)) offTrack.isSelected = false
+            SubtitlesTrack(
+                id = format.id.orEmpty(),
+                language = format.language.orEmpty(),
+                codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+                isSelected = group.isTrackSelected(index)
+            )
+        }
+        return list
     }
 
-    private fun loadSubtitlesTracks() : List<SubtitlesTrack>{
-        val subtitlesTrackList: MutableList<SubtitlesTrack> = mutableListOf()
-        val currentTracks = player.currentTracks
-        var globalSubtitleTrackIndex = 0
-        subtitlesTrackList += listOf(SubtitlesTrack("-1", getString(R.string.off), "", true))
+    private fun loadVideoTracks(): List<VideoTrack> =
+        loadTracks(
+            C.TRACK_TYPE_VIDEO,
+            VideoTrack(
+                "-1",
+                getString(R.string.auto),
+                -1, -1, 0, "",
+                playerViewModel.isQualityForced.value == false
+            )
+        ) { format, group, index ->
+            val isSelected = if (playerViewModel.isQualityForced.value == false) {
+                false
+            } else {
+                group.isTrackSelected(index)
+            }
+            VideoTrack(
+                id = format.id.orEmpty(),
+                name = format.codecs.orEmpty(),
+                width = format.width,
+                height = format.height,
+                bitrate = format.bitrate / 1000,
+                codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+                isSelected = isSelected
+            )
+        }
 
-        for (i in 0 until currentTracks.groups.size) {
-            val trackGroup = currentTracks.groups[i]
-            if (trackGroup.type == C.TRACK_TYPE_TEXT) {
-                for (j in 0 until trackGroup.length) {
-                    val trackFormat = trackGroup.getTrackFormat(j)
-                    if (trackGroup.isTrackSelected(j)) {
-                        subtitlesTrackList.first().isSelected = false
-                    }
-                    subtitlesTrackList += listOf(SubtitlesTrack(trackFormat.id.orEmpty(), trackFormat.language.orEmpty(), trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), trackGroup.isTrackSelected(j)))
-                    globalSubtitleTrackIndex++
+    private fun <T> loadTracks(
+        trackType: Int,
+        defaultItem: T? = null,
+        mapper: (format: Format, group: Tracks.Group, index: Int) -> T
+    ): List<T> {
+        val result = mutableListOf<T>()
+        defaultItem?.let { result += it }
+
+        val currentTracks = player.currentTracks
+        for (group in currentTracks.groups) {
+            if (group.type == trackType) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    result += mapper(format, group, i)
                 }
             }
         }
-        return subtitlesTrackList
-    }
-
-    private fun loadVideoTracks() : List<VideoTrack>{
-        val videoTrackList: MutableList<VideoTrack> = mutableListOf()
-        val currentTracks = player.currentTracks
-        var globalVideoTrackIndex = 0
-        videoTrackList += listOf(VideoTrack("-1", getString(R.string.auto), -1, -1, 0, "", playerViewModel.isQualityForced.value == false))
-
-        for (i in 0 until currentTracks.groups.size) {
-            val trackGroup = currentTracks.groups[i]
-            if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
-                for (j in 0 until trackGroup.length) {
-                    val trackFormat = trackGroup.getTrackFormat(j)
-                    println(trackFormat)
-                    videoTrackList += if (playerViewModel.isQualityForced.value == false) {
-                        listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), false))
-                    } else{
-                        listOf(VideoTrack(trackFormat.id.orEmpty(), trackFormat.codecs.orEmpty(), trackFormat.width, trackFormat.height, trackFormat.bitrate / 1000, trackFormat.codecs ?: trackFormat.sampleMimeType.orEmpty(), trackGroup.isTrackSelected(j)))
-                    }
-                    globalVideoTrackIndex++
-                }
-            }
-        }
-        return videoTrackList
+        return result
     }
 
     private fun initCategoryList() {
