@@ -19,4 +19,9 @@
     <string name="currentProgram">En emisión:</string>
     <string name="nextProgram">"Siguiente: "</string>
     <string name="has_audio_description" >Audiodescripción</string>
+    <string name="settings_update_epg">Actualizar EPG</string>
+    <string name="settings_config_url">URL de configuración</string>
+    <string name="settings_update_channel_list">Actualizar lista canales</string>
+    <string name="settings_epg">Guía de programación</string>
+    <string name="settings_aspect_ratio">Relación de aspecto</string>
 </resources>

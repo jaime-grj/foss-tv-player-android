@@ -727,10 +727,11 @@ class PlayerFragment : Fragment() {
             ChannelSettings(getString(R.string.audio_track)),
             ChannelSettings(getString(R.string.subtitle_track)),
             ChannelSettings(getString(R.string.video_track)),
-            ChannelSettings("Actualizar EPG"),
-            ChannelSettings(getString(R.string.epg)),
-            ChannelSettings("Actualizar lista canales"),
-            ChannelSettings("URL de configuración")
+            ChannelSettings(getString(R.string.settings_aspect_ratio)),
+            ChannelSettings(getString(R.string.settings_update_epg)),
+            ChannelSettings(getString(R.string.settings_epg)),
+            ChannelSettings(getString(R.string.settings_update_channel_list)),
+            ChannelSettings(getString(R.string.settings_config_url))
         )
         rvChannelSettings.layoutManager = LinearLayoutManager(requireContext())
         rvChannelSettings.adapter = ChannelSettingsAdapter(settingsList) { selectedSetting ->
@@ -796,6 +797,11 @@ class PlayerFragment : Fragment() {
                         Toast.makeText(requireContext(), "Error al cargar la lista de canales: $e", Toast.LENGTH_SHORT).show()
                     }
                 }
+            }
+            ChannelSettings.ASPECT_RATIO -> {
+
+            }
+            ChannelSettings.CONFIG_URL -> {
             }
         }
     }

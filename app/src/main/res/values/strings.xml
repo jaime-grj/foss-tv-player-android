@@ -48,4 +48,9 @@
     <string name="programguide_content_description_large_thumbnail" translatable="false">Program thumbnail</string>
     <string name="programguide_content_description_channel_logo" translatable="false">Channel logo</string>
     <string name="programguide_content_description_dropdown_icon" translatable="false">Dropdown icon</string>
+    <string name="settings_update_epg">Update EPG</string>
+    <string name="settings_config_url">Config URL</string>
+    <string name="settings_update_channel_list">Update channel list</string>
+    <string name="settings_epg">EPG</string>
+    <string name="settings_aspect_ratio">Aspect ratio</string>
 </resources>
