@@ -1,4 +1,4 @@
-package com.gaarx.iptvplayer.ui.view
+package com.gaarx.iptvplayer.util
 
 import android.app.UiModeManager
 import android.content.Context
