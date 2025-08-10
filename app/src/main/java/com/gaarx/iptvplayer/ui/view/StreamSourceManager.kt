@@ -12,7 +12,6 @@ import com.gaarx.iptvplayer.domain.model.ChannelItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceTypeItem
-import com.gaarx.iptvplayer.ui.util.PlayerTimerManager
 import com.gaarx.iptvplayer.ui.view.PlayerFragment.Companion.TAG
 import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarx.iptvplayer.ui.viewmodel.PlayerViewModel
@@ -21,7 +20,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.chromium.base.ThreadUtils.runOnUiThread
-import java.net.ProxySelector
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 

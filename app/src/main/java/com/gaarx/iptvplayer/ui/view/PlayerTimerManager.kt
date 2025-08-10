@@ -1,16 +1,13 @@
-package com.gaarx.iptvplayer.ui.util
+package com.gaarx.iptvplayer.ui.view
 
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
+import com.gaarx.iptvplayer.core.Constants
 import com.gaarx.iptvplayer.core.Constants.BUFFERING_TIMEOUT_MS
-import com.gaarx.iptvplayer.core.Constants.CHANNEL_LOADING_TIMEOUT_MS
 import com.gaarx.iptvplayer.core.Constants.HIDE_PLAYER_TIMEOUT_MS
 import com.gaarx.iptvplayer.core.Constants.PLAYING_TIMEOUT_MS
 import com.gaarx.iptvplayer.core.Constants.SOURCE_LOADING_TIMEOUT_MS
-import com.gaarx.iptvplayer.ui.view.PlayerFragment
 
 class PlayerTimerManager {
 
@@ -101,7 +98,7 @@ class PlayerTimerManager {
 
     // ─────────────────────────────────────
     // Channel Loading Indicator
-    fun startLoadingIndicatorTimer(delayMillis: Long = 2500L, onTimeout: () -> Unit) {
+    fun startLoadingIndicatorTimer(delayMillis: Long = Constants.SHOW_LOADING_ICON_TIMEOUT_MS, onTimeout: () -> Unit) {
         cancelLoadingIndicatorTimer()
         loadingIndicatorRunnable = Runnable {
             Log.i(TAG, "Executing channel loading indicator timeout")

@@ -13,4 +13,5 @@ object Constants {
     const val PLAYING_TIMEOUT_MS = 3000L
     const val TIME_CACHED_URL_MINUTES = 2L
     const val DEFAULT_REFRESH_RATE = 50.0f
+    const val SHOW_LOADING_ICON_TIMEOUT_MS = 2500L
 }

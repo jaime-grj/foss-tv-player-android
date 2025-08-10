@@ -40,7 +40,6 @@ import com.gaarx.iptvplayer.domain.model.DrmTypeItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import com.gaarx.iptvplayer.domain.model.SubtitlesTrack
 import com.gaarx.iptvplayer.domain.model.VideoTrack
-import com.gaarx.iptvplayer.ui.util.PlayerTimerManager
 import com.gaarx.iptvplayer.ui.view.PlayerFragment.Companion.TAG
 import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +153,12 @@ class PlayerManager(
                 if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                 timerManager.startHidePlayerTimer {
                     playerViewModel.hidePlayer()
+                    timerManager.startLoadingIndicatorTimer {
+                        if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
+                            if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
+                            playerViewModel.showAnimatedLoadingIcon()
+                        }
+                    }
                 }
                 Log.e("PlayerError", "Player error: ${error.message}")
                 if (error is ExoPlaybackException) {
@@ -261,6 +266,12 @@ class PlayerManager(
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
                     timerManager.startHidePlayerTimer{
                         playerViewModel.hidePlayer()
+                        timerManager.startLoadingIndicatorTimer {
+                            if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
+                                if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
+                                playerViewModel.showAnimatedLoadingIcon()
+                            }
+                        }
                     }
                 }
                 else if (playbackState == Player.STATE_BUFFERING){
@@ -272,6 +283,12 @@ class PlayerManager(
                     if (playerViewModel.isSourceLoading.value == false){
                         timerManager.startHidePlayerTimer {
                             playerViewModel.hidePlayer()
+                            timerManager.startLoadingIndicatorTimer {
+                                if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
+                                    if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
+                                    playerViewModel.showAnimatedLoadingIcon()
+                                }
+                            }
                         }
                         timerManager.startBufferingTimer {
                             playerViewModel.setIsBuffering(false)
