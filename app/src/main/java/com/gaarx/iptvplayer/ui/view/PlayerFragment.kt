@@ -76,6 +76,7 @@ import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
 import com.gaarx.iptvplayer.util.DeviceUtil
+import kotlin.reflect.KMutableProperty0
 
 @UnstableApi
 @AndroidEntryPoint
@@ -89,9 +90,9 @@ class PlayerFragment : Fragment() {
 
     private var mediaInfo: MediaInfo = MediaInfo()
 
-    private lateinit var jobUITimeout: Job
+    private var jobUITimeout: Job? = null
     private lateinit var jobLoadStreamSource: Job
-    private lateinit var jobUIChangeChannel: Job
+    private var jobUIChangeChannel: Job? = null
     private lateinit var jobEPGRender : Job
     private lateinit var jobSwitchChannel : Job
 
@@ -994,8 +995,8 @@ class PlayerFragment : Fragment() {
         rvNumberList.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
         val numbers = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
         rvNumberList.adapter = NumberListAdapter(numbers) { selectedNumber ->
-            if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
-                jobUIChangeChannel.cancel()
+            if (jobUIChangeChannel?.isActive == true) {
+                jobUIChangeChannel?.cancel()
             }
             if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
             if (playerViewModel.isChannelNameVisible.value == true) playerViewModel.hideChannelName()
@@ -1021,8 +1022,8 @@ class PlayerFragment : Fragment() {
         if (::jobLoadStreamSource.isInitialized && (jobLoadStreamSource.isActive)) {
             jobLoadStreamSource.cancel()
         }
-        if (::jobUIChangeChannel.isInitialized && (jobUIChangeChannel.isActive)) {
-            jobUIChangeChannel.cancel()
+        if (jobUIChangeChannel?.isActive == true) {
+            jobUIChangeChannel?.cancel()
         }
         if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
             jobEPGRender.cancel()
@@ -1168,178 +1169,178 @@ class PlayerFragment : Fragment() {
         playerViewModel.updateMediaInfo(mediaInfo)
     }
 
-    /* This will need to be refactored */
-    private fun showChannelInfoWithTimeout(){
-        if (::jobUITimeout.isInitialized && jobUITimeout.isActive) {
-            jobUITimeout.cancel()
-        }
-        if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
-            jobEPGRender.cancel()
-        }
-        jobEPGRender = lifecycleScope.launch {
-            val currentChannel = channelViewModel.currentChannel.value
-            if (currentChannel != null){
-                channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
-            }
+    private fun launchUiWithTimeout(
+        timeout: Long,
+        epgDelay: Long = 0,
+        updateEpg: Boolean = true,
+        cancelJob: KMutableProperty0<Job?> = ::jobUITimeout,
+        extraAfterTimeout: (suspend () -> Unit)? = null,
+        showUi: () -> Unit,
+        hideUi: () -> Unit
+    ) {
+        if (cancelJob.get()?.isActive == true) cancelJob.get()?.cancel()
+        cancelJob.set(null)
 
-        }
-        jobUITimeout = lifecycleScope.launch {
-            try{
-                activity?.runOnUiThread {
-                    if (!DeviceUtil.isAndroidTV(requireContext())) {
-                        playerViewModel.showButtonUp()
-                        playerViewModel.showButtonDown()
-                        playerViewModel.showButtonChannelList()
-                        playerViewModel.showButtonSettings()
-                        playerViewModel.showButtonPiP()
-                        playerViewModel.showButtonCategoryList()
-                    }
-                    playerViewModel.hideTimeDate()
-                    playerViewModel.showChannelNumber()
-                    if (channelViewModel.currentCategoryId.value != -1L) {
-                        Log.i("PlayerActivity", "showChannelNumberCategory: ${channelViewModel.currentCategoryId.value}")
-                        playerViewModel.showCategoryName()
-                    }
-                    playerViewModel.showChannelName()
-                    playerViewModel.showBottomInfo()
-                    if (playerViewModel.isSourceLoading.value == false) {
-                        playerViewModel.showMediaInfo()
-                    }
+        if (updateEpg) {
+            if (::jobEPGRender.isInitialized && jobEPGRender.isActive) jobEPGRender.cancel()
+            jobEPGRender = lifecycleScope.launch {
+                val currentChannel = channelViewModel.currentChannel.value
+                if (currentChannel != null) {
+                    if (epgDelay > 0) delay(epgDelay)
+                    channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
                 }
-                delay(TIMEOUT_UI_CHANNEL_LOAD)
-                ensureActive()
-                activity?.runOnUiThread {
-                    if (!DeviceUtil.isAndroidTV(requireContext())) {
-                        playerViewModel.hideButtonUp()
-                        playerViewModel.hideButtonDown()
-                        playerViewModel.hideButtonChannelList()
-                        playerViewModel.hideButtonSettings()
-                        playerViewModel.hideButtonPiP()
-                        playerViewModel.hideButtonCategoryList()
-                    }
-                    if (!isLongPressDown && !isLongPressUp) {
-                        playerViewModel.hideChannelNumber()
-                    }
-                    playerViewModel.hideChannelName()
-                    playerViewModel.hideCategoryName()
-                    playerViewModel.hideTimeDate()
-                    playerViewModel.hideMediaInfo()
-                    playerViewModel.hideBottomInfo()
-                }
-            } catch (_: CancellationException){
             }
+        }
+
+        cancelJob.set(
+            lifecycleScope.launch {
+                try {
+                    activity?.runOnUiThread { showUi() }
+                    delay(timeout)
+                    ensureActive()
+
+                    // Custom action before hiding UI (e.g., change channel)
+                    extraAfterTimeout?.invoke()
+
+                    activity?.runOnUiThread { hideUi() }
+                } catch (_: CancellationException) { }
+            }
+        )
+    }
+
+    private fun showChannelInfoWithTimeout() {
+        launchUiWithTimeout(
+            timeout = TIMEOUT_UI_CHANNEL_LOAD,
+            epgDelay = 0,
+            showUi = {
+                showStandardButtons()
+                showChannelInfo(includeTimeDate = false)
+                showMediaAndBottomInfo(alwaysBottom = true)
+            },
+            hideUi = {
+                hideStandardButtons()
+                hideChannelInfo()
+                hideMediaAndBottomInfo()
+            }
+        )
+    }
+
+    private fun showFullChannelUIWithTimeout(timeout: Long = 4000) {
+        launchUiWithTimeout(
+            timeout = timeout,
+            epgDelay = 100,
+            showUi = {
+                showStandardButtons()
+                showChannelInfo(includeTimeDate = true)
+                showMediaAndBottomInfo(alwaysBottom = false)
+            },
+            hideUi = {
+                hideStandardButtons()
+                hideChannelInfo()
+                hideMediaAndBottomInfo()
+            }
+        )
+    }
+
+    private fun showChannelNumberWithTimeoutAndChangeChannel() {
+        launchUiWithTimeout(
+            timeout = 3000L,
+            updateEpg = false,
+            cancelJob = ::jobUIChangeChannel,
+            showUi = {
+                playerViewModel.showChannelNumberKeyboard()
+                playerViewModel.hideBottomInfo()
+            },
+            extraAfterTimeout = {
+                try {
+                    channelViewModel.updateIsLoadingChannel(true)
+                    val newChannel = channelViewModel.getChannel(
+                        categoryId = -1L,
+                        playerViewModel.getCurrentNumberInput().toString().toInt()
+                    )
+                    playerViewModel.hideChannelNumberKeyboard()
+                    if (newChannel.id != channelViewModel.currentChannel.value?.id) {
+                        channelViewModel.updateCurrentCategoryId(-1L)
+                        playerViewModel.updateCategoryName("Favoritos")
+                        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
+                        channelViewModel.updateLastCategoryLoaded(-1L)
+                        channelViewModel.updateIsLoadingChannel(false)
+                        loadChannel(newChannel)
+                    } else {
+                        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
+                        channelViewModel.updateIsLoadingChannel(false)
+                        showChannelInfoWithTimeout()
+                    }
+                } catch (_: CancellationException) {
+                    playerViewModel.hideChannelNumberKeyboard()
+                    channelViewModel.updateIsLoadingChannel(false)
+                } catch (_: ChannelNotFoundException) {
+                    playerViewModel.hideChannelNumberKeyboard()
+                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
+                    channelViewModel.updateIsLoadingChannel(false)
+                } catch (_: NumberFormatException) {
+                    playerViewModel.hideChannelNumberKeyboard()
+                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
+                    channelViewModel.updateIsLoadingChannel(false)
+                }
+            },
+            hideUi = { /* Nothing else to hide */ }
+        )
+    }
+
+    private fun showStandardButtons() {
+        if (!DeviceUtil.isAndroidTV(requireContext())) {
+            playerViewModel.showButtonUp()
+            playerViewModel.showButtonDown()
+            playerViewModel.showButtonChannelList()
+            playerViewModel.showButtonSettings()
+            playerViewModel.showButtonPiP()
+            playerViewModel.showButtonCategoryList()
         }
     }
 
-    /* This will need to be refactored */
-    private fun showFullChannelUIWithTimeout(timeout: Long = 4000){
-        if (::jobUITimeout.isInitialized && jobUITimeout.isActive) {
-            jobUITimeout.cancel()
-        }
-        if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
-            jobEPGRender.cancel()
-        }
-        jobEPGRender = lifecycleScope.launch {
-            val currentChannel = channelViewModel.currentChannel.value
-            if (currentChannel != null){
-                delay(100)
-                channelViewModel.updateCurrentProgramForChannel(currentChannel.id)
-            }
-        }
-        jobUITimeout = lifecycleScope.launch {
-            try{
-                activity?.runOnUiThread {
-                    if (!DeviceUtil.isAndroidTV(requireContext())) {
-                        playerViewModel.showButtonUp()
-                        playerViewModel.showButtonDown()
-                        playerViewModel.showButtonChannelList()
-                        playerViewModel.showButtonSettings()
-                        playerViewModel.showButtonPiP()
-                        playerViewModel.showButtonCategoryList()
-                    }
-                    playerViewModel.showChannelNumber()
-                    if (channelViewModel.currentCategoryId.value != -1L) {
-                        playerViewModel.showCategoryName()
-                    }
-                    playerViewModel.showChannelName()
-                    playerViewModel.updateTimeDate()
-                    playerViewModel.showTimeDate()
-                    if (playerViewModel.isSourceLoading.value == false) {
-                        playerViewModel.showMediaInfo()
-                    }
-                    if (channelViewModel.currentProgram.value != null || channelViewModel.nextProgram.value != null) {
-                        playerViewModel.showBottomInfo()
-                    }
-                }
-                delay(timeout)
-                ensureActive()
-                activity?.runOnUiThread {
-                    if (!DeviceUtil.isAndroidTV(requireContext())) {
-                        playerViewModel.hideButtonUp()
-                        playerViewModel.hideButtonDown()
-                        playerViewModel.hideButtonChannelList()
-                        playerViewModel.hideButtonSettings()
-                        playerViewModel.hideButtonPiP()
-                        playerViewModel.hideButtonCategoryList()
-                    }
-                    if (!isLongPressDown && !isLongPressUp){
-                        playerViewModel.hideChannelNumber()
-                    }
-                    playerViewModel.hideChannelName()
-                    playerViewModel.hideCategoryName()
-                    playerViewModel.hideTimeDate()
-                    playerViewModel.hideMediaInfo()
-                    playerViewModel.hideBottomInfo()
-                }
-            } catch (_: CancellationException){
-            }
+    private fun hideStandardButtons() {
+        if (!DeviceUtil.isAndroidTV(requireContext())) {
+            playerViewModel.hideButtonUp()
+            playerViewModel.hideButtonDown()
+            playerViewModel.hideButtonChannelList()
+            playerViewModel.hideButtonSettings()
+            playerViewModel.hideButtonPiP()
+            playerViewModel.hideButtonCategoryList()
         }
     }
 
-    /* This will need to be refactored */
-    private fun showChannelNumberWithTimeoutAndChangeChannel(){
-        if (::jobUIChangeChannel.isInitialized && jobUIChangeChannel.isActive) {
-            jobUIChangeChannel.cancel()
+    private fun showChannelInfo(includeTimeDate: Boolean = false) {
+        playerViewModel.showChannelNumber()
+        if (channelViewModel.currentCategoryId.value != -1L) playerViewModel.showCategoryName()
+        playerViewModel.showChannelName()
+        if (includeTimeDate) {
+            playerViewModel.updateTimeDate()
+            playerViewModel.showTimeDate()
+        } else {
+            playerViewModel.hideTimeDate()
         }
-        jobUIChangeChannel =
-        lifecycleScope.launch {
-            try{
-                activity?.runOnUiThread {
-                    playerViewModel.showChannelNumberKeyboard()
-                    playerViewModel.hideBottomInfo()
-                }
-                delay(3000L)
-                ensureActive()
-                channelViewModel.updateIsLoadingChannel(true)
-                val newChannel = channelViewModel.getChannel(categoryId = -1L, playerViewModel.getCurrentNumberInput().toString().toInt())
-                playerViewModel.hideChannelNumberKeyboard()
-                if (newChannel.id != channelViewModel.currentChannel.value?.id) {
-                    channelViewModel.updateCurrentCategoryId(-1L)
-                    playerViewModel.updateCategoryName("Favoritos")
-                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
-                    channelViewModel.updateLastCategoryLoaded(-1L)
-                    channelViewModel.updateIsLoadingChannel(false)
-                    loadChannel(newChannel)
-                }
-                else{
-                    playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
-                    channelViewModel.updateIsLoadingChannel(false)
-                    showChannelInfoWithTimeout()
-                }
+    }
 
-            } catch (_: CancellationException){
-                playerViewModel.hideChannelNumberKeyboard()
-                channelViewModel.updateIsLoadingChannel(false)
-            } catch (_: ChannelNotFoundException){
-                playerViewModel.hideChannelNumberKeyboard()
-                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
-                channelViewModel.updateIsLoadingChannel(false)
-            } catch (_: NumberFormatException){
-                playerViewModel.hideChannelNumberKeyboard()
-                playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
-                channelViewModel.updateIsLoadingChannel(false)
-            }
+    private fun hideChannelInfo() {
+        if (!isLongPressDown && !isLongPressUp) playerViewModel.hideChannelNumber()
+        playerViewModel.hideChannelName()
+        playerViewModel.hideCategoryName()
+        playerViewModel.hideTimeDate()
+    }
+
+    private fun showMediaAndBottomInfo(alwaysBottom: Boolean = true) {
+        if (playerViewModel.isSourceLoading.value == false) {
+            playerViewModel.showMediaInfo()
         }
+        if (alwaysBottom || channelViewModel.currentProgram.value != null || channelViewModel.nextProgram.value != null) {
+            playerViewModel.showBottomInfo()
+        }
+    }
+
+    private fun hideMediaAndBottomInfo() {
+        playerViewModel.hideMediaInfo()
+        playerViewModel.hideBottomInfo()
     }
 
     @SuppressLint("RestrictedApi")
