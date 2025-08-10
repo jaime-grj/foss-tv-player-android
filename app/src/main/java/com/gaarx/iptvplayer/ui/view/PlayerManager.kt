@@ -235,6 +235,7 @@ class PlayerManager(
                     }
                     if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
                     timerManager.cancelSourceLoadingTimer()
+                    timerManager.cancelBufferingTimer()
                     playerViewModel.hideErrorMessage()
                     playerViewModel.hideBottomErrorMessage()
                     playerViewModel.showPlayer()
@@ -269,6 +270,9 @@ class PlayerManager(
                     }
                     timerManager.cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isSourceLoading.value == false){
+                        timerManager.startHidePlayerTimer {
+                            playerViewModel.hidePlayer()
+                        }
                         timerManager.startBufferingTimer {
                             playerViewModel.setIsBuffering(false)
                             val channel = channelViewModel.currentChannel.value
@@ -287,6 +291,8 @@ class PlayerManager(
                     if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
                     if (playerViewModel.isChannelLoading.value == true) timerManager.cancelLoadingIndicatorTimer()
                     timerManager.cancelHidePlayerTimer()
+                    timerManager.cancelSourceLoadingTimer()
+                    timerManager.cancelBufferingTimer()
 
                     playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
