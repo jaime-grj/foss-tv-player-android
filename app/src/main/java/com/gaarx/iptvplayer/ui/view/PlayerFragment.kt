@@ -824,7 +824,12 @@ class PlayerFragment : Fragment() {
                 inputType = InputType.TYPE_TEXT_VARIATION_URI
             }
 
-            // Create dialog first
+            lifecycleScope.launch {
+                val url = channelViewModel.getConfigURL()
+                editText.setText(url)
+                editText.setSelection(editText.text.length)
+            }
+
             val dialog = AlertDialog.Builder(requireContext())
                 .setTitle("Set Config URL")
                 .setView(editText)
@@ -1166,7 +1171,6 @@ class PlayerFragment : Fragment() {
             timerManager.cancelCheckPlayingCorrectlyTimer()
             timerManager.cancelSourceLoadingTimer()
             timerManager.cancelBufferingTimer()
-            timerManager.cancelLoadingIndicatorTimer()
 
             if (playerViewModel.currentStreamSource.value?.id != streamSource.id) {
                 playerViewModel.updateIsQualityForced(false)
