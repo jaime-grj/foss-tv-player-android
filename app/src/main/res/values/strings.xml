@@ -48,9 +48,18 @@
     <string name="programguide_content_description_large_thumbnail" translatable="false">Program thumbnail</string>
     <string name="programguide_content_description_channel_logo" translatable="false">Channel logo</string>
     <string name="programguide_content_description_dropdown_icon" translatable="false">Dropdown icon</string>
+
+
     <string name="settings_update_epg">Update EPG</string>
     <string name="settings_config_url">Config URL</string>
     <string name="settings_update_channel_list">Update channel list</string>
     <string name="settings_epg">EPG</string>
     <string name="settings_aspect_ratio">Aspect ratio</string>
+
+    <string name="dialog_config_url_title">Set config URL</string>
+    <string name="dialog_config_url_hint">Enter URL</string>
+    <string name="dialog_config_url_accept">OK</string>
+    <string name="dialog_config_url_cancel">Cancel</string>
+    <string name="dialog_config_url_toast_accepted">URL saved:</string>
+    <string name="dialog_config_url_toast_cancelled">URL not set</string>
 </resources>

@@ -79,7 +79,6 @@ import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
 import com.gaarx.iptvplayer.util.DeviceUtil
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.reflect.KMutableProperty0
 
@@ -820,7 +819,7 @@ class PlayerFragment : Fragment() {
     private suspend fun loadConfigURLDialogSuspend(): String? =
         suspendCancellableCoroutine { cont ->
             val editText = EditText(requireContext()).apply {
-                hint = "Enter URL"
+                hint = getString(R.string.dialog_config_url_hint)
                 inputType = InputType.TYPE_TEXT_VARIATION_URI
             }
 
@@ -831,29 +830,27 @@ class PlayerFragment : Fragment() {
             }
 
             val dialog = AlertDialog.Builder(requireContext())
-                .setTitle("Set Config URL")
+                .setTitle(getString(R.string.settings_config_url))
                 .setView(editText)
-                .setPositiveButton("OK") { dialogInterface, _ ->
+                .setPositiveButton(getString(R.string.dialog_config_url_accept)) { dialogInterface, _ ->
                     val url = editText.text.toString().trim()
                     if (url.isNotEmpty()) {
-                        Toast.makeText(requireContext(), "URL saved: $url", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), getString(R.string.dialog_config_url_toast_accepted) + " $url", Toast.LENGTH_SHORT).show()
                         cont.resume(url) { _, _, _ -> dialogInterface.dismiss() }
                     } else {
                         Toast.makeText(requireContext(), "URL cannot be empty", Toast.LENGTH_SHORT).show()
                         cont.resume(null) { _, _, _ -> dialogInterface.dismiss() }
                     }
                 }
-                .setNegativeButton("Cancel") { dialogInterface, _ ->
+                .setNegativeButton(getString(R.string.dialog_config_url_cancel)) { dialogInterface, _ ->
                     cont.resume(null) { _, _, _ -> dialogInterface.dismiss() }
                 }
                 .create()
 
-            // Now set the cancel listener on the actual dialog instance
             dialog.setOnCancelListener {
                 cont.resume(null) { _, _, _ -> dialog.dismiss() }
             }
 
-            // Also handle coroutine cancellation
             cont.invokeOnCancellation {
                 if (dialog.isShowing) dialog.dismiss()
             }

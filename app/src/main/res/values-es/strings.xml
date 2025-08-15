@@ -24,4 +24,11 @@
     <string name="settings_update_channel_list">Actualizar lista canales</string>
     <string name="settings_epg">Guía de programación</string>
     <string name="settings_aspect_ratio">Relación de aspecto</string>
+
+    <string name="dialog_config_url_title">Establecer la URL de configuración</string>
+    <string name="dialog_config_url_hint">Introduce una URL</string>
+    <string name="dialog_config_url_accept">Aceptar</string>
+    <string name="dialog_config_url_cancel">Cancelar</string>
+    <string name="dialog_config_url_toast_accepted">URL guardada:</string>
+    <string name="dialog_config_url_toast_cancelled">URL no guardada</string>
 </resources>
