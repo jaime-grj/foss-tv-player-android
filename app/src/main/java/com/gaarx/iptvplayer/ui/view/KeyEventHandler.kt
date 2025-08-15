@@ -633,14 +633,6 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                         playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                         return true
                     }
-                    else if (playerViewModel.isChannelNumberVisible.value == true) {
-                        playerViewModel.hideChannelNumber()
-                        return true
-                    }
-                    else if (playerViewModel.isMediaInfoVisible.value == true) {
-                        playerViewModel.hideMediaInfo()
-                        return true
-                    }
                     else{
                         activity.finish()
                         return true

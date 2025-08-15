@@ -12,11 +12,11 @@ import com.gaarx.iptvplayer.domain.model.ChannelItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceHeaderItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceItem
 import com.gaarx.iptvplayer.domain.model.StreamSourceTypeItem
-import com.gaarx.iptvplayer.ui.view.PlayerFragment.Companion.TAG
 import com.gaarx.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.gaarx.iptvplayer.ui.viewmodel.PlayerViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.chromium.base.ThreadUtils.runOnUiThread
@@ -35,6 +35,7 @@ class StreamSourceManager(
     data class CachedUrl(val url: String, val timestamp: Long)
     private val urlCache: MutableMap<StreamSourceItem, CachedUrl> = ConcurrentHashMap()
     private val cacheExpirationTime = TimeUnit.MINUTES.toMillis(TIME_CACHED_URL_MINUTES)
+    private var jobLoadStreamSource : Job? = null
 
     private val player: ExoPlayer
         get() = playerManager.exoPlayer
@@ -42,7 +43,11 @@ class StreamSourceManager(
     fun loadStreamSource(streamSource: StreamSourceItem) {
         timerManager.cancelSourceLoadingTimer()
         playerViewModel.setIsSourceLoading(true)
-        CoroutineScope(Dispatchers.IO).launch {
+        if (jobLoadStreamSource?.isActive == true) {
+            Log.i(TAG, "Job already running, cancelling previous job")
+            jobLoadStreamSource?.cancel()
+        }
+        jobLoadStreamSource = CoroutineScope(Dispatchers.IO).launch {
             val cachedUrlObj = urlCache[streamSource]
             val currentTime = System.currentTimeMillis()
 
@@ -199,5 +204,9 @@ class StreamSourceManager(
         playerViewModel.hidePlayer()
         playerViewModel.showErrorMessage()
         playerViewModel.hideAnimatedLoadingIcon()
+    }
+
+    companion object {
+        private const val TAG = "StreamSourceManager"
     }
 }

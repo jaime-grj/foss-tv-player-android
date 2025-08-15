@@ -76,6 +76,7 @@ import com.gaarx.iptvplayer.core.Constants.MAX_DIGITS
 import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
 import com.gaarx.iptvplayer.util.DeviceUtil
+import kotlinx.coroutines.isActive
 import kotlin.reflect.KMutableProperty0
 
 @UnstableApi
@@ -92,6 +93,7 @@ class PlayerFragment : Fragment() {
 
     private var jobUITimeout: Job? = null
     private lateinit var jobLoadStreamSource: Job
+    private lateinit var jobLoadChannel: Job
     private var jobUIChangeChannel: Job? = null
     private lateinit var jobEPGRender : Job
     private lateinit var jobSwitchChannel : Job
@@ -111,9 +113,6 @@ class PlayerFragment : Fragment() {
     //private var originalProxySelector: ProxySelector? = null
 
     private var isInEPGPictureInPictureMode: Boolean = false
-
-    private var isLongPressDown: Boolean = false
-    private var isLongPressUp: Boolean = false
 
     private var timerManager = PlayerTimerManager()
     private lateinit var lifecycleManager: PlayerLifecycleManager
@@ -648,9 +647,6 @@ class PlayerFragment : Fragment() {
                     playerViewModel.hideButtonPiP()
                     playerViewModel.hideButtonCategoryList()
                 }
-                if (!isLongPressDown && !isLongPressUp) {
-                    playerViewModel.hideChannelNumber()
-                }
                 playerViewModel.hideChannelName()
                 playerViewModel.hideCategoryName()
                 playerViewModel.hideTimeDate()
@@ -1033,72 +1029,76 @@ class PlayerFragment : Fragment() {
         if (::jobEPGRender.isInitialized && jobEPGRender.isActive) {
             jobEPGRender.cancel()
         }
-        playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
-        playerViewModel.hidePlayer()
-
-        if (channel.id < 0) {
-            if (binding.channelNumber.isVisible) playerViewModel.hideChannelNumber()
-            if (binding.channelName.isVisible) playerViewModel.hideChannelName()
-            return
+        if (::jobLoadChannel.isInitialized && jobLoadChannel.isActive) {
+            jobLoadChannel.cancel()
         }
-        playerViewModel.hideBottomInfo()
-        playerViewModel.hideNumberListMenu()
+        jobLoadChannel = lifecycleScope.launch {
+            playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
+            playerViewModel.hidePlayer()
 
-        if (playerViewModel.isSourceLoading.value == true) timerManager.cancelSourceLoadingTimer()
-        if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
-        timerManager.cancelCheckPlayingCorrectlyTimer()
-        timerManager.cancelLoadingIndicatorTimer()
-        timerManager.startLoadingIndicatorTimer{
-            if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
-                Log.i(TAG, "Channel Loading Timeout")
-                if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
-                playerViewModel.showAnimatedLoadingIcon()
+            if (channel.id < 0) {
+                if (binding.channelNumber.isVisible) playerViewModel.hideChannelNumber()
+                if (binding.channelName.isVisible) playerViewModel.hideChannelName()
+                return@launch
             }
-        }
+            playerViewModel.hideBottomInfo()
+            playerViewModel.hideNumberListMenu()
 
-        if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
-        playerViewModel.updateIsQualityForced(false)
+            if (playerViewModel.isSourceLoading.value == true) timerManager.cancelSourceLoadingTimer()
+            if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
+            timerManager.cancelCheckPlayingCorrectlyTimer()
+            timerManager.cancelLoadingIndicatorTimer()
+            timerManager.startLoadingIndicatorTimer{
+                if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
+                    Log.i(TAG, "Channel Loading Timeout")
+                    if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
+                    playerViewModel.showAnimatedLoadingIcon()
+                }
+            }
 
-        if (player.isPlaying || player.isLoading){
-            player.stop()
-        }
+            if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
+            playerViewModel.updateIsQualityForced(false)
 
-        if (binding.loadingDots.isVisible) playerViewModel.hideAnimatedLoadingIcon()
-        if (binding.message.isVisible) playerViewModel.hideErrorMessage()
-        playerViewModel.hideBottomErrorMessage()
-        Log.i(TAG,channel.name)
+            if (player.isPlaying || player.isLoading){
+                player.stop()
+            }
 
-        playerViewModel.updateChannelName(channel.name)
-        if (playerViewModel.currentCategoryId.value == -1L) {
-            playerViewModel.updateChannelNumber(channel.indexFavourite!!)
-            playerViewModel.updateChannelIdFastSwitch(channel.indexFavourite)
-        }
-        else {
-            playerViewModel.updateChannelNumber(channel.indexGroup!!)
-            playerViewModel.updateChannelIdFastSwitch(channel.indexGroup)
-        }
+            if (binding.loadingDots.isVisible) playerViewModel.hideAnimatedLoadingIcon()
+            if (binding.message.isVisible) playerViewModel.hideErrorMessage()
+            playerViewModel.hideBottomErrorMessage()
+            Log.i(TAG,channel.name)
 
-        channelViewModel.updateCurrentProgram(null)
-        channelViewModel.updateNextProgram(null)
+            playerViewModel.updateChannelName(channel.name)
+            if (playerViewModel.currentCategoryId.value == -1L) {
+                playerViewModel.updateChannelNumber(channel.indexFavourite!!)
+                playerViewModel.updateChannelIdFastSwitch(channel.indexFavourite)
+            }
+            else {
+                playerViewModel.updateChannelNumber(channel.indexGroup!!)
+                playerViewModel.updateChannelIdFastSwitch(channel.indexGroup)
+            }
 
+            channelViewModel.updateCurrentProgram(null)
+            channelViewModel.updateNextProgram(null)
 
-        playerViewModel.updateIsSourceForced(false)
-        playerViewModel.updateCurrentChannel(channel)
-        showChannelInfoWithTimeout()
-        lifecycleScope.launch {
-            channelViewModel.updateLastChannelLoaded(channel.id)
-            channelViewModel.updateLastCategoryLoaded(playerViewModel.currentCategoryId.value ?: -1L)
-        }
+            playerViewModel.updateIsSourceForced(false)
+            playerViewModel.updateCurrentChannel(channel)
+            showChannelInfoWithTimeout()
+            lifecycleScope.launch {
+                channelViewModel.updateLastChannelLoaded(channel.id)
+                channelViewModel.updateLastCategoryLoaded(playerViewModel.currentCategoryId.value ?: -1L)
+            }
 
-        val streamSources = channel.streamSources
-        Log.i(TAG, streamSources.toString())
-        if (streamSources.isNotEmpty()) {
-            loadStreamSource(streamSources.minBy { it.index })
-            playerViewModel.updateTriesCountForEachSource(0)
-            playerViewModel.updateSourcesTriedCount(0)
-        }
-        else{
-            println("No stream sources found for channel: $channel")
+            val streamSources = channel.streamSources
+            Log.i(TAG, streamSources.toString())
+            if (streamSources.isNotEmpty()) {
+                loadStreamSource(streamSources.minBy { it.index })
+                playerViewModel.updateTriesCountForEachSource(0)
+                playerViewModel.updateSourcesTriedCount(0)
+            }
+            else{
+                println("No stream sources found for channel: $channel")
+            }
         }
     }
 
@@ -1106,50 +1106,53 @@ class PlayerFragment : Fragment() {
         if (::jobLoadStreamSource.isInitialized && (jobLoadStreamSource.isActive)) {
             jobLoadStreamSource.cancel()
         }
-        if (playerViewModel.isSourceLoading.value == true) timerManager.cancelSourceLoadingTimer()
-        if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
-        timerManager.cancelCheckPlayingCorrectlyTimer()
-
-        if (playerViewModel.currentStreamSource.value?.id != streamSource.id) {
-
-            playerViewModel.updateIsQualityForced(false)
-            playerViewModel.hidePlayer()
-        }
-
-        if (player.isLoading || player.isPlaying) {
-            player.stop()
-        }
-
-        if (playerViewModel.isSourceForced.value == true && playerViewModel.isChannelLoading.value == false){
-            timerManager.cancelLoadingIndicatorTimer()
-            timerManager.startLoadingIndicatorTimer {
-                if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
-                    Log.i(TAG, "Channel Loading Timeout")
-                    if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
-                    playerViewModel.showAnimatedLoadingIcon()
-                }
-            }
-        }
-
-        playerViewModel.setIsSourceLoading(true)
-
-        timerManager.startSourceLoadingTimer {
-            if (playerViewModel.isSourceLoading.value == true) {
-                Log.i("PlayerFragment", "Source loading timed out")
-                playerViewModel.setIsSourceLoading(false)
-
-                // Retry logic
-                val currentChannel = playerViewModel.currentChannel.value
-                val currentStreamSource = playerViewModel.currentStreamSource.value
-                if (currentChannel != null && currentStreamSource != null) {
-                    lifecycleScope.launch { streamSourceManager.tryNextStreamSource(currentChannel, currentStreamSource) }
-                }
-            }
-        }
-        resetMediaInfo()
-        if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
-        playerViewModel.updateCurrentStreamSource(streamSource)
         jobLoadStreamSource = lifecycleScope.launch {
+            if (playerViewModel.isSourceLoading.value == true) timerManager.cancelSourceLoadingTimer()
+            if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
+            timerManager.cancelCheckPlayingCorrectlyTimer()
+            timerManager.cancelSourceLoadingTimer()
+            timerManager.cancelBufferingTimer()
+            timerManager.cancelLoadingIndicatorTimer()
+
+            if (playerViewModel.currentStreamSource.value?.id != streamSource.id) {
+                playerViewModel.updateIsQualityForced(false)
+                playerViewModel.hidePlayer()
+            }
+
+            if (player.isLoading || player.isPlaying) {
+                player.stop()
+            }
+
+            if (playerViewModel.isSourceForced.value == true && playerViewModel.isChannelLoading.value == false){
+                timerManager.cancelLoadingIndicatorTimer()
+                timerManager.startLoadingIndicatorTimer {
+                    if (playerViewModel.isAnimatedLoadingIconVisible.value == false) {
+                        Log.i(TAG, "Channel Loading Timeout")
+                        if (playerViewModel.isPlayerVisible.value == true) playerViewModel.hidePlayer()
+                        playerViewModel.showAnimatedLoadingIcon()
+                    }
+                }
+            }
+
+            playerViewModel.setIsSourceLoading(true)
+
+            timerManager.startSourceLoadingTimer {
+                if (playerViewModel.isSourceLoading.value == true) {
+                    Log.i("PlayerFragment", "Source loading timed out")
+                    playerViewModel.setIsSourceLoading(false)
+
+                    // Retry logic
+                    val currentChannel = playerViewModel.currentChannel.value
+                    val currentStreamSource = playerViewModel.currentStreamSource.value
+                    if (currentChannel != null && currentStreamSource != null) {
+                        lifecycleScope.launch { streamSourceManager.tryNextStreamSource(currentChannel, currentStreamSource) }
+                    }
+                }
+            }
+            resetMediaInfo()
+            if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
+            playerViewModel.updateCurrentStreamSource(streamSource)
+
             delay(250L)
             streamSourceManager.loadStreamSource(streamSource)
         }
@@ -1328,7 +1331,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun hideChannelInfo() {
-        if (!isLongPressDown && !isLongPressUp) playerViewModel.hideChannelNumber()
+        playerViewModel.hideChannelNumber()
         playerViewModel.hideChannelName()
         playerViewModel.hideCategoryName()
         playerViewModel.hideTimeDate()
