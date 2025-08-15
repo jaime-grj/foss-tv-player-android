@@ -16,6 +16,7 @@ class SettingsService(private val context: Context) {
         private const val LAST_CHANNEL_LOADED = "lastChannelLoaded"
         private const val LAST_CATEGORY_LOADED = "lastCategoryLoaded"
         private const val EPG_SOURCES = "epgSources"
+        private const val CONFIG_URL = "configURL"
     }
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -66,5 +67,17 @@ class SettingsService(private val context: Context) {
         return context.dataStore.data.map { preferences ->
             preferences[stringPreferencesKey(EPG_SOURCES)] ?: ""
         }.first()
+    }
+
+    suspend fun getConfigURL(): String {
+        return context.dataStore.data.map { preferences ->
+            preferences[stringPreferencesKey(CONFIG_URL)] ?: "http://filehost.zhnx.home.arpa/channels.json"
+        }.first()
+    }
+
+    suspend fun updateConfigURL(newUrl: String) {
+        context.dataStore.edit { preferences ->
+            preferences[stringPreferencesKey(CONFIG_URL)] = newUrl
+        }
     }
 }

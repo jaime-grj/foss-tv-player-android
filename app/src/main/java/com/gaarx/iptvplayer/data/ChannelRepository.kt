@@ -365,7 +365,7 @@ class ChannelRepository @Inject constructor(
     }
 
     suspend fun loadChannelsFromJSON(): Boolean {
-        val jsonStr = DataService.getJSONString()
+        val jsonStr = dataService.getJSONString()
         if (jsonStr.isEmpty()) return false
 
         val jsonObj = JSONObject(jsonStr)

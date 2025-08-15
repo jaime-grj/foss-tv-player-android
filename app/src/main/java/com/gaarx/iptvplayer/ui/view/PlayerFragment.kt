@@ -3,11 +3,13 @@ package com.gaarx.iptvplayer.ui.view
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.util.Rational
 import android.view.Display
@@ -18,6 +20,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.widget.EditText
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.view.WindowCompat
@@ -77,6 +80,7 @@ import com.gaarx.iptvplayer.core.Constants.TIMEOUT_UI_CHANNEL_LOAD
 import com.gaarx.iptvplayer.ui.util.PlayerLifecycleManager
 import com.gaarx.iptvplayer.util.DeviceUtil
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.reflect.KMutableProperty0
 
 @UnstableApi
@@ -204,16 +208,19 @@ class PlayerFragment : Fragment() {
 
                     val channelCount = channelViewModel.getChannelCount()
                     if (channelCount == 0) {
-                        channelViewModel.updateIsImportingData(true)
-                        channelViewModel.importJSONData()
-                        channelViewModel.updateIsImportingData(false)
-                        channelViewModel.updateEPG()
-                        playerViewModel.updateCurrentCategoryId(-1L)
-                        playerViewModel.updateCategoryName("")
-                        try {
-                            loadChannel(channelViewModel.getChannel(-1L, 1))
-                        } catch (e: Exception) {
-                            Log.e("PlayerActivity", "Error: ${e.message}")
+                        val url = loadConfigURLDialogSuspend()
+                        if (!url.isNullOrEmpty()) {
+                            channelViewModel.updateIsImportingData(true)
+                            channelViewModel.importJSONData()
+                            channelViewModel.updateIsImportingData(false)
+                            channelViewModel.updateEPG()
+                            playerViewModel.updateCurrentCategoryId(-1L)
+                            playerViewModel.updateCategoryName("")
+                            try {
+                                loadChannel(channelViewModel.getChannel(-1L, 1))
+                            } catch (e: Exception) {
+                                Log.e("PlayerActivity", "Error: ${e.message}")
+                            }
                         }
                     } else if (lastChannelId != 0L && lastCategoryId != 0L) {
                         val channel = channelViewModel.getChannelById(lastChannelId)
@@ -795,12 +802,59 @@ class PlayerFragment : Fragment() {
                 }
             }
             ChannelSettings.ASPECT_RATIO -> {
-
             }
             ChannelSettings.CONFIG_URL -> {
+                lifecycleScope.launch {
+                    val url = loadConfigURLDialogSuspend()
+                    if (!url.isNullOrEmpty()) {
+                        channelViewModel.updateConfigURL(url)
+                        Toast.makeText(requireContext(), "Config URL updated: $url", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(requireContext(), "Config URL not set", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }
+
+    private suspend fun loadConfigURLDialogSuspend(): String? =
+        suspendCancellableCoroutine { cont ->
+            val editText = EditText(requireContext()).apply {
+                hint = "Enter URL"
+                inputType = InputType.TYPE_TEXT_VARIATION_URI
+            }
+
+            // Create dialog first
+            val dialog = AlertDialog.Builder(requireContext())
+                .setTitle("Set Config URL")
+                .setView(editText)
+                .setPositiveButton("OK") { dialogInterface, _ ->
+                    val url = editText.text.toString().trim()
+                    if (url.isNotEmpty()) {
+                        Toast.makeText(requireContext(), "URL saved: $url", Toast.LENGTH_SHORT).show()
+                        cont.resume(url) { _, _, _ -> dialogInterface.dismiss() }
+                    } else {
+                        Toast.makeText(requireContext(), "URL cannot be empty", Toast.LENGTH_SHORT).show()
+                        cont.resume(null) { _, _, _ -> dialogInterface.dismiss() }
+                    }
+                }
+                .setNegativeButton("Cancel") { dialogInterface, _ ->
+                    cont.resume(null) { _, _, _ -> dialogInterface.dismiss() }
+                }
+                .create()
+
+            // Now set the cancel listener on the actual dialog instance
+            dialog.setOnCancelListener {
+                cont.resume(null) { _, _, _ -> dialog.dismiss() }
+            }
+
+            // Also handle coroutine cancellation
+            cont.invokeOnCancellation {
+                if (dialog.isShowing) dialog.dismiss()
+            }
+
+            dialog.show()
+        }
 
     private fun loadAudioTracksMenu(){
         val audioTrackList = loadAudioTracks()

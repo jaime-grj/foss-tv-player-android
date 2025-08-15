@@ -71,6 +71,7 @@ dependencies {
     // Retrofit
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
+    implementation(libs.retrofit.scalars)
 
     // Jsoup
     implementation(libs.jsoup)

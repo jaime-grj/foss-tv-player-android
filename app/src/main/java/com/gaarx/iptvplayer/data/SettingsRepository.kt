@@ -38,4 +38,12 @@ class SettingsRepository @Inject constructor(
     suspend fun getEpgSource() : String {
         return settingsService.getEpgSource()
     }
+
+    suspend fun getConfigURL(): String {
+        return settingsService.getConfigURL()
+    }
+
+    suspend fun updateConfigURL(url: String) {
+        settingsService.updateConfigURL(url)
+    }
 }

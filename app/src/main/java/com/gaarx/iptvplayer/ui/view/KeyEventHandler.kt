@@ -208,6 +208,12 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                 ChannelSettings.UPDATE_CHANNEL_LIST -> {
                                     onLoadSetting(ChannelSettings.UPDATE_CHANNEL_LIST)
                                 }
+                                ChannelSettings.CONFIG_URL -> {
+                                    onLoadSetting(ChannelSettings.CONFIG_URL)
+                                }
+                                ChannelSettings.ASPECT_RATIO -> {
+                                    onLoadSetting(ChannelSettings.ASPECT_RATIO)
+                                }
                             }
                         }
                         else{

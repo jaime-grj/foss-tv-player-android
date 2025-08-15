@@ -12,6 +12,7 @@ import com.gaarx.iptvplayer.domain.DownloadEPGUseCase
 import com.gaarx.iptvplayer.domain.GetChannelsUseCase
 import com.gaarx.iptvplayer.domain.GetSettingsUseCase
 import com.gaarx.iptvplayer.domain.ImportJSONDataUseCase
+import com.gaarx.iptvplayer.domain.UpdateConfigURLUseCase
 import com.gaarx.iptvplayer.domain.model.CategoryItem
 import com.gaarx.iptvplayer.domain.model.ChannelItem
 import com.gaarx.iptvplayer.domain.model.EPGProgramItem
@@ -27,6 +28,7 @@ class ChannelViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val importJSONDataUseCase: ImportJSONDataUseCase,
     private val downloadEPGUseCase: DownloadEPGUseCase,
+    private val updateConfigURLUseCase: UpdateConfigURLUseCase,
     private val epgRepository: EPGRepository,
     private val channelRepository: ChannelRepository
 ): ViewModel() {
@@ -177,6 +179,10 @@ class ChannelViewModel @Inject constructor(
 
     suspend fun getChannelCount(): Int {
         return channelRepository.getChannelCount()
+    }
+
+    suspend fun updateConfigURL(url: String) {
+        updateConfigURLUseCase.invoke(url)
     }
 
 }
