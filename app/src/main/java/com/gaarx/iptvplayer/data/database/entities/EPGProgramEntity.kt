@@ -39,7 +39,10 @@ data class EPGProgramEntity (
     val ageRating: String?,
 
     @ColumnInfo(name = "ageRatingIcon")
-    val ageRatingIcon: String?
+    val ageRatingIcon: String?,
+
+    @ColumnInfo(name = "lastUpdated")
+    val lastUpdated: Long
 )
 
 fun EPGProgramItem.toDatabase() : EPGProgramEntity =
@@ -52,5 +55,6 @@ fun EPGProgramItem.toDatabase() : EPGProgramEntity =
         category = category,
         icon = icon,
         ageRating = ageRating,
-        ageRatingIcon = ageRatingIcon
+        ageRatingIcon = ageRatingIcon,
+        lastUpdated = lastUpdated
     )

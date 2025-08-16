@@ -35,23 +35,23 @@ class EPGRepository @Inject constructor(
         }
     }
 
-    // Process each EPG item as it's loaded and write to the DB
     suspend fun downloadEPG() {
-        epgDao.deleteAll()  // Clear old data first
+        val now = System.currentTimeMillis()
+        val epgSourceUrl = listOf(settingsRepository.getEpgSource())
 
-        val epgSourceUrl = listOf(settingsRepository.getEpgSource()) // Will add multiple sources later
-        for(url in epgSourceUrl) {
-            val uri = URI(url)
-            val path = uri.path
-            val filename = path.substring(path.lastIndexOf('/') + 1)
+        for (url in epgSourceUrl) {
+            val filename = URI(url).path.substringAfterLast("/")
             if (filename.endsWith(".gz")) {
                 epgService.downloadAndDecompressGz(filename, url)
-            }
-            else if (filename.endsWith(".xml")) {
+            } else if (filename.endsWith(".xml")) {
                 epgService.downloadFile(filename, url)
             }
-            epgService.parseEPGFile(filename) { insertEPGProgram(it.toDatabase()) }
+            epgService.parseEPGFile(filename) { program ->
+                insertEPGProgram(program.toDatabase().copy(lastUpdated = now))
+            }
         }
-    }
 
+        // Cleanup old data AFTER new is in place
+        epgDao.deleteOlderThan(now)
+    }
 }

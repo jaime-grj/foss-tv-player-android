@@ -13,7 +13,8 @@ data class EPGProgramItem (
     var category: String,
     var icon: String,
     var ageRating: String? = null,
-    var ageRatingIcon: String? = null
+    var ageRatingIcon: String? = null,
+    var lastUpdated: Long = System.currentTimeMillis()
 )
 
 fun EPGProgramEntity.toDomain() = EPGProgramItem(
@@ -26,5 +27,6 @@ fun EPGProgramEntity.toDomain() = EPGProgramItem(
     category = category,
     icon = icon,
     ageRating = ageRating,
-    ageRatingIcon = ageRatingIcon
+    ageRatingIcon = ageRatingIcon,
+    lastUpdated = lastUpdated
 )
