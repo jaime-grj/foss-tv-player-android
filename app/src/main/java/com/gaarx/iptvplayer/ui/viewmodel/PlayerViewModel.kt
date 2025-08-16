@@ -99,12 +99,7 @@ class PlayerViewModel @Inject constructor(): ViewModel() {
         _currentItemSelectedFromChannelSettingsMenu.value = 0
         _currentItemSelectedFromCategoryList.value = 0
         _currentLoadedMenuSetting.value = -1
-        _channelIdFastSwitch.value = 0 /*if (currentCategoryId.value == -1L) {
-            currentChannel.value?.indexFavourite
-        }
-        else {
-            currentChannel.value?.indexGroup
-        }*/
+        _channelIdFastSwitch.value = 0
     }
 
     private val _mediaInfo = MutableLiveData<MediaInfo>()

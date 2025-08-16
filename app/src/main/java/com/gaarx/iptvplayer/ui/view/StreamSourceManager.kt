@@ -37,6 +37,8 @@ class StreamSourceManager(
     private val cacheExpirationTime = TimeUnit.MINUTES.toMillis(TIME_CACHED_URL_MINUTES)
     private var jobLoadStreamSource : Job? = null
 
+    private val apiService = ApiService()
+
     private val player: ExoPlayer
         get() = playerManager.exoPlayer
 
@@ -66,7 +68,7 @@ class StreamSourceManager(
                 if (cachedUrlObj != null && (currentTime - cachedUrlObj.timestamp) < cacheExpirationTime) {
                     cachedUrlObj.url
                 } else {
-                    val newUrl = ApiService.getURLFromChannelSource(streamSource)!!
+                    val newUrl = apiService.getURLFromChannelSource(streamSource)!!
                     urlCache[streamSource] = CachedUrl(newUrl, currentTime)
                     newUrl
                 }
@@ -74,7 +76,7 @@ class StreamSourceManager(
             val headersObj: List<StreamSourceHeaderItem> = streamSource.headers ?: emptyList()
             val headers: MutableMap<String, String> = when (streamSource.streamSourceType) {
                 StreamSourceTypeItem.IPTV -> {
-                    ApiService.getHeadersMapFromHeadersObject(headersObj)
+                    apiService.getHeadersMapFromHeadersObject(headersObj)
                 }
 
                 StreamSourceTypeItem.TWITCH -> {

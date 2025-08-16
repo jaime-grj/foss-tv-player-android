@@ -68,6 +68,8 @@ class PlayerManager(
     private var currentVideoTrack: VideoTrack? = null
     private var currentSubtitlesTrack: SubtitlesTrack? = null
 
+    private var apiService: ApiService = ApiService()
+
     val exoPlayer: ExoPlayer
         get() = player
 
@@ -241,6 +243,9 @@ class PlayerManager(
                     if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
                     timerManager.cancelSourceLoadingTimer()
                     timerManager.cancelBufferingTimer()
+                    timerManager.cancelLoadingIndicatorTimer()
+
+                    playerViewModel.hideAnimatedLoadingIcon()
                     playerViewModel.hideErrorMessage()
                     playerViewModel.hideBottomErrorMessage()
                     playerViewModel.showPlayer()
@@ -668,7 +673,7 @@ class PlayerManager(
         else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
             if (streamSource.drmType == DrmTypeItem.LICENSE) {
                 if (streamSource.useUnofficialDrmLicenseMethod) {
-                    val apiResponse = ApiService.getDrmKeys(streamSource)
+                    val apiResponse = apiService.getDrmKeys(streamSource)
                     val drmBody = MediaUtils.generateDrmBodyFromApiResponse(apiResponse)
                     Log.i("DRM", drmBody)
 
