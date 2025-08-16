@@ -1,0 +1,59 @@
+{
+  "data": {
+    "categories": [
+      {
+        "name": "Category Name",
+        "channels": [
+          {
+            "name": "Channel Name",
+            "description": "Channel Description",
+            "language": "en",
+            "country": "us",
+            "logo": "https://example.com/logo.png",
+            "channelTags": [
+              "Tag1",
+              "Tag2"
+            ],
+            "streamSources": [
+              {
+                "name": "Source Name",
+                "index": 1,
+                "url": "https://example.com/stream.m3u8",
+                "headers": [
+                  {
+                    "key": "User-Agent",
+                    "value": "ExampleUserAgent/1.0"
+                  }
+                ],
+                "type": 0
+              },
+              {
+                "name": "DRM Source",
+                "index": 2,
+                "url": "https://example.com/stream.mpd",
+                "drmType": 2,
+                "drmKeys": [
+                  "keyId1:keyValue1",
+                  "keyId2:keyValue2"
+                ],
+                "drmHeaders": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer exampleToken"
+                  }
+                ],
+                "pssh": "Base64PsshString",
+                "licenseUrl": "https://example.com/license",
+                "useUnofficialDrmLicenseMethod": true,
+                "forceUseBestVideoResolution": true,
+                "type": 0
+              }
+            ],
+            "indexFavourite": 1,
+            "indexGroup": 1
+          }
+        ]
+      }
+    ]
+  }
+}
