@@ -6,80 +6,21 @@
         "channels": [
           {
             "name": "Channel Name",
-            "description": "Channel Description",
+            "description": "Channel description here",
             "language": "en",
             "country": "us",
+            "region": "Region Name",
+            "subregion": "Subregion Name",
             "logo": "https://example.com/logo.png",
-            "channelTags": [
-              "Tag1",
-              "Tag2"
-            ],
+            "channelTags": ["Tag1", "Tag2"],
             "streamSources": [
               {
                 "name": "Source Name",
                 "index": 1,
-                "url": "https://example.com/stream.m3u8?{{token}}",
-                "apiCalls": [
-                    {
-                        "url": "https://api.example.com/v1/example",
-                        "method": "GET",
-                        "type": "json",
-                        "index": 1,
-                        "responseKeys": [
-                            {
-                                "index": 1,
-                                "jsonPath": "example[0].example",
-                                "storeKey": "exampleKey"
-                            },
-                            {
-                                "index": 2,
-                                "jsonPath": "example[0].example",
-                                "storeKey": "exampleKey2"
-                            }
-                        ]
-                    },
-                    {
-                        "url": "{{exampleKey}}",
-                        "method": "POST",
-                        "type": "json",
-                        "index": 2,
-                        "headers": [
-                            {
-                                "key": "Origin",
-                                "value": "https://www.example.com"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ]
-                        "responseKeys": [
-                            {
-                                "index": 1,
-                                "jsonPath": "url",
-                                "storeKey": "exampleKey3"
-                            }
-                        ]
-                    },
-                    {
-                        "url": "{{exampleKey3}}",
-                        "method": "POST",
-                        "type": "json",
-                        "index": 3,
-                        "responseKeys": [
-                            {
-                                "index": 1,
-                                "jsonPath": "example[0].example",
-                                "storeKey": "token"
-                            }
-                        ]
-                    }
-                ],
+                "url": "https://example.com/stream.m3u8",
                 "headers": [
-                  {
-                    "key": "User-Agent",
-                    "value": "ExampleUserAgent/1.0"
-                  }
+                  { "key": "User-Agent", "value": "ExampleUserAgent/1.0" },
+                  { "key": "Referer", "value": "https://example.com" }
                 ],
                 "type": 0
               },
@@ -88,20 +29,39 @@
                 "index": 2,
                 "url": "https://example.com/stream.mpd",
                 "drmType": 2,
-                "drmKeys": [
-                  "keyId1:keyValue1",
-                  "keyId2:keyValue2"
-                ],
+                "drmKeys": ["keyId1:keyValue1", "keyId2:keyValue2"],
                 "drmHeaders": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer exampleToken"
-                  }
+                  { "key": "Authorization", "value": "Bearer exampleToken" }
                 ],
                 "pssh": "Base64PsshString",
                 "licenseUrl": "https://example.com/license",
                 "useUnofficialDrmLicenseMethod": true,
                 "forceUseBestVideoResolution": true,
+                "type": 0
+              },
+              {
+                "name": "API Driven Source",
+                "index": 3,
+                "url": "{{token}}",
+                "apiCalls": [
+                  {
+                    "url": "https://api.example.com/v1/resource",
+                    "method": "GET",
+                    "type": "json",
+                    "index": 1,
+                    "headers": [
+                      { "key": "Content-Type", "value": "application/json" }
+                    ],
+                    "body": "{ \"param\": \"value\" }",
+                    "responseKeys": [
+                      {
+                        "index": 1,
+                        "jsonPath": "data.token",
+                        "storeKey": "token"
+                      }
+                    ]
+                  }
+                ],
                 "type": 0
               }
             ],
@@ -110,6 +70,9 @@
           }
         ]
       }
+    ],
+    "epgSources": [
+        "http://example.com/guide.xml"
     ]
   }
 }
