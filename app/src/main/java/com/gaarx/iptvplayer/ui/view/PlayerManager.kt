@@ -269,6 +269,7 @@ class PlayerManager(
                     if (playerViewModel.isBuffering.value == true) timerManager.cancelBufferingTimer()
                     timerManager.cancelCheckPlayingCorrectlyTimer()
                     if (playerViewModel.isMediaInfoVisible.value == true) playerViewModel.hideMediaInfo()
+                    onTryNextStreamSource?.invoke()
                     timerManager.startHidePlayerTimer{
                         playerViewModel.hidePlayer()
                         timerManager.startLoadingIndicatorTimer {
