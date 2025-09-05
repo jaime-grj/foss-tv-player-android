@@ -1,5 +1,5 @@
-# FOSS IPTV Player [WIP]
-IPTV streams player for Android and Android TV.
+# FOSS TV Player [WIP]
+Live TV streams player for Android and Android TV.
 
 This app aims to create a simple interface for watching live streaming channels and sorting them in a TV-style list.
 
