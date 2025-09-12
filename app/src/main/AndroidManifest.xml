@@ -16,7 +16,7 @@
 
     <application
         android:allowBackup="true"
-        android:name=".IPTVPlayerApp"
+        android:name=".TVPlayerApp"
         android:usesCleartextTraffic="true"
         android:banner="@drawable/app_icon_your_company"
         android:icon="@mipmap/ic_launcher"

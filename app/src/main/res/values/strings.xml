@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">IPTV Player</string>
+    <string name="app_name" translatable="false">FOSS TV Player</string>
     <string name="watch_tv">Live TV</string>
 
     <!-- Error messages -->
