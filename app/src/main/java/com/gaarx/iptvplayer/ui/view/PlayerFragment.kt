@@ -521,6 +521,7 @@ class PlayerFragment : Fragment() {
         binding.channelNumberKeyboard.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNumberKeyboardVisible)
         binding.channelBottomInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isBottomInfoVisible)
         binding.channelMediaInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isMediaInfoVisible)
+        binding.channelInfoBackground.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNameVisible)
         binding.categoryName.bindVisibility(viewLifecycleOwner, playerViewModel.isCategoryNameVisible)
         binding.timeDate.bindVisibility(viewLifecycleOwner, playerViewModel.isTimeDateVisible)
         binding.message.bindVisibility(viewLifecycleOwner, playerViewModel.isErrorMessageVisible)
