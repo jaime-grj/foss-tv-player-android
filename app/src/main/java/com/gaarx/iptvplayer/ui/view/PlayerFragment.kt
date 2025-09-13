@@ -71,6 +71,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.Observer
 import androidx.media3.common.Format
 import androidx.media3.common.Tracks
 import kotlinx.coroutines.flow.collectLatest
@@ -521,7 +523,7 @@ class PlayerFragment : Fragment() {
         binding.channelNumberKeyboard.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNumberKeyboardVisible)
         binding.channelBottomInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isBottomInfoVisible)
         binding.channelMediaInfo.bindVisibility(viewLifecycleOwner, playerViewModel.isMediaInfoVisible)
-        binding.channelInfoBackground.bindVisibility(viewLifecycleOwner, playerViewModel.isChannelNameVisible)
+        binding.channelInfoBackground.bindVisibility(viewLifecycleOwner, orLiveData(playerViewModel.isChannelNumberVisible, playerViewModel.isChannelNumberKeyboardVisible))
         binding.categoryName.bindVisibility(viewLifecycleOwner, playerViewModel.isCategoryNameVisible)
         binding.timeDate.bindVisibility(viewLifecycleOwner, playerViewModel.isTimeDateVisible)
         binding.message.bindVisibility(viewLifecycleOwner, playerViewModel.isErrorMessageVisible)
@@ -1617,5 +1619,15 @@ fun View.bindVisibility(
         } else {
             if (invisibleInsteadOfGone) View.INVISIBLE else View.GONE
         }
+    }
+}
+
+fun orLiveData(a: LiveData<Boolean>, b: LiveData<Boolean>): LiveData<Boolean> {
+    return MediatorLiveData<Boolean>().apply {
+        val observer = Observer<Any> {
+            value = a.value == true || b.value == true
+        }
+        addSource(a, observer)
+        addSource(b, observer)
     }
 }
