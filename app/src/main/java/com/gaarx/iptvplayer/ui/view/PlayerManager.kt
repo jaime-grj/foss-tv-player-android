@@ -705,18 +705,6 @@ class PlayerManager(
                                 .setDrmConfiguration(
                                     MediaItem.DrmConfiguration
                                         .Builder(C.WIDEVINE_UUID)
-                                        .setLicenseUri("https://drmnew.tvup.cloud/license/SAT53")
-                                        .setLicenseRequestHeaders(
-                                            mapOf(
-                                                "Origin" to "https://www.tivify.tv",
-                                                "Referer" to "https://www.tivify.tv/",
-                                                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-                                                "X-Access-Token" to "eyJ1c2VySWQiOiJwdXJjaGFzZSIsInNlc3Npb25JZCI6InAwIiwibWVyY2hhbnQiOiJtb2dfcnRwIn0=",
-                                                "Accept-Encoding" to "gzip, deflate, br, zstd",
-                                                "Content-Type" to "application/octet-stream",
-                                                "X-Tvup-Device" to "2369bbed-45fd-48c6-9294-a6d9341df003",
-                                            )
-                                        )
                                         .build()
                                 )
                                 .build()
