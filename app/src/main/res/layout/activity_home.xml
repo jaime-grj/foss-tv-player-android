@@ -11,7 +11,7 @@
         android:id="@+id/main_browse_fragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:name="com.gaarx.iptvplayer.ui.view.MainFragment"
+        android:name="com.gaarx.tvplayer.ui.view.MainFragment"
         />
 
 

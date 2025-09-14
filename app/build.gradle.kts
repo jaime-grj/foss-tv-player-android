@@ -10,7 +10,7 @@ plugins {
 }
 
 android {
-    namespace = "com.gaarx.iptvplayer"
+    namespace = "com.gaarx.tvplayer"
     compileSdk = 36
 
     defaultConfig {
