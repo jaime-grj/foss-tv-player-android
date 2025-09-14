@@ -7,6 +7,7 @@ import com.gaarx.tvplayer.databinding.FragmentPlayerBinding
 import com.gaarx.tvplayer.domain.model.MediaInfo
 import com.gaarx.tvplayer.ui.viewmodel.PlayerViewModel
 import com.gaarx.tvplayer.core.MediaUtils
+import com.gaarx.tvplayer.R
 import com.google.common.util.concurrent.MoreExecutors
 import androidx.media3.exoplayer.*
 import androidx.media3.ui.SubtitleView

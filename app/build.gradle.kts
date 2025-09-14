@@ -14,7 +14,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.gaarx.iptvplayer"
+        applicationId = "com.gaarx.tvplayer"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
