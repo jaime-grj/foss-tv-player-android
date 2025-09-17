@@ -673,45 +673,17 @@ class PlayerManager(
         }
         else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
             if (streamSource.drmType == DrmTypeItem.LICENSE) {
-                if (streamSource.useUnofficialDrmLicenseMethod) {
-                    val apiResponse = apiService.getDrmKeys(streamSource)
-                    val drmBody = MediaUtils.generateDrmBodyFromApiResponse(apiResponse)
-                    Log.i("DRM", drmBody)
-
-                    val dashMediaItem = MediaItem.Builder()
-                        .setUri(url.toUri())
-                        .setMimeType(MimeTypes.APPLICATION_MPD)
-                        .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
-                        .build()
-
-                    val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
-                    val drmSessionManager = DefaultDrmSessionManager.Builder()
-                        .setPlayClearSamplesWithoutKeys(true)
-                        .setMultiSession(false)
-                        .setKeyRequestParameters(HashMap())
-                        .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                        .build(drmCallback)
-
-                    val customDrmSessionManager: DrmSessionManager = drmSessionManager
-                    val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
-                        .setDrmSessionManagerProvider { customDrmSessionManager }
-                        .createMediaSource(dashMediaItem)
-                    mediaSourceFactory
-                }
-                else{
-                    val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
-                        .createMediaSource(
-                            MediaItem.Builder().setUri(url.toUri())
-                                .setDrmConfiguration(
-                                    MediaItem.DrmConfiguration
-                                        .Builder(C.WIDEVINE_UUID)
-                                        .build()
-                                )
-                                .build()
-                        )
-                    mediaSourceFactory
-                }
-
+                val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(
+                        MediaItem.Builder().setUri(url.toUri())
+                            .setDrmConfiguration(
+                                MediaItem.DrmConfiguration
+                                    .Builder(C.WIDEVINE_UUID)
+                                    .build()
+                            )
+                            .build()
+                    )
+                mediaSourceFactory
             } else {
                 val drmKeys = streamSource.drmKeys ?: ""
                 println("drmKeys: $drmKeys")
@@ -744,7 +716,7 @@ class PlayerManager(
             Log.i("DRM", "NONE")
             DashMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(url.toUri()))
         }
-        else if (url.contains("http://ytproxy")) {
+        else if (url.contains("http://ytproxy")) { // TEST YOUTUBE DASH
             val mediaItem = MediaItem.Builder()
                 .setUri(url.toUri())
                 .setLiveConfiguration(

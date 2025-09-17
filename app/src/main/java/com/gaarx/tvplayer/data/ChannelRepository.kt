@@ -455,7 +455,6 @@ class ChannelRepository @Inject constructor(
             drmKeys = drmKeys,
             pssh = source.optString("pssh", null),
             licenseUrl = source.optString("licenseUrl", null),
-            useUnofficialDrmLicenseMethod = source.optBoolean("useUnofficialDrmLicenseMethod", false),
             forceUseBestVideoResolution = source.optBoolean("forceUseBestVideoResolution", false)
         )
 

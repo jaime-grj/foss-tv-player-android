@@ -214,35 +214,6 @@ class ApiService (
     fun getHeadersMapFromHeadersObject(headers: List<StreamSourceHeaderItem>): Map<String, String> =
         headers.associate { it.key to it.value }
 
-    fun getDrmKeys(streamSource: StreamSourceItem): String {
-        if (streamSource.drmType == DrmTypeItem.LICENSE) {
-            Log.i("ApiService", "getDrmKeys")
-            val headers = streamSource.drmHeaders!!.joinToString(",") { "'${it.key}': '${it.value}'" }
-            Log.i("ApiService", "getDrmKeys - headers: $headers")
-            return httpClient.post(
-                url = "http://cdrm.zhnx.home.arpa/api/decrypt",
-                headers = mapOf(
-                    "Content-Type" to "application/json"
-                ),
-                body = """
-                {
-                    "PSSH": "${streamSource.pssh}",
-                    "License URL": "${streamSource.licenseUrl}",
-                    "Headers": "{$headers}",
-                    "JSON": "{}",
-                    "Cookies": "{}",
-                    "Data": "{}",
-                    "Proxy": ""
-                }
-            """.trimIndent()
-            )
-        }
-        else {
-            Log.i("ApiService", "getDrmKeys - no drm")
-            return ""
-        }
-    }
-
     private fun getHeadersMapFromApiCallHeadersObject(headers: List<ApiCallHeaderItem>): Map<String, String> =
         headers.associate { it.key to it.value }
 
