@@ -821,7 +821,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun loadAspectRatioMenu() {
-        val aspectRatios = listOf("Auto", "16:9", "4:3", "Fill", "Zoom")
+        val aspectRatios = listOf("Auto", "Fill", "Zoom")
         val aspectRatioValues = listOf(AspectRatio.AUTO, AspectRatio.FILL, AspectRatio.ZOOM)
         val builder = AlertDialog.Builder(requireContext())
         builder.setTitle("Selecciona relación de aspecto")
