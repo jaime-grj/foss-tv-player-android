@@ -120,6 +120,13 @@ dependencies {
     implementation(libs.rxjava)
 
     implementation(project(":library"))
+
+    // Test dependencies
+    testImplementation(libs.junit)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.kotlin)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.espresso.core)
 }
 
 kapt {

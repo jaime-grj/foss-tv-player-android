@@ -804,6 +804,7 @@ class PlayerFragment : Fragment() {
                 }
             }
             ChannelSettings.ASPECT_RATIO -> {
+                loadAspectRatioMenu()
             }
             ChannelSettings.CONFIG_URL -> {
                 lifecycleScope.launch {
@@ -817,6 +818,35 @@ class PlayerFragment : Fragment() {
                 }
             }
         }
+    }
+
+    private fun loadAspectRatioMenu() {
+        val aspectRatios = listOf("Auto", "16:9", "4:3", "Fill", "Zoom")
+        val aspectRatioValues = listOf(AspectRatio.AUTO, AspectRatio.FILL, AspectRatio.ZOOM)
+        val builder = AlertDialog.Builder(requireContext())
+        builder.setTitle("Selecciona relación de aspecto")
+        builder.setItems(aspectRatios.toTypedArray()) { _, which ->
+            applyAspectRatio(aspectRatioValues[which])
+        }
+        builder.show()
+    }
+
+    private fun applyAspectRatio(aspectRatio: AspectRatio) {
+        when (aspectRatio) {
+            AspectRatio.AUTO -> {
+                binding.playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+            AspectRatio.FILL -> {
+                binding.playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+            }
+            AspectRatio.ZOOM -> {
+                binding.playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            }
+        }
+    }
+
+    enum class AspectRatio {
+        AUTO, FILL, ZOOM
     }
 
     private suspend fun loadConfigURLDialogSuspend(): String? =
