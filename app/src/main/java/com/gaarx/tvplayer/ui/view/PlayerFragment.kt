@@ -161,7 +161,6 @@ class PlayerFragment : Fragment() {
         streamSourceManager = StreamSourceManager(
             playerManager,
             playerViewModel,
-            channelViewModel,
             timerManager,
             lifecycleScope
         )
@@ -657,6 +656,7 @@ class PlayerFragment : Fragment() {
                     playerViewModel.hideButtonCategoryList()
                 }
                 playerViewModel.hideChannelName()
+                playerViewModel.hideChannelNumber()
                 playerViewModel.hideCategoryName()
                 playerViewModel.hideTimeDate()
                 playerViewModel.hideMediaInfo()

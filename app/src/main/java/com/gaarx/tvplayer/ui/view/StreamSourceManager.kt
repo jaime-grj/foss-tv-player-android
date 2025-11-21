@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit
 class StreamSourceManager(
     private val playerManager: PlayerManager,
     private val playerViewModel: PlayerViewModel,
-    private val channelViewModel: ChannelViewModel,
     private val timerManager: PlayerTimerManager,
     private val lifecycleScope: LifecycleCoroutineScope
 ) {
