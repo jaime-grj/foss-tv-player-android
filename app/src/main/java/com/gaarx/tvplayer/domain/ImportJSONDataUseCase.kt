@@ -6,11 +6,11 @@ import javax.inject.Inject
 
 class ImportJSONDataUseCase @Inject constructor(private val repository: ChannelRepository){
 
-    suspend operator fun invoke() {
-        repository.deleteAll()
+    suspend operator fun invoke(): Boolean {
         Log.d("ImportJSONDataUseCase", "Importing JSON data")
-        repository.loadChannelsFromJSON()
+        val result = repository.reloadChannelsFromJSON()
         Log.d("ImportJSONDataUseCase", "Imported JSON data")
+        return result
     }
 
 }

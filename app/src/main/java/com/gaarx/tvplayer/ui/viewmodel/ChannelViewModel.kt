@@ -83,14 +83,16 @@ class ChannelViewModel @Inject constructor(
         _nextProgram.value = nextProgram
     }
 
-    suspend fun importJSONData() {
+    suspend fun importJSONData(): Boolean {
         updateIsImportingData(true)
-        try {
+        return try {
             importJSONDataUseCase.invoke()
         } catch (e: Exception) {
             Log.e("ChannelViewModel", "Error importing JSON data", e)
+            false
+        } finally {
+            updateIsImportingData(false)
         }
-        updateIsImportingData(false)
     }
 
     suspend fun downloadEPG(){

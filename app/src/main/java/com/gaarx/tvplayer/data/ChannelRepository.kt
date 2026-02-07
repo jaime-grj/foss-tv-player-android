@@ -2,6 +2,7 @@ package com.gaarx.tvplayer.data
 
 import android.util.Log
 import androidx.room.Transaction
+import androidx.room.withTransaction
 import com.gaarx.tvplayer.data.dao.ApiCallDao
 import com.gaarx.tvplayer.data.dao.ApiCallHeaderDao
 import com.gaarx.tvplayer.data.dao.ApiResponseKeyDao
@@ -12,6 +13,7 @@ import com.gaarx.tvplayer.data.dao.EPGDao
 import com.gaarx.tvplayer.data.dao.ProxyDao
 import com.gaarx.tvplayer.data.dao.StreamSourceDao
 import com.gaarx.tvplayer.data.dao.StreamSourceHeaderDao
+import com.gaarx.tvplayer.data.database.ChannelDatabase
 import com.gaarx.tvplayer.data.database.entities.ApiCallEntity
 import com.gaarx.tvplayer.data.database.entities.ApiCallHeaderEntity
 import com.gaarx.tvplayer.data.database.entities.ApiResponseKeyEntity
@@ -55,7 +57,8 @@ class ChannelRepository @Inject constructor(
     private val epgDao: EPGDao,
     private val drmHeaderDao: DrmHeaderDao,
     private val epgRepository: EPGRepository,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val channelDatabase: ChannelDatabase
 ) {
 
     suspend fun getChannelCountByCategory(categoryId: Long): Int {
@@ -367,7 +370,19 @@ class ChannelRepository @Inject constructor(
     suspend fun loadChannelsFromJSON(): Boolean {
         val jsonStr = dataService.getJSONString()
         if (jsonStr.isEmpty()) return false
+        parseAndInsertChannels(jsonStr)
+        return true
+    }
 
+    suspend fun reloadChannelsFromJSON(): Boolean = channelDatabase.withTransaction {
+        val jsonStr = dataService.getJSONString()
+        if (jsonStr.isEmpty()) return@withTransaction false
+        deleteAll()
+        parseAndInsertChannels(jsonStr)
+        true
+    }
+
+    private suspend fun parseAndInsertChannels(jsonStr: String) {
         val jsonObj = JSONObject(jsonStr)
         val data = jsonObj.getJSONObject("data")
         val categories = data.getJSONArray("categories")
@@ -384,7 +399,6 @@ class ChannelRepository @Inject constructor(
         }
 
         processEpgSources(data)
-        return true
     }
 
     private suspend fun processCategory(category: JSONObject): Long {

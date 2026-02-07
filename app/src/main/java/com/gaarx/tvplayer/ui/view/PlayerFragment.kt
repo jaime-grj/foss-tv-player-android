@@ -211,15 +211,19 @@ class PlayerFragment : Fragment() {
                         val url = loadConfigURLDialogSuspend()
                         if (!url.isNullOrEmpty()) {
                             channelViewModel.updateIsImportingData(true)
-                            channelViewModel.importJSONData()
+                            val updated = channelViewModel.importJSONData()
                             channelViewModel.updateIsImportingData(false)
-                            channelViewModel.updateEPG()
-                            playerViewModel.updateCurrentCategoryId(-1L)
-                            playerViewModel.updateCategoryName("")
-                            try {
-                                loadChannel(channelViewModel.getChannel(-1L, 1))
-                            } catch (e: Exception) {
-                                Log.e("PlayerActivity", "Error: ${e.message}")
+                            if (!updated) {
+                                Toast.makeText(requireContext(), "Error al cargar la lista de canales", Toast.LENGTH_SHORT).show()
+                            } else {
+                                channelViewModel.updateEPG()
+                                playerViewModel.updateCurrentCategoryId(-1L)
+                                playerViewModel.updateCategoryName("")
+                                try {
+                                    loadChannel(channelViewModel.getChannel(-1L, 1))
+                                } catch (e: Exception) {
+                                    Log.e("PlayerActivity", "Error: ${e.message}")
+                                }
                             }
                         }
                     } else if (lastChannelId != 0L && lastCategoryId != 0L) {
@@ -790,7 +794,11 @@ class PlayerFragment : Fragment() {
             }
             ChannelSettings.UPDATE_CHANNEL_LIST -> {
                 lifecycleScope.launch {
-                    channelViewModel.importJSONData()
+                    val updated = channelViewModel.importJSONData()
+                    if (!updated) {
+                        Toast.makeText(requireContext(), "Error al cargar la lista de canales", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
                     initCategoryList()
                     playerViewModel.updateCurrentCategoryId(-1L)
                     playerViewModel.updateCategoryName("Favoritos")
