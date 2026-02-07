@@ -338,29 +338,31 @@ class PlayerFragment : Fragment() {
     @SuppressLint("SetTextI18n")
     private fun initUI() {
         playerViewModel.onCreate()
-        lifecycleScope.launch {
-            channelViewModel.downloadEPG()
-        }
-        playerViewModel.updateCurrentItemSelectedFromChannelList(0)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowCompat.setDecorFitsSystemWindows(activity?.window!!, false)
-            activity?.window?.insetsController?.let { controller ->
-                controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
-                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        } else {
-            @Suppress("DEPRECATION")
-            activity?.window?.decorView?.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                )
-        }
-
         setupRecyclerViews()
-        setupObservers()
-        setupClickListeners()
+        lifecycleScope.launch {
+            val lastDownloadedTime = channelViewModel.getEPGLastDownloadedTime()
+            println("lastDownloadedTime: $lastDownloadedTime, current: "+ (System.currentTimeMillis() - lastDownloadedTime))
+            if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
+                channelViewModel.downloadEPG()
+            }
+            playerViewModel.updateCurrentItemSelectedFromChannelList(0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowCompat.setDecorFitsSystemWindows(activity?.window!!, false)
+                activity?.window?.insetsController?.let { controller ->
+                    controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
+                    controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                activity?.window?.decorView?.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
+            }
+            setupObservers()
+            setupClickListeners()
+        }
     }
 
     private fun setupRecyclerViews(){
@@ -1567,6 +1569,7 @@ class PlayerFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         Log.i(TAG, "onStart")
+        channelViewModel.startEpgAutoRefresh()
         player.playWhenReady = true
     }
 
@@ -1609,6 +1612,7 @@ class PlayerFragment : Fragment() {
         super.onStop()
         Log.i(TAG, "onStop")
         //ProxySelector.setDefault(originalProxySelector)
+        channelViewModel.stopEpgAutoRefresh()
         if (!isInEPGPictureInPictureMode){
             player.playWhenReady = false
         }

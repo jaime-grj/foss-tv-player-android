@@ -11,7 +11,7 @@ class SettingsRepository @Inject constructor(
         settingsService.updateLastDownloadedTime(time)
     }
 
-    suspend fun getLastDownloadedTime(): Long {
+    suspend fun getEPGLastDownloadedTime(): Long {
         return settingsService.getLastDownloadedTime()
     }
 

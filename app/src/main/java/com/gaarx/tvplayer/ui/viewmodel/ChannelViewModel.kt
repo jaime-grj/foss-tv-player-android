@@ -11,7 +11,6 @@ import com.gaarx.tvplayer.data.SettingsRepository
 import com.gaarx.tvplayer.domain.DownloadEPGUseCase
 import com.gaarx.tvplayer.domain.GetChannelsUseCase
 import com.gaarx.tvplayer.domain.GetConfigURLUseCase
-import com.gaarx.tvplayer.domain.GetSettingsUseCase
 import com.gaarx.tvplayer.domain.ImportJSONDataUseCase
 import com.gaarx.tvplayer.domain.UpdateConfigURLUseCase
 import com.gaarx.tvplayer.domain.model.CategoryItem
@@ -19,13 +18,13 @@ import com.gaarx.tvplayer.domain.model.ChannelItem
 import com.gaarx.tvplayer.domain.model.EPGProgramItem
 import com.gaarx.tvplayer.domain.model.toDomain
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class ChannelViewModel @Inject constructor(
     private val getChannelsUseCase: GetChannelsUseCase,
-    private val getSettingsUseCase: GetSettingsUseCase,
     private val settingsRepository: SettingsRepository,
     private val importJSONDataUseCase: ImportJSONDataUseCase,
     private val downloadEPGUseCase: DownloadEPGUseCase,
@@ -95,14 +94,32 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
+    suspend fun getEPGLastDownloadedTime() = settingsRepository.getEPGLastDownloadedTime()
+
     suspend fun downloadEPG(){
         Log.d("ChannelViewModel", "downloadEPG")
-        val lastDownloadedTime = getSettingsUseCase.invoke()
-        println("lastDownloadedTime: $lastDownloadedTime, current: ${System.currentTimeMillis() - lastDownloadedTime}")
-        if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
-            downloadEPGUseCase.invoke()
-            settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
+        downloadEPGUseCase.invoke()
+        settingsRepository.updateLastDownloadedTime(System.currentTimeMillis())
+    }
+
+    private var epgRefreshJob: kotlinx.coroutines.Job? = null
+
+    fun startEpgAutoRefresh(intervalMs: Long = 2 * 60 * 60 * 1000L) {
+        if (epgRefreshJob?.isActive == true) return
+        Log.d("ChannelViewModel", "startEpgAutoRefresh intervalMs=$intervalMs")
+        epgRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                Log.d("ChannelViewModel", "EPG auto-refresh tick")
+                downloadEPG()
+                kotlinx.coroutines.delay(intervalMs)
+            }
         }
+    }
+
+    fun stopEpgAutoRefresh() {
+        Log.d("ChannelViewModel", "stopEpgAutoRefresh")
+        epgRefreshJob?.cancel()
+        epgRefreshJob = null
     }
 
     suspend fun getSmChannelsWithSchedule(): List<ChannelItem> {
