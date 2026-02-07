@@ -341,26 +341,26 @@ class PlayerFragment : Fragment() {
         setupRecyclerViews()
         setupObservers()
         setupClickListeners()
+        playerViewModel.updateCurrentItemSelectedFromChannelList(0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowCompat.setDecorFitsSystemWindows(activity?.window!!, false)
+            activity?.window?.insetsController?.let { controller ->
+                controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
+                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            activity?.window?.decorView?.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    )
+        }
         lifecycleScope.launch {
             val lastDownloadedTime = channelViewModel.getEPGLastDownloadedTime()
             println("lastDownloadedTime: $lastDownloadedTime, current: "+ (System.currentTimeMillis() - lastDownloadedTime))
             if (lastDownloadedTime <= 0L || System.currentTimeMillis() - lastDownloadedTime > 2 * 60 * 60 * 1000) {
                 channelViewModel.downloadEPG()
-            }
-            playerViewModel.updateCurrentItemSelectedFromChannelList(0)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                WindowCompat.setDecorFitsSystemWindows(activity?.window!!, false)
-                activity?.window?.insetsController?.let { controller ->
-                    controller.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
-                    controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                activity?.window?.decorView?.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    )
             }
         }
     }
