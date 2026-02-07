@@ -339,6 +339,8 @@ class PlayerFragment : Fragment() {
     private fun initUI() {
         playerViewModel.onCreate()
         setupRecyclerViews()
+        setupObservers()
+        setupClickListeners()
         lifecycleScope.launch {
             val lastDownloadedTime = channelViewModel.getEPGLastDownloadedTime()
             println("lastDownloadedTime: $lastDownloadedTime, current: "+ (System.currentTimeMillis() - lastDownloadedTime))
@@ -360,8 +362,6 @@ class PlayerFragment : Fragment() {
                         or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                     )
             }
-            setupObservers()
-            setupClickListeners()
         }
     }
 
