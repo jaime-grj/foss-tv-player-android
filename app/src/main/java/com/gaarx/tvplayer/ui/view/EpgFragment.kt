@@ -26,11 +26,8 @@ import kotlinx.coroutines.withContext
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
-import org.threeten.bp.ZoneOffset
 import org.threeten.bp.ZonedDateTime
 import org.threeten.bp.format.DateTimeFormatter
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.random.Random
 
 @AndroidEntryPoint
 class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
@@ -42,7 +39,7 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
     //override val DISPLAY_LOCALE: Locale = Locale("en", "US")
     override val CAN_FOCUS_CHANNEL = true
     override val SCROLL_SYNCING = true
-    override val DISPLAY_TIMEZONE: ZoneId = ZoneOffset.systemDefault()
+    override val DISPLAY_TIMEZONE: ZoneId = ZoneId.systemDefault()
 
     companion object {
         private val TAG = EpgFragment::class.java.name
@@ -63,7 +60,8 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
 
     private val channelViewModel: ChannelViewModel by viewModels()
 
-    private lateinit var jobLoadEPG : Job
+    private var jobLoadEPG: Job? = null
+    private val metadataFormatter = DateTimeFormatter.ofPattern("'Starts at' HH:mm")
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -153,68 +151,82 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
         // Set initial loading state
         setState(State.Loading)
 
-        lifecycleScope.launch {
-            val channelItems = channelViewModel.getSmChannelsByCategory(-1L)
+        jobLoadEPG?.cancel()
+        jobLoadEPG = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val channelItems = channelViewModel.getSmChannelsByCategory(-1L)
+                if (channelItems.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        if (isAdded) {
+                            setState(State.Error("No channels loaded."))
+                        }
+                    }
+                    return@launch
+                }
 
-            if (channelItems.isNotEmpty()) {
-                val channelMap = ConcurrentHashMap<String, List<ProgramGuideSchedule<SimpleProgram>>>()
+                val channelMap = mutableMapOf<String, List<ProgramGuideSchedule<SimpleProgram>>>()
                 val channels: MutableList<SimpleChannel> = mutableListOf()
 
                 // Build channel list from database results
                 for (channel in channelItems) {
                     channels += SimpleChannel(
                         channel.id.toString(),
-                        if (channel.indexFavourite != null){
+                        if (channel.indexFavourite != null) {
                             SpannedString(channel.indexFavourite.toString() + " " + channel.name)
-                        } else
-                            SpannedString(channel.indexGroup.toString() + " " + channel.name),
+                        } else {
+                            SpannedString(channel.indexGroup.toString() + " " + channel.name)
+                        },
                         channel.logo
                     )
                 }
 
-                jobLoadEPG = lifecycleScope.launch {
-                    // Populate schedules for each channel
-                    channels.forEach { channel ->
-                        val scheduleList = mutableListOf<ProgramGuideSchedule<SimpleProgram>>()
+                // Populate schedules for each channel
+                channels.forEach { channel ->
+                    val scheduleList = mutableListOf<ProgramGuideSchedule<SimpleProgram>>()
 
-                        val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong()).distinctBy {
-                            it.title to it.startTime
-                        }
-                        Log.d(TAG, "Found ${programs.size} programs for channel ${channel.id}.")
+                    val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong()).distinctBy {
+                        it.id
+                    }
+                    Log.d(TAG, "Found ${programs.size} programs for channel ${channel.id}.")
 
-                        for (program in programs) {
-                            val newStartTime = ZonedDateTime.ofInstant(
-                                Instant.ofEpochMilli(program.startTime.time),
-                                DISPLAY_TIMEZONE
+                    for (program in programs) {
+                        val newStartTime = ZonedDateTime.ofInstant(
+                            Instant.ofEpochMilli(program.startTime.time),
+                            DISPLAY_TIMEZONE
+                        )
+                        val newEndTime = ZonedDateTime.ofInstant(
+                            Instant.ofEpochMilli(program.stopTime.time),
+                            DISPLAY_TIMEZONE
+                        )
+                        scheduleList.add(
+                            createSchedule(
+                                program.id,
+                                program.title,
+                                newStartTime,
+                                newEndTime,
+                                program.description,
+                                channel.id.toLong()
                             )
-                            val newEndTime = ZonedDateTime.ofInstant(
-                                Instant.ofEpochMilli(program.stopTime.time),
-                                DISPLAY_TIMEZONE
-                            )
-                            //println("ID ${program.id}, Title: " + program.title)
-                            //println("newStartTime: $newStartTime, newEndTime: $newEndTime")
-                            scheduleList.add(
-                                createSchedule(
-                                    program.title,
-                                    newStartTime,
-                                    newEndTime,
-                                    program.description,
-                                    channel.id.toLong()
-                                )
-                            )
-                        }
-
-                        channelMap[channel.id] = scheduleList
+                        )
                     }
 
-                    // Update UI with loaded data
-                    withContext(Dispatchers.Main) {
-                        if (channels.isEmpty() || channelMap.isEmpty()) {
-                            setState(State.Error("No channels loaded."))
-                        } else {
-                            setData(channels, channelMap, localDate)
-                            setState(State.Content)
-                        }
+                    channelMap[channel.id] = scheduleList
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (!isAdded) return@withContext
+                    if (channels.isEmpty()) {
+                        setState(State.Error("No channels loaded."))
+                    } else {
+                        setData(channels, channelMap, localDate)
+                        setState(State.Content)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load EPG", e)
+                withContext(Dispatchers.Main) {
+                    if (isAdded) {
+                        setState(State.Error("Failed to load EPG."))
                     }
                 }
             }
@@ -223,14 +235,15 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
 
 
     private fun createSchedule(
+        programId: Long,
         scheduleName: String,
         startTime: ZonedDateTime,
         endTime: ZonedDateTime,
         description: String,
         channelId: Long
     ): ProgramGuideSchedule<SimpleProgram> {
-        val id = Random.nextLong(100_000L)
-        val metadata = DateTimeFormatter.ofPattern("'Starts at' HH:mm").format(startTime)
+        val id = programId
+        val metadata = metadataFormatter.format(startTime)
         return ProgramGuideSchedule.createScheduleWithProgram(
             id,
             startTime.toInstant(),
@@ -246,12 +259,6 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
         )
     }
 
-    private fun randomTimeBetween(min: ZonedDateTime, max: ZonedDateTime): ZonedDateTime {
-        val randomEpoch = Random.nextLong(min.toEpochSecond(), max.toEpochSecond())
-        return ZonedDateTime.ofInstant(Instant.ofEpochSecond(randomEpoch), ZoneOffset.systemDefault())
-    }
-
-
     override fun requestRefresh() {
         // You can refresh other data here as well.
         requestingProgramGuideFor(currentDate)
@@ -260,9 +267,7 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
     override fun onStop() {
         super.onStop()
         Log.d(TAG, "onStop")
-        if (::jobLoadEPG.isInitialized && jobLoadEPG.isActive) {
-            jobLoadEPG.cancel()
-        }
+        jobLoadEPG?.cancel()
     }
 
 }
