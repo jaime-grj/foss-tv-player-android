@@ -940,15 +940,26 @@ class PlayerFragment : Fragment() {
     }
 
     private fun loadSourcesMenu() {
+        val isAutoSelected = playerViewModel.isSourceForced.value == false
+        val currentSource = playerViewModel.currentStreamSource.value
+        val currentSourceLabel = currentSource?.let { source ->
+            val currentName = source.name?.takeIf { it.isNotBlank() } ?: "Sin nombre"
+            source.index.toString() + " - " + currentName
+        }.orEmpty()
+        val autoSubtitle = if (isAutoSelected && currentSourceLabel.isNotBlank()) {
+            "Usando: " + currentSourceLabel
+        } else {
+            ""
+        }
         val sourcesList = mutableListOf(
             StreamSourceItem(id = -1,
                 name = getString(R.string.auto),
-                url = "",
+                url = autoSubtitle,
                 apiCalls = listOf(),
                 headers = listOf(),
                 index = -1,
                 streamSourceType = StreamSourceTypeItem.IPTV,
-                isSelected = playerViewModel.isSourceForced.value == false,
+                isSelected = isAutoSelected,
                 drmType = DrmTypeItem.NONE
             )
         )

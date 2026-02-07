@@ -12,18 +12,24 @@ class ChannelSourcesViewHolder(view: View): RecyclerView.ViewHolder(view) {
 
     fun render(source: StreamSourceItem, onItemSelected: (StreamSourceItem) -> Unit){
 
+        val sourceName = source.name.orEmpty()
         binding.rbChannelSettingsTrack.isChecked = source.isSelected
 
         if (source.index == -1) {
-            binding.tvChannelSettingsTrackName.text = source.name
-            binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+            binding.tvChannelSettingsTrackName.text = sourceName
+            if (source.url.isNotBlank()) {
+                binding.tvChannelSettingsTrackSubtitle.text = source.url
+                binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
+            } else {
+                binding.tvChannelSettingsTrackSubtitle.visibility = View.GONE
+            }
         }
         else{
-            if (source.name == "") {
+            if (sourceName.isBlank()) {
                 binding.tvChannelSettingsTrackName.text = source.index.toString() + " - Sin nombre"
             }
             else{
-                binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + source.name
+                binding.tvChannelSettingsTrackName.text = source.index.toString() + " - " + sourceName
             }
             binding.tvChannelSettingsTrackSubtitle.text = source.url
             binding.tvChannelSettingsTrackSubtitle.visibility = View.VISIBLE
