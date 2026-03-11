@@ -1,5 +1,5 @@
 [versions]
-agp = "8.13.2"
+agp = "9.1.0"
 converterGson = "3.0.0"
 cronetEmbedded = "141.7340.3"
 datastorePreferences = "1.2.0"
