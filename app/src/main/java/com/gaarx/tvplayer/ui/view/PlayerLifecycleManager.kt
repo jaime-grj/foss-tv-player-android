@@ -1,10 +1,9 @@
-package com.gaarx.tvplayer.ui.util
+package com.gaarx.tvplayer.ui.view
 
 import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
-import com.gaarx.tvplayer.ui.view.PlayerTimerManager
 
 class PlayerLifecycleManager(
     private val timerManager: PlayerTimerManager

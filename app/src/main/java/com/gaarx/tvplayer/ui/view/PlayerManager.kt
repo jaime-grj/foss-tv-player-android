@@ -743,6 +743,43 @@ class PlayerManager(
         }
     }
 
+    fun getAudioTracks(): List<AudioTrack> = loadTracks(C.TRACK_TYPE_AUDIO) { format, group, index ->
+        AudioTrack(id = format.id.orEmpty(), language = format.language.orEmpty(), codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+            bitrate = format.bitrate, channelCount = format.channelCount, isSelected = group.isTrackSelected(index))
+    }
+
+    fun getSubtitlesTracks(): List<SubtitlesTrack> {
+        val offTrack = SubtitlesTrack("-1", context.getString(R.string.off), "", true)
+        return loadTracks(C.TRACK_TYPE_TEXT, offTrack) { format, group, index ->
+            if (group.isTrackSelected(index)) offTrack.isSelected = false
+            SubtitlesTrack(id = format.id.orEmpty(), language = format.language.orEmpty(), codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+                isSelected = group.isTrackSelected(index))
+        }
+    }
+
+    fun getVideoTracks(isQualityForced: Boolean): List<VideoTrack> = loadTracks(C.TRACK_TYPE_VIDEO,
+        VideoTrack("-1", context.getString(R.string.auto), -1, -1, 0, "", !isQualityForced)
+    ) { format, group, index ->
+        VideoTrack(id = format.id.orEmpty(), name = format.codecs.orEmpty(), width = format.width, height = format.height,
+            bitrate = format.bitrate / 1000, codec = format.codecs ?: format.sampleMimeType.orEmpty(),
+            isSelected = isQualityForced && group.isTrackSelected(index))
+    }
+
+    private fun <T> loadTracks(trackType: Int, defaultItem: T? = null, mapper: (format: Format, group: Tracks.Group, index: Int) -> T): List<T> {
+        val result = mutableListOf<T>()
+        defaultItem?.let { result += it }
+        if (!::player.isInitialized) return result
+        val currentTracks = player.currentTracks
+        for (group in currentTracks.groups) {
+            if (group.type == trackType) {
+                for (i in 0 until group.length) {
+                    result += mapper(group.getTrackFormat(i), group, i)
+                }
+            }
+        }
+        return result
+    }
+
     fun getAudioTrackLoader(): (AudioTrack) -> Unit = { track ->
         loadAudioTrack(track)
     }
@@ -752,6 +789,6 @@ class PlayerManager(
     }
 
     fun getVideoTrackLoader(): (VideoTrack) -> Unit = { track ->
-        loadVideoTrack(track/*, playerViewModel.isQualityForced.value == true*/)
+        loadVideoTrack(track)
     }
 }
