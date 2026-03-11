@@ -12,7 +12,7 @@ class DataService @Inject constructor(
         return try {
             api.getJson(settingsService.getConfigURL())
         } catch (e: Exception) {
-            Log.e("DataService", "Network error", e)
+            Log.e("DataService", "Network error: $e", e)
             ""
         }
     }
