@@ -107,7 +107,6 @@ class PlayerUIController(
             showUi = {
                 showStandardButtons()
                 showChannelInfo(includeTimeDate = false)
-                showMediaAndBottomInfo(alwaysBottom = true)
             },
             hideUi = {
                 hideStandardButtons()

@@ -838,7 +838,7 @@ class PlayerFragment : Fragment() {
                 playerViewModel.hideChannelName()
                 return@launch
             }
-            playerViewModel.hideBottomInfo()
+            uiController.hideMediaAndBottomInfo()
             playerViewModel.hideNumberListMenu()
 
             timerManager.cancelSourceLoadingTimer()
@@ -852,7 +852,6 @@ class PlayerFragment : Fragment() {
                 }
             }
 
-            playerViewModel.hideMediaInfo()
             playerViewModel.updateIsQualityForced(false)
 
             if (player.isPlaying || player.isLoading) player.stop()
@@ -920,8 +919,8 @@ class PlayerFragment : Fragment() {
                     }
                 }
             }
-            resetMediaInfo()
             playerViewModel.hideMediaInfo()
+            resetMediaInfo()
             playerViewModel.updateCurrentStreamSource(streamSource)
             delay(250L)
             streamSourceManager.loadStreamSource(streamSource)
