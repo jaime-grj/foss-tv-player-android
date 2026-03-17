@@ -2,12 +2,15 @@ package com.gaarx.tvplayer.data.database.entities
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.gaarx.tvplayer.domain.model.EPGProgramItem
 import java.util.Date
 
 @Entity(
-    tableName = "epg_program")
+    tableName = "epg_program",
+    indices = [Index(value = ["channel_shortname", "start_time", "title"], unique = true)]
+)
 data class EPGProgramEntity (
 
     @PrimaryKey (autoGenerate = true)
