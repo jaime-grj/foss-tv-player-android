@@ -15,11 +15,11 @@ interface EPGDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEPGPrograms(epgPrograms: List<EPGProgramEntity>)
 
-    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND strftime('%s', 'now') * 1000 BETWEEN start_time AND stop_time")
-    suspend fun getCurrentProgramForChannel(channelId: Long) : EPGProgramEntity?
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND :currentTime BETWEEN start_time AND stop_time")
+    suspend fun getCurrentProgramForChannel(channelId: Long, currentTime: Long) : EPGProgramEntity?
 
-    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND start_time > strftime('%s', 'now') * 1000 ORDER BY start_time ASC LIMIT 1")
-    suspend fun getNextProgramForChannel(channelId: Long) : EPGProgramEntity?
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND start_time > :currentTime ORDER BY start_time ASC LIMIT 1")
+    suspend fun getNextProgramForChannel(channelId: Long, currentTime: Long) : EPGProgramEntity?
 
     @Query("DELETE FROM epg_program")
     suspend fun deleteAll()
