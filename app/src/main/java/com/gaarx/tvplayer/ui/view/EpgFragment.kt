@@ -184,7 +184,9 @@ class EpgFragment: ProgramGuideFragment<EpgFragment.SimpleProgram>() {
                 channels.forEach { channel ->
                     val scheduleList = mutableListOf<ProgramGuideSchedule<SimpleProgram>>()
 
-                    val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong())
+                    val programs = channelViewModel.getEPGProgramsForChannel(channel.id.toLong()).distinctBy {
+                        it.id
+                    }
                     Log.d(TAG, "Found ${programs.size} programs for channel ${channel.id}.")
 
                     for (program in programs) {
