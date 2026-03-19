@@ -21,11 +21,11 @@ class EPGRepository @Inject constructor(
     }
 
     suspend fun getCurrentProgramForChannel(channelId: Long) : EPGProgramEntity? {
-        return epgDao.getCurrentProgramForChannel(channelId, System.currentTimeMillis())
+        return epgDao.getCurrentProgramForChannel(channelId)
     }
 
     suspend fun getNextProgramForChannel(channelId: Long) : EPGProgramEntity? {
-        return epgDao.getNextProgramForChannel(channelId, System.currentTimeMillis())
+        return epgDao.getNextProgramForChannel(channelId)
     }
 
     suspend fun getEPGProgramsForChannel(channelId: Long): List<EPGProgramItem> {
@@ -39,29 +39,19 @@ class EPGRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val epgSourceUrl = listOf(settingsRepository.getEpgSource())
 
-        var totalInserted = 0
         for (url in epgSourceUrl) {
             val filename = URI(url).path.substringAfterLast("/")
-            val success = if (filename.endsWith(".gz")) {
+            if (filename.endsWith(".gz")) {
                 epgService.downloadAndDecompressGz(filename, url)
             } else if (filename.endsWith(".xml")) {
                 epgService.downloadFile(filename, url)
-            } else {
-                false
             }
-            
-            if (success) {
-                epgService.parseEPGFile(filename) { program ->
-                    insertEPGProgram(program.toDatabase().copy(lastUpdated = now))
-                    totalInserted++
-                }
+            epgService.parseEPGFile(filename) { program ->
+                insertEPGProgram(program.toDatabase().copy(lastUpdated = now))
             }
         }
 
-        // Only cleanup if we actually managed to insert some new data.
-        // This prevents wiping the DB if the internet is down during a refresh.
-        if (totalInserted > 0) {
-            epgDao.deleteOlderThan(now)
-        }
+        // Cleanup old data AFTER new is in place
+        epgDao.deleteOlderThan(now)
     }
 }
