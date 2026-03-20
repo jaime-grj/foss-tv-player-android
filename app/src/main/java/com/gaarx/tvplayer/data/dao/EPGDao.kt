@@ -15,16 +15,16 @@ interface EPGDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEPGPrograms(epgPrograms: List<EPGProgramEntity>)
 
-    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND strftime('%s', 'now') * 1000 BETWEEN start_time AND stop_time")
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND strftime('%s', 'now') * 1000 BETWEEN start_time AND stop_time ORDER BY lastUpdated DESC LIMIT 1")
     suspend fun getCurrentProgramForChannel(channelId: Long) : EPGProgramEntity?
 
-    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND start_time > strftime('%s', 'now') * 1000 ORDER BY start_time ASC LIMIT 1")
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND start_time > strftime('%s', 'now') * 1000 ORDER BY lastUpdated DESC, start_time ASC LIMIT 1")
     suspend fun getNextProgramForChannel(channelId: Long) : EPGProgramEntity?
 
     @Query("DELETE FROM epg_program")
     suspend fun deleteAll()
 
-    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId)")
+    @Query("SELECT * FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId) AND lastUpdated = (SELECT MAX(lastUpdated) FROM epg_program WHERE channel_shortname IN (SELECT shortname FROM channel_shortname WHERE channel_id = :channelId))")
     suspend fun getEPGProgramsForChannel(channelId: Long): List<EPGProgramEntity>
 
 
