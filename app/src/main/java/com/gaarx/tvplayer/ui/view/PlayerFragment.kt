@@ -770,7 +770,7 @@ class PlayerFragment : Fragment() {
         sourcesList += playerViewModel.currentChannel.value?.streamSources!!.sortedBy { it.index }
         for (i in sourcesList.indices) {
             if (i != 0) {
-                sourcesList[i].isSelected = playerViewModel.isSourceForced.value == true && 
+                sourcesList[i].isSelected = playerViewModel.isSourceForced.value == true &&
                     playerViewModel.currentStreamSource.value?.id == sourcesList[i].id
             }
         }

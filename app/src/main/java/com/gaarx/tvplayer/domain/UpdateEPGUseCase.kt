@@ -1,14 +1,12 @@
 package com.gaarx.tvplayer.domain
 
 import com.gaarx.tvplayer.data.EPGRepository
-import com.gaarx.tvplayer.data.SettingsRepository
 import com.gaarx.tvplayer.domain.model.CategoryItem
 import javax.inject.Inject
 
 
 class UpdateEPGUseCase @Inject constructor(
-    private val epgRepository: EPGRepository,
-    private val settingsRepository: SettingsRepository) {
+    private val epgRepository: EPGRepository) {
 
     suspend operator fun invoke(categoryList: List<CategoryItem>) {
         for (category in categoryList) {

@@ -359,7 +359,7 @@ class KeyEventHandler @OptIn(UnstableApi::class) constructor
                                 playerViewModel.hideChannelNumberKeyboard()
                                 playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                                 channelViewModel.updateIsLoadingChannel(false)
-                            } catch (_: kotlin.NumberFormatException) {
+                            } catch (_: NumberFormatException) {
                                 playerViewModel.hideChannelNumberKeyboard()
                                 playerViewModel.updateCurrentNumberInput(playerViewModel.getCurrentNumberInput().clear())
                                 channelViewModel.updateIsLoadingChannel(false)

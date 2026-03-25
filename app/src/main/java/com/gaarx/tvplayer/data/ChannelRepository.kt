@@ -54,7 +54,6 @@ class ChannelRepository @Inject constructor(
     private val apiCallHeaderDao: ApiCallHeaderDao,
     private val categoryDao: CategoryDao,
     private val proxyDao: ProxyDao,
-    private val epgDao: EPGDao,
     private val drmHeaderDao: DrmHeaderDao,
     private val epgRepository: EPGRepository,
     private val settingsRepository: SettingsRepository,
