@@ -9,6 +9,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
 class SettingsService(private val context: Context) {
 
     companion object {
@@ -18,8 +20,6 @@ class SettingsService(private val context: Context) {
         private const val EPG_SOURCES = "epgSources"
         private const val CONFIG_URL = "configURL"
     }
-
-    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
     suspend fun updateLastDownloadedTime(time: Long) {
         context.dataStore.edit { preferences ->

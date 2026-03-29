@@ -9,7 +9,6 @@ import com.gaarx.tvplayer.data.dao.ApiResponseKeyDao
 import com.gaarx.tvplayer.data.dao.CategoryDao
 import com.gaarx.tvplayer.data.dao.ChannelDao
 import com.gaarx.tvplayer.data.dao.DrmHeaderDao
-import com.gaarx.tvplayer.data.dao.EPGDao
 import com.gaarx.tvplayer.data.dao.ProxyDao
 import com.gaarx.tvplayer.data.dao.StreamSourceDao
 import com.gaarx.tvplayer.data.dao.StreamSourceHeaderDao
@@ -582,17 +581,14 @@ class ChannelRepository @Inject constructor(
     suspend fun getChannelsByCategory(categoryId: Long): List<ChannelItem> {
         if (categoryId == -1L) {
             return channelDao.getFavouriteChannels().map { channelEntity ->
-                // Fetch streamSources, relatedChannels, channelShortnames as needed
                 val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
                 val relatedChannels = fetchRelatedChannels(channelEntity.id)
                 val channelShortnames = fetchChannelShortnamesForChannel(channelEntity.id)
-                //val epgPrograms = epgRepository.getEPGProgramsForChannel(channelEntity.id)
 
                 channelEntity.toDomain(
                     streamSources = streamSources,
                     relatedChannels = relatedChannels,
                     channelShortnames = channelShortnames,
-                    //epgPrograms = epgPrograms
                 )
             }
         }
@@ -680,7 +676,6 @@ class ChannelRepository @Inject constructor(
 
     suspend fun getChannelById(id: Long): ChannelItem? {
         val channelEntity = channelDao.getChannelById(id)
-        // Fetch streamSources, relatedChannels, channelShortnames as needed
         if (channelEntity != null) {
             val streamSources = fetchStreamSourcesForChannel(channelEntity.id)
             val relatedChannels = fetchRelatedChannels(channelEntity.id)
