@@ -14,11 +14,12 @@ import androidx.media3.ui.SubtitleView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.common.*
-import androidx.core.content.res.ResourcesCompat
 import android.graphics.Color
 import android.widget.FrameLayout
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.cronet.CronetDataSource
 import androidx.media3.datasource.rtmp.RtmpDataSource
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -29,6 +30,7 @@ import androidx.media3.exoplayer.drm.FrameworkMediaDrm
 import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.ui.CaptionStyleCompat
@@ -654,93 +656,83 @@ class PlayerManager(
         currentVideoTrack = null
         currentSubtitlesTrack = null
 
-        val cronetEngine = CronetEngine.Builder(context).build()
-        val dataSourceFactory = if (url.startsWith("http:") || url.startsWith("https:")) {
-            CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
-                setDefaultRequestProperties(headers)
-            }
-        }
-        else if (url.startsWith("rtmp:")) {
-            RtmpDataSource.Factory()
-        } else {
-            CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
-                setDefaultRequestProperties(headers)
-            }
-        }
+        val dataSourceFactory = createDataSourceFactory(url, headers)
+        val mediaSource = createMediaSource(url, streamSource, dataSourceFactory)
 
-        val mediaSource = if (url.contains(".m3u8")) {
-            HlsMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(url.toUri()))
-        }
-        else if (url.contains(".mpd") && streamSource.drmType != DrmTypeItem.NONE) {
-            if (streamSource.drmType == DrmTypeItem.LICENSE) {
-                val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
-                    .createMediaSource(
-                        MediaItem.Builder().setUri(url.toUri())
-                            .setDrmConfiguration(
-                                MediaItem.DrmConfiguration
-                                    .Builder(C.WIDEVINE_UUID)
-                                    .build()
-                            )
-                            .build()
-                    )
-                mediaSourceFactory
-            } else {
-                val drmKeys = streamSource.drmKeys ?: ""
-                println("drmKeys: $drmKeys")
-                println("drmkeys: ${streamSource.drmKeys}")
-                val drmBody = MediaUtils.generateDrmBodyFromKeys(drmKeys)
-                Log.i("DRM", drmBody)
-
-                val dashMediaItem = MediaItem.Builder()
-                    .setUri(url.toUri())
-                    .setMimeType(MimeTypes.APPLICATION_MPD)
-                    .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
-                    .build()
-
-                val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
-                val drmSessionManager = DefaultDrmSessionManager.Builder()
-                    .setPlayClearSamplesWithoutKeys(true)
-                    .setMultiSession(false)
-                    .setKeyRequestParameters(HashMap())
-                    .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                    .build(drmCallback)
-
-                val customDrmSessionManager: DrmSessionManager = drmSessionManager
-                val mediaSourceFactory = DashMediaSource.Factory(dataSourceFactory)
-                    .setDrmSessionManagerProvider { customDrmSessionManager }
-                    .createMediaSource(dashMediaItem)
-                mediaSourceFactory
-            }
-        }
-        else if (url.contains(".mpd")) {
-            Log.i("DRM", "NONE")
-            DashMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(url.toUri()))
-        }
-        else if (url.contains("http://ytproxy")) { // TEST YOUTUBE DASH
-            val mediaItem = MediaItem.Builder()
-                .setUri(url.toUri())
-                .setLiveConfiguration(
-                    MediaItem.LiveConfiguration.Builder()
-                        .build()
-                )
-                .build()
-            DashMediaSource.Factory(dataSourceFactory)
-                .setManifestParser(LiveDashManifestParser())
-                .createMediaSource(mediaItem)
-        }
-        else {
-            ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(MediaItem.fromUri(
-                url.toUri()))
-        }
         withContext(Dispatchers.Main) {
             player.setMediaSource(mediaSource)
-
             player.trackSelectionParameters = player.trackSelectionParameters
                 .buildUpon()
                 .clearOverrides()
                 .build()
             player.prepare()
         }
+    }
+
+    private fun createDataSourceFactory(url: String, headers: Map<String, String>): DataSource.Factory {
+        val cronetEngine = CronetEngine.Builder(context).build()
+        return if (url.startsWith("rtmp:")) {
+            RtmpDataSource.Factory()
+        } else {
+            CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
+                setDefaultRequestProperties(headers)
+            }
+        }
+    }
+
+    private fun createMediaSource(
+        url: String,
+        streamSource: StreamSourceItem,
+        dataSourceFactory: DataSource.Factory
+    ): MediaSource {
+        val mediaItemBuilder = MediaItem.Builder()
+            .setUri(url.toUri())
+            .setMediaMetadata(MediaMetadata.Builder().setTitle("test").build())
+
+        if (streamSource.drmType == DrmTypeItem.LICENSE) {
+            mediaItemBuilder.setDrmConfiguration(
+                MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID).build()
+            )
+        }
+
+        return when {
+            url.contains(".m3u8") -> {
+                mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+                HlsMediaSource.Factory(dataSourceFactory).apply {
+                    if (streamSource.drmType == DrmTypeItem.CLEARKEY) {
+                        setDrmSessionManagerProvider { createDrmSessionManager(streamSource.drmKeys) }
+                    }
+                }.createMediaSource(mediaItemBuilder.build())
+            }
+            url.contains(".mpd") || url.contains("http://ytproxy") -> {
+                mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_MPD)
+                if (url.contains("http://ytproxy")) {
+                    mediaItemBuilder.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
+                }
+                DashMediaSource.Factory(dataSourceFactory).apply {
+                    if (streamSource.drmType == DrmTypeItem.CLEARKEY) {
+                        setDrmSessionManagerProvider { createDrmSessionManager(streamSource.drmKeys) }
+                    }
+                    if (url.contains("http://ytproxy")) {
+                        setManifestParser(LiveDashManifestParser())
+                    }
+                }.createMediaSource(mediaItemBuilder.build())
+            }
+            else -> {
+                ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItemBuilder.build())
+            }
+        }
+    }
+
+    private fun createDrmSessionManager(drmKeys: String?): DrmSessionManager {
+        val drmBody = MediaUtils.generateDrmBodyFromKeys(drmKeys ?: "")
+        val drmCallback = LocalMediaDrmCallback(drmBody.toByteArray())
+        return DefaultDrmSessionManager.Builder()
+            .setPlayClearSamplesWithoutKeys(true)
+            .setMultiSession(false)
+            .setKeyRequestParameters(HashMap())
+            .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+            .build(drmCallback)
     }
 
     fun getAudioTracks(): List<AudioTrack> = loadTracks(C.TRACK_TYPE_AUDIO) { format, group, index ->

@@ -1,7 +1,7 @@
 package com.gaarx.tvplayer.data.services
 
 import android.content.Context
-import android.content.Context.MODE_PRIVATE
+import android.util.Log
 import android.util.Xml
 import com.gaarx.tvplayer.domain.model.EPGProgramItem
 import kotlinx.coroutines.Dispatchers
@@ -9,84 +9,79 @@ import kotlinx.coroutines.withContext
 import org.xmlpull.v1.XmlPullParser
 import java.io.File
 import java.io.FileInputStream
-import java.io.IOException
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.zip.GZIPInputStream
 
+/**
+ * Service responsible for downloading and parsing EPG (Electronic Program Guide) files.
+ */
 class EPGService(private val context: Context) {
 
+    companion object {
+        private const val TAG = "EPGService"
+        private const val EPG_DATE_FORMAT = "yyyyMMddHHmmss Z"
+    }
+
+    /**
+     * Downloads a gzipped EPG file, decompresses it, and saves it to internal storage.
+     */
     suspend fun downloadAndDecompressGz(filename: String, urlString: String): Boolean {
-        val url = URL(urlString)
-        return try{
-            val urlConnection = withContext(Dispatchers.IO) {
-                url.openConnection()
-            }
-            val gzInputStream = withContext(Dispatchers.IO) {
-                GZIPInputStream(urlConnection.getInputStream())
-            }
-            withContext(Dispatchers.IO) {
-                context.openFileOutput(filename, MODE_PRIVATE).use { stream ->
-                    stream.write(gzInputStream.readBytes())
-                }
-            }
-            true
-        }
-        catch (e: IOException) {
-            e.printStackTrace()
-            false
-        }
-        catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+        return downloadAndSaveFile(filename, urlString, isGzip = true)
     }
 
+    /**
+     * Downloads a plain EPG file and saves it to internal storage.
+     */
     suspend fun downloadFile(filename: String, urlString: String): Boolean {
-        val url = URL(urlString)
-        return try {
-
-            // Open connection and get InputStream on IO thread
-            val urlConnection = withContext(Dispatchers.IO) {
-                url.openConnection()
-            }
-            val inputStream = withContext(Dispatchers.IO) {
-                urlConnection.getInputStream()
-            }
-
-            // Write the XML data to file on IO thread
-            withContext(Dispatchers.IO) {
-                context.openFileOutput(filename, MODE_PRIVATE).use { stream ->
-                    inputStream.copyTo(stream)  // Copying data directly from input stream to file output stream
-                }
-            }
-
-            true
-        } catch (e: IOException) {
-            e.printStackTrace()
-            false
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+        return downloadAndSaveFile(filename, urlString, isGzip = false)
     }
 
-    suspend fun parseEPGFile(filename: String, onProgramParsed: suspend (EPGProgramItem) -> Unit) {
-        val epgDateFormat = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.getDefault())
-
-        val file = File(context.filesDir, filename)
+    private suspend fun downloadAndSaveFile(filename: String, urlString: String, isGzip: Boolean): Boolean =
         withContext(Dispatchers.IO) {
-            try{
-                FileInputStream(file).use { inputStream ->
-                    val parser: XmlPullParser = Xml.newPullParser()
-                    parser.setInput(inputStream, null)
+            try {
+                val url = URL(urlString)
+                val connection = url.openConnection()
+                val inputStream = connection.getInputStream().let {
+                    if (isGzip) GZIPInputStream(it) else it
+                }
+
+                inputStream.use { input ->
+                    context.openFileOutput(filename, Context.MODE_PRIVATE).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to download EPG file from $urlString", e)
+                false
+            }
+        }
+
+    /**
+     * Parses the EPG file and executes [onProgramParsed] for each program found.
+     */
+    suspend fun parseEPGFile(filename: String, onProgramParsed: suspend (EPGProgramItem) -> Unit) {
+        withContext(Dispatchers.IO) {
+            val file = File(context.filesDir, filename)
+            if (!file.exists()) {
+                Log.w(TAG, "EPG file not found: $filename")
+                return@withContext
+            }
+
+            val dateFormat = SimpleDateFormat(EPG_DATE_FORMAT, Locale.getDefault())
+
+            try {
+                FileInputStream(file).use { fis ->
+                    val parser = Xml.newPullParser().apply {
+                        setInput(fis, null)
+                    }
 
                     var eventType = parser.eventType
                     var currentTag: String? = null
                     var epgProgramItem: EPGProgramItem? = null
-
-                    var insideRating = false // Track whether we're inside a <rating> tag
+                    var insideRating = false
 
                     while (eventType != XmlPullParser.END_DOCUMENT) {
                         when (eventType) {
@@ -98,72 +93,65 @@ class EPGService(private val context: Context) {
                                         val stop = parser.getAttributeValue(null, "stop")
                                         val channel = parser.getAttributeValue(null, "channel")
 
-                                        epgProgramItem = EPGProgramItem(
-                                            id = 0,
-                                            channelShortname = channel,
-                                            title = "",
-                                            description = "",
-                                            startTime = epgDateFormat.parse(start)!!,
-                                            stopTime = epgDateFormat.parse(stop)!!,
-                                            category = "",
-                                            icon = "",
-                                            ageRating = "",
-                                            ageRatingIcon = ""
-                                        )
+                                        if (start != null && stop != null) {
+                                            try {
+                                                epgProgramItem = EPGProgramItem(
+                                                    id = 0,
+                                                    channelShortname = channel ?: "",
+                                                    title = "",
+                                                    description = "",
+                                                    startTime = dateFormat.parse(start)!!,
+                                                    stopTime = dateFormat.parse(stop)!!,
+                                                    category = "",
+                                                    icon = "",
+                                                    ageRating = "",
+                                                    ageRatingIcon = ""
+                                                )
+                                            } catch (e: Exception) {
+                                                Log.e(TAG, "Error parsing dates for programme: $start, $stop", e)
+                                            }
+                                        }
                                     }
-                                    "rating" -> insideRating = true // Entering a <rating> tag
+                                    "rating" -> insideRating = true
                                     "icon" -> {
-                                        if (insideRating && epgProgramItem != null) {
-                                            // Parse as rating icon
-                                            val iconSrc = parser.getAttributeValue(null, "src")
-                                            if (!iconSrc.isNullOrEmpty()) {
-                                                epgProgramItem.ageRatingIcon = iconSrc
-                                            }
-                                        } else if (!insideRating && epgProgramItem != null) {
-                                            // Parse as program icon
-                                            val iconSrc = parser.getAttributeValue(null, "src")
-                                            if (!iconSrc.isNullOrEmpty()) {
-                                                epgProgramItem.icon = iconSrc
-                                            }
+                                        val iconSrc = parser.getAttributeValue(null, "src")
+                                        if (!iconSrc.isNullOrEmpty() && epgProgramItem != null) {
+                                            if (insideRating) epgProgramItem.ageRatingIcon = iconSrc
+                                            else epgProgramItem.icon = iconSrc
                                         }
                                     }
                                 }
                             }
                             XmlPullParser.TEXT -> {
-                                if (epgProgramItem != null && currentTag != null) {
-                                    val text = parser.text.trim() // Trim whitespace
-                                    if (text.isNotEmpty()) {
-                                        when (currentTag) {
-                                            "title" -> epgProgramItem.title = text
-                                            "desc" -> epgProgramItem.description = text
-                                            "category" -> epgProgramItem.category = text
-                                            "value" -> epgProgramItem.ageRating = text
-                                        }
+                                val text = parser.text?.trim() ?: ""
+                                if (text.isNotEmpty() && epgProgramItem != null) {
+                                    when (currentTag) {
+                                        "title" -> epgProgramItem.title = text
+                                        "desc" -> epgProgramItem.description = text
+                                        "category" -> epgProgramItem.category = text
+                                        "value" -> if (insideRating) epgProgramItem.ageRating = text
                                     }
                                 }
                             }
                             XmlPullParser.END_TAG -> {
                                 when (parser.name) {
-                                    "rating" -> insideRating = false // Exiting a <rating> tag
+                                    "rating" -> insideRating = false
                                     "programme" -> {
-                                        if (epgProgramItem != null) {
-                                            // Send the parsed program item back via callback
-                                            onProgramParsed(epgProgramItem)
+                                        epgProgramItem?.let {
+                                            onProgramParsed(it)
                                             epgProgramItem = null
                                         }
                                     }
                                 }
+                                currentTag = null
                             }
                         }
                         eventType = parser.next()
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing EPG file: $filename", e)
             }
-            catch (e: Exception) {
-                e.printStackTrace()
-            }
-
         }
     }
-
 }
