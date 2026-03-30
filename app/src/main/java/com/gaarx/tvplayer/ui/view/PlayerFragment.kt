@@ -67,6 +67,8 @@ import androidx.lifecycle.Observer
 import kotlinx.coroutines.flow.collectLatest
 import com.gaarx.tvplayer.core.Constants.DEFAULT_REFRESH_RATE
 import com.gaarx.tvplayer.core.Constants.MAX_DIGITS
+import com.gaarx.tvplayer.ui.handler.KeyEventHandler
+import com.gaarx.tvplayer.ui.handler.KeyHandlerActions
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 @UnstableApi
@@ -227,32 +229,37 @@ class PlayerFragment : Fragment() {
             }
         }
 
-        keyHandler = KeyEventHandler(
-            binding,
-            requireContext(),
-            playerViewModel,
-            channelViewModel,
-            rvChannelList,
-            rvChannelSettings,
-            rvCategoryList,
-            rvAudioTracks,
-            rvSubtitlesTracks,
-            rvChannelSources,
-            rvVideoTracks,
-            rvNumberList,
-            playerManager,
-            lifecycleScope,
+        val actions = KeyHandlerActions(
             onLoadChannel = { loadChannel(it) },
             onLoadNextChannel = { loadNextChannel() },
             onLoadPreviousChannel = { loadPreviousChannel() },
             onLoadStreamSource = { loadStreamSource(it) },
             onShowChannelInfoWithTimeout = { uiController.showChannelInfoWithTimeout() },
-            onShowFullChannelUIWithTimeout = { timeout -> uiController.showFullChannelUIWithTimeout(timeout) },
-            onShowChannelNumberWithTimeoutAndChangeChannel = { uiController.showChannelNumberWithTimeoutAndChangeChannel { loadChannel(it) } },
+            onShowFullChannelUIWithTimeout = { timeout ->
+                uiController.showFullChannelUIWithTimeout(
+                    timeout
+                )
+            },
+            onShowChannelNumberWithTimeoutAndChangeChannel = {
+                uiController.showChannelNumberWithTimeoutAndChangeChannel {
+                    loadChannel(
+                        it
+                    )
+                }
+            },
             onLoadSetting = { loadSetting(it) },
             onInitSettingsMenu = { initSettingsMenu() },
             onInitChannelList = { initChannelList() },
-            requireActivity()
+        )
+
+        keyHandler = KeyEventHandler(
+            binding,
+            playerViewModel,
+            channelViewModel,
+            playerManager,
+            lifecycleScope,
+            requireActivity(),
+            actions
         )
     }
 

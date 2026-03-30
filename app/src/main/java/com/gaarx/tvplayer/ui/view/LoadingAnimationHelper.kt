@@ -8,6 +8,10 @@ import com.gaarx.tvplayer.databinding.FragmentPlayerBinding
 class LoadingAnimationHelper(private val binding: FragmentPlayerBinding) {
     private var animatorSet: AnimatorSet? = null
 
+    companion object {
+        var animationsEnabled = true
+    }
+
     /**
      * Starts the loading dots animation and makes the container visible.
      */
@@ -45,7 +49,7 @@ class LoadingAnimationHelper(private val binding: FragmentPlayerBinding) {
         listOf(scaleX, scaleY, alpha).forEach {
             it.duration = 500
             it.startDelay = startDelay
-            it.repeatCount = ObjectAnimator.INFINITE
+            it.repeatCount = if (animationsEnabled) ObjectAnimator.INFINITE else 0
         }
 
         return AnimatorSet().apply {
