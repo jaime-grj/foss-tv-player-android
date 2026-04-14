@@ -86,6 +86,26 @@ class KeyEventHandler(
                 KeyEvent.KEYCODE_DPAD_CENTER -> {
                     if (fastSwitchHandler.isLongPressActive()) return true
 
+                    if (event.repeatCount > 0) {
+                        if (playerViewModel.isNumberListMenuVisible.value != true) {
+                            playerViewModel.hideMediaInfo()
+                            playerViewModel.hideChannelName()
+                            playerViewModel.hideChannelNumber()
+                            playerViewModel.hideCategoryName()
+                            playerViewModel.hideTimeDate()
+                            playerViewModel.hideBottomInfo()
+                            playerViewModel.hideChannelNumberKeyboard()
+                            playerViewModel.hideSettingsMenu()
+                            playerViewModel.hideTrackMenu()
+                            playerViewModel.hideChannelList()
+                            playerViewModel.hideCategoryList()
+
+                            playerViewModel.showNumberListMenu()
+                            binding.rvNumberList.requestFocus()
+                        }
+                        return true
+                    }
+
                     if (settingsKeyHandler.handleDpadCenter()) return true
                     if (channelNavigationHandler.handleDpadCenter()) return true
                     if (numberInputHandler.handleDpadCenter(event)) return true
