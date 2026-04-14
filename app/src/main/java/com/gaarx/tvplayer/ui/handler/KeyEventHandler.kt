@@ -144,14 +144,16 @@ class KeyEventHandler(
                 }
 
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (binding.rvNumberList.isVisible) return false
                     if (settingsKeyHandler.handleDpadRight(event.repeatCount)) return true
                     
                     if (isMenuVisible() || binding.rvChannelTrackSettings.isVisible) return true
                     
-                    return binding.rvNumberList.isVisible
+                    return false
                 }
 
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (binding.rvNumberList.isVisible) return false
                     if (channelNavigationHandler.handleDpadLeft(event.repeatCount)) return true
 
                     if (binding.rvChannelTrackSettings.isVisible
@@ -159,7 +161,7 @@ class KeyEventHandler(
                         || binding.channelList.isVisible
                     ) return true
                     
-                    return binding.rvNumberList.isVisible
+                    return false
                 }
 
                 KeyEvent.KEYCODE_MENU -> {
@@ -191,7 +193,8 @@ class KeyEventHandler(
     }
 
     private fun isMenuVisible(): Boolean {
-        return binding.channelList.isVisible || binding.rvChannelSettings.isVisible || binding.rvCategoryList.isVisible
+        return binding.channelList.isVisible || binding.rvChannelSettings.isVisible || 
+                binding.rvCategoryList.isVisible || binding.rvNumberList.isVisible
     }
 }
 
