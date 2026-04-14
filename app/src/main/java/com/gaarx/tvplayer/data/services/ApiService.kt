@@ -14,6 +14,8 @@ import com.nfeld.jsonpathkt.extension.read
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 import java.util.Scanner
 import java.util.regex.Pattern
@@ -27,9 +29,13 @@ class ApiService (
         private const val TAG = "ApiService"
     }
 
-    private fun getURLFromHTML(url: String, stringSearch: String): String {
+    private fun getURLFromHTML(url: String, stringSearch: String, proxy: Proxy? = null): String {
         return try {
-            val doc: Document = Jsoup.connect(url).get()
+            val connection = Jsoup.connect(url)
+            if (proxy != null) {
+                connection.proxy(proxy)
+            }
+            val doc: Document = connection.get()
             val htmlText = doc.text()
 
             val regex = """https?://[^\s"'<>]+"""
@@ -50,14 +56,14 @@ class ApiService (
         }
     }
 
-    fun getURLFromChannelSource(streamSource: StreamSourceItem): String? {
+    fun getURLFromChannelSource(streamSource: StreamSourceItem, proxy: Proxy? = null): String? {
         val finalUrl: String? = when (streamSource.streamSourceType) {
             StreamSourceTypeItem.IPTV -> {
-                processIPTVSource(streamSource)
+                processIPTVSource(streamSource, proxy)
             }
 
             StreamSourceTypeItem.TWITCH -> {
-                processTwitchSource(streamSource)
+                processTwitchSource(streamSource, proxy)
             }
 
             StreamSourceTypeItem.YOUTUBE -> {
@@ -72,7 +78,7 @@ class ApiService (
         return finalUrl
     }
 
-    fun processIPTVSource(streamSource: StreamSourceItem) : String {
+    fun processIPTVSource(streamSource: StreamSourceItem, proxy: Proxy? = null) : String {
         var finalUrl: String?
         if (streamSource.apiCalls.isNullOrEmpty()) {
             return streamSource.url
@@ -82,10 +88,10 @@ class ApiService (
         for (apiCall in apiCalls) {
             when (apiCall.type) {
                 "json" -> {
-                    processJSONApiCall(apiCall, variableStore)
+                    processJSONApiCall(apiCall, variableStore, proxy)
                 }
                 "html" -> {
-                    finalUrl = getURLFromHTML(apiCall.url, apiCall.stringSearch!!)
+                    finalUrl = getURLFromHTML(apiCall.url, apiCall.stringSearch!!, proxy)
                     return finalUrl
                 }
             }
@@ -95,7 +101,7 @@ class ApiService (
         return finalUrl
     }
 
-    fun processJSONApiCall(apiCall: ApiCallItem, variableStore: MutableMap<String, String>){
+    fun processJSONApiCall(apiCall: ApiCallItem, variableStore: MutableMap<String, String>, proxy: Proxy? = null){
         var url = apiCall.url
         val rawHeaders =
             apiCall.headers?.let { getHeadersMapFromApiCallHeadersObject(it) } ?: emptyMap()
@@ -109,7 +115,7 @@ class ApiService (
 
         Log.d("ApiService", "Processed URL: $url")
         Log.d("ApiService", "Processed Body: $body")
-        val json = httpClient.request(url, method ?: "GET", headers, body)
+        val json = httpClient.request(url, method ?: "GET", headers, body, proxy)
         Log.d("ApiService", "JSON Response: $json")
         apiResponseKeys.forEach { apiResponseKey ->
             val jsonPath = apiResponseKey.jsonPath
@@ -122,7 +128,7 @@ class ApiService (
         }
     }
 
-    fun processTwitchSource(streamSource: StreamSourceItem) : String {
+    fun processTwitchSource(streamSource: StreamSourceItem, proxy: Proxy? = null) : String {
         val finalUrl : String?
         val clientId = "ue6666qo983tsx6so1t0vnawi233wa"
         val gqlUrl = "https://gql.twitch.tv/gql#origin=twilight"
@@ -191,7 +197,7 @@ class ApiService (
                 "   }\n" +
                 "]".trimIndent()
 
-        val data = httpClient.post(gqlUrl, headers, gql)
+        val data = httpClient.post(gqlUrl, headers, gql, proxy)
 
         val id = streamSource.url
         val accessTokenValue =

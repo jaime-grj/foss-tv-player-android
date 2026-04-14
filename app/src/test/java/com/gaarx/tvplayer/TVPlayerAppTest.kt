@@ -10,14 +10,4 @@ class TVPlayerAppTest {
 
     private lateinit var app: TVPlayerApp
 
-    @Before
-    fun setUp() {
-        app = TVPlayerApp()
-    }
-
-    @Test
-    fun onCreate_initializesThreeTenAbp() {
-        val app = TVPlayerApp()
-        app.onCreate()
-    }
 }

@@ -12,9 +12,6 @@ class LoadingAnimationHelper(private val binding: FragmentPlayerBinding) {
         var animationsEnabled = true
     }
 
-    /**
-     * Starts the loading dots animation and makes the container visible.
-     */
     fun showLoadingDots() {
         binding.loadingDots.visibility = View.VISIBLE
         animatorSet?.cancel()
@@ -22,9 +19,6 @@ class LoadingAnimationHelper(private val binding: FragmentPlayerBinding) {
         animatorSet?.start()
     }
 
-    /**
-     * Stops the loading dots animation, hides the container, and resets dot properties.
-     */
     fun hideLoadingDots() {
         binding.loadingDots.visibility = View.GONE
         animatorSet?.cancel()

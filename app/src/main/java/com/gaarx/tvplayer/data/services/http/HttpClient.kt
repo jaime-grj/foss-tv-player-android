@@ -5,6 +5,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStream
 import java.net.HttpURLConnection
+import java.net.Proxy
 import java.net.URL
 
 class HttpClient(
@@ -19,12 +20,14 @@ class HttpClient(
         url: String,
         method: String = "GET",
         headers: Map<String, String> = emptyMap(),
-        body: String? = null
+        body: String? = null,
+        proxy: Proxy? = null
     ): String {
         var connection: HttpURLConnection? = null
         return try {
             val urlObj = URL(url)
-            connection = (urlObj.openConnection() as HttpURLConnection).apply {
+            connection = (if (proxy != null) urlObj.openConnection(proxy) else urlObj.openConnection()) as HttpURLConnection
+            connection.apply {
                 requestMethod = method
                 connectTimeout = this@HttpClient.connectTimeout
                 addRequestProperty("Host", urlObj.host)
@@ -65,11 +68,11 @@ class HttpClient(
         }
     }
 
-    fun get(url: String, headers: Map<String, String> = emptyMap()): String {
-        return request(url, "GET", headers)
+    fun get(url: String, headers: Map<String, String> = emptyMap(), proxy: Proxy? = null): String {
+        return request(url, "GET", headers, proxy = proxy)
     }
 
-    fun post(url: String, headers: Map<String, String> = emptyMap(), body: String? = null): String {
-        return request(url, "POST", headers, body)
+    fun post(url: String, headers: Map<String, String> = emptyMap(), body: String? = null, proxy: Proxy? = null): String {
+        return request(url, "POST", headers, body, proxy)
     }
 }

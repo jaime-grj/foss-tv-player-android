@@ -47,6 +47,8 @@ import com.gaarx.tvplayer.ui.viewmodel.ChannelViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.chromium.net.CronetEngine
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.text.DecimalFormat
 import java.util.Locale
 
@@ -656,7 +658,11 @@ class PlayerManager(
         currentVideoTrack = null
         currentSubtitlesTrack = null
 
-        val dataSourceFactory = createDataSourceFactory(url, headers)
+        val proxy = streamSource.proxies?.firstOrNull()?.let {
+            Proxy(Proxy.Type.HTTP, InetSocketAddress(it.hostname, it.port))
+        }
+
+        val dataSourceFactory = createDataSourceFactory(url, headers, proxy)
         val mediaSource = createMediaSource(url, streamSource, dataSourceFactory)
 
         withContext(Dispatchers.Main) {
@@ -669,12 +675,26 @@ class PlayerManager(
         }
     }
 
-    private fun createDataSourceFactory(url: String, headers: Map<String, String>): DataSource.Factory {
-        val cronetEngine = CronetEngine.Builder(context).build()
+    private fun createDataSourceFactory(url: String, headers: Map<String, String>, proxy: Proxy? = null): DataSource.Factory {
+        val cronetEngine = if (proxy == null) {
+            try {
+                CronetEngine.Builder(context).build()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to build CronetEngine", e)
+                null
+            }
+        } else {
+            null // Fallback to DefaultHttpDataSource for proxy support via ProxySelector
+        }
+
         return if (url.startsWith("rtmp:")) {
             RtmpDataSource.Factory()
-        } else {
+        } else if (cronetEngine != null) {
             CronetDataSource.Factory(cronetEngine, MoreExecutors.directExecutor()).apply {
+                setDefaultRequestProperties(headers)
+            }
+        } else {
+            androidx.media3.datasource.DefaultHttpDataSource.Factory().apply {
                 setDefaultRequestProperties(headers)
             }
         }

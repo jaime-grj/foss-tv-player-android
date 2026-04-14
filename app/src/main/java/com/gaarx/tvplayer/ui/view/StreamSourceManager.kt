@@ -20,6 +20,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.chromium.base.ThreadUtils.runOnUiThread
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ProxySelector
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -37,6 +40,7 @@ class StreamSourceManager(
     private var jobLoadStreamSource : Job? = null
 
     private val apiService = ApiService()
+    private val originalProxySelector: ProxySelector = ProxySelector.getDefault()
 
     private val player: ExoPlayer
         get() = playerManager.exoPlayer
@@ -52,22 +56,24 @@ class StreamSourceManager(
             val cachedUrlObj = urlCache[streamSource]
             val currentTime = System.currentTimeMillis()
 
-            if (streamSource.proxies != null) {
-                if (streamSource.proxies.isEmpty()) {
-                    Log.i(TAG, "No proxies, reset")
-                    //ProxySelector.setDefault(originalProxySelector)
-                } else {
-                    Log.i(TAG, "Found proxy: ${streamSource.proxies.first()}")
-                    val proxy = streamSource.proxies.first()
-                    //ProxySelector.setDefault(CustomProxySelector(proxy.hostname, proxy.port))
-                }
+            val proxy = streamSource.proxies?.firstOrNull()?.let {
+                Proxy(Proxy.Type.HTTP, InetSocketAddress(it.hostname, it.port))
+            }
+
+            if (proxy != null) {
+                Log.i(TAG, "Found proxy: ${streamSource.proxies!!.first()}")
+                val proxyItem = streamSource.proxies!!.first()
+                ProxySelector.setDefault(CustomProxySelector(proxyItem.hostname, proxyItem.port))
+            } else {
+                if (streamSource.proxies != null) Log.i(TAG, "No proxies, reset")
+                ProxySelector.setDefault(originalProxySelector)
             }
 
             val url =
                 if (cachedUrlObj != null && (currentTime - cachedUrlObj.timestamp) < cacheExpirationTime) {
                     cachedUrlObj.url
                 } else {
-                    val newUrl = apiService.getURLFromChannelSource(streamSource)!!
+                    val newUrl = apiService.getURLFromChannelSource(streamSource, proxy)!!
                     urlCache[streamSource] = CachedUrl(newUrl, currentTime)
                     newUrl
                 }
