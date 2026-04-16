@@ -76,6 +76,40 @@ class NumberInputHandler(
         }
     }
 
+    fun handleDpadRight(): Boolean {
+        if (playerViewModel.isNumberListMenuVisible.value != true) return false
+
+        val focusedView = rvNumberList.focusedChild ?: return false
+        val position = rvNumberList.getChildAdapterPosition(focusedView)
+        val itemCount = rvNumberList.adapter?.itemCount ?: 0
+
+        if (position == itemCount - 1) {
+            rvNumberList.smoothScrollToPosition(0)
+            rvNumberList.post {
+                rvNumberList.findViewHolderForAdapterPosition(0)?.itemView?.requestFocus()
+            }
+            return true
+        }
+        return false
+    }
+
+    fun handleDpadLeft(): Boolean {
+        if (playerViewModel.isNumberListMenuVisible.value != true) return false
+
+        val focusedView = rvNumberList.focusedChild ?: return false
+        val position = rvNumberList.getChildAdapterPosition(focusedView)
+        val itemCount = rvNumberList.adapter?.itemCount ?: 0
+
+        if (position == 0 && itemCount > 0) {
+            rvNumberList.smoothScrollToPosition(itemCount - 1)
+            rvNumberList.post {
+                rvNumberList.findViewHolderForAdapterPosition(itemCount - 1)?.itemView?.requestFocus()
+            }
+            return true
+        }
+        return false
+    }
+
     private fun handleNumberListSelection(event: KeyEvent) {
         if (event.repeatCount > 0) return
         

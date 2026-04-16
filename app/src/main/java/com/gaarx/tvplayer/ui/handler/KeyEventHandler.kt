@@ -164,6 +164,7 @@ class KeyEventHandler(
                 }
 
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    if (numberInputHandler.handleDpadRight()) return true
                     if (binding.rvNumberList.isVisible) return false
                     if (settingsKeyHandler.handleDpadRight(event.repeatCount)) return true
                     
@@ -173,6 +174,7 @@ class KeyEventHandler(
                 }
 
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    if (numberInputHandler.handleDpadLeft()) return true
                     if (binding.rvNumberList.isVisible) return false
                     if (channelNavigationHandler.handleDpadLeft(event.repeatCount)) return true
 
