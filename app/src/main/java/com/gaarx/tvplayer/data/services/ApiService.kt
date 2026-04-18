@@ -30,28 +30,32 @@ class ApiService (
     }
 
     private fun getURLFromHTML(url: String, stringSearch: String, proxy: Proxy? = null): String {
+        Log.d(TAG, "getURLFromHTML: url=$url, stringSearch=$stringSearch")
         return try {
             val connection = Jsoup.connect(url)
             if (proxy != null) {
                 connection.proxy(proxy)
             }
             val doc: Document = connection.get()
-            val htmlText = doc.text()
+            val htmlContent = doc.outerHtml()
+            Log.d(TAG, "getURLFromHTML: htmlContent=$htmlContent")
 
             val regex = """https?://[^\s"'<>]+"""
             val urlPattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE)
 
             // Search for URLs using the regex pattern
-            val matcher = urlPattern.matcher(htmlText)
+            val matcher = urlPattern.matcher(htmlContent)
             while (matcher.find()) {
                 val foundUrl = matcher.group()
                 if (foundUrl.contains(stringSearch)) {
+                    Log.d(TAG, "getURLFromHTML: Found URL=$foundUrl")
                     return foundUrl
                 }
             }
+            Log.d(TAG, "getURLFromHTML: No URL found matching $stringSearch")
             ""
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "getURLFromHTML: Error", e)
             ""
         }
     }
@@ -79,6 +83,7 @@ class ApiService (
     }
 
     fun processIPTVSource(streamSource: StreamSourceItem, proxy: Proxy? = null) : String {
+        Log.d(TAG, "processIPTVSource: url=${streamSource.url}")
         var finalUrl: String?
         if (streamSource.apiCalls.isNullOrEmpty()) {
             return streamSource.url
@@ -86,18 +91,20 @@ class ApiService (
         val variableStore = mutableMapOf<String, String>()
         val apiCalls = streamSource.apiCalls.sortedBy { it.index }
         for (apiCall in apiCalls) {
+            Log.d(TAG, "processIPTVSource: processing apiCall type=${apiCall.type}")
             when (apiCall.type) {
                 "json" -> {
                     processJSONApiCall(apiCall, variableStore, proxy)
                 }
                 "html" -> {
                     finalUrl = getURLFromHTML(apiCall.url, apiCall.stringSearch!!, proxy)
+                    Log.d(TAG, "processIPTVSource: html type found, result=$finalUrl")
                     return finalUrl
                 }
             }
         }
         finalUrl = replacePlaceholders(streamSource.url, variableStore)
-        Log.d("ApiService", "Final URL: $finalUrl")
+        Log.d(TAG, "Final URL: $finalUrl")
         return finalUrl
     }
 
